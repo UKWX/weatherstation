@@ -2,7 +2,9 @@ import { config } from '../config';
 import { db } from '../db/connection';
 
 export const LIGHTNING_CLIMATOLOGY_RADIUS_KM = 20;
+// Fall back to the legacy lightning_strikes column until all historical rows are rebuilt.
 export const LIGHTNING_COUNT_SQL = 'COALESCE(lightning_count, lightning_strikes, 0)';
+// Fall back to deriving thunder_day from the legacy strike count when the explicit field is absent.
 export const THUNDER_DAY_SQL = `COALESCE(thunder_day, CASE WHEN ${LIGHTNING_COUNT_SQL} > 0 THEN 1 ELSE 0 END)`;
 
 export interface LightningClimatologySummary {
@@ -58,7 +60,7 @@ export const getLightningClimatologyOverview = () => {
       `SELECT COALESCE(
                 sum(
                   CASE
-                    WHEN COALESCE(thunder_day, CASE WHEN COALESCE(lightning_count, lightning_strikes, 0) > 0 THEN 1 ELSE 0 END) > 0
+                    WHEN ${THUNDER_DAY_SQL} > 0
                     THEN 1
                     ELSE 0
                   END

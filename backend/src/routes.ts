@@ -35,6 +35,12 @@ import {
   LIGHTNING_CLIMATOLOGY_RADIUS_KM,
   THUNDER_DAY_SQL
 } from './services/lightningClimatologyService';
+import {
+  getYearComparisonData,
+  getYearToDateData,
+  getTrendsData,
+  getExtremesData
+} from './services/analyticsChartService';
 
 export const routes = Router();
 
@@ -468,6 +474,23 @@ routes.get('/api/reports/annual', (req, res) => {
     summary,
     generatedAt: DateTime.utc().toISO()
   });
+});
+
+routes.get('/api/climate/analytics/year-comparison', (_req, res) => {
+  res.json(getYearComparisonData());
+});
+
+routes.get('/api/climate/analytics/year-to-date', (_req, res) => {
+  res.json(getYearToDateData());
+});
+
+routes.get('/api/climate/analytics/trends', (_req, res) => {
+  res.json(getTrendsData());
+});
+
+routes.get('/api/climate/analytics/extremes', (req, res) => {
+  const limit = Math.min(Math.max(Number(req.query.limit ?? 50), 1), 100);
+  res.json(getExtremesData(limit));
 });
 
 routes.get('/api/exports/:dataset', (req, res) => {

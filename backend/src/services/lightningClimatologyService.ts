@@ -2,6 +2,8 @@ import { config } from '../config';
 import { db } from '../db/connection';
 
 export const LIGHTNING_CLIMATOLOGY_RADIUS_KM = 20;
+export const LIGHTNING_COUNT_SQL = 'COALESCE(lightning_count, lightning_strikes, 0)';
+export const THUNDER_DAY_SQL = `COALESCE(thunder_day, CASE WHEN ${LIGHTNING_COUNT_SQL} > 0 THEN 1 ELSE 0 END)`;
 
 export interface LightningClimatologySummary {
   lightning_count: number;

@@ -1,7 +1,7 @@
 import { DateTime } from 'luxon';
 import { db } from '../db/connection';
 import { config } from '../config';
-import { getLightningClimatologySummary } from './lightningClimatologyService';
+import { getLightningClimatologySummary, THUNDER_DAY_SQL } from './lightningClimatologyService';
 
 const CALC_VERSION = 'v3';
 const ADJUSTED_GUST_FACTOR = 1.4;
@@ -248,7 +248,7 @@ export const computeMonthlySummary = (year: number, month: number): void => {
       max(max_temp),
       min(min_temp),
       max(max_gust),
-      sum(CASE WHEN COALESCE(thunder_day, CASE WHEN COALESCE(lightning_count, lightning_strikes, 0) > 0 THEN 1 ELSE 0 END) > 0 THEN 1 ELSE 0 END),
+      sum(CASE WHEN ${THUNDER_DAY_SQL} > 0 THEN 1 ELSE 0 END),
       count(*),
       ?,
       datetime('now')
@@ -284,7 +284,7 @@ export const computeAnnualSummary = (year: number): void => {
       max(max_temp),
       min(min_temp),
       max(max_gust),
-      sum(CASE WHEN COALESCE(thunder_day, CASE WHEN COALESCE(lightning_count, lightning_strikes, 0) > 0 THEN 1 ELSE 0 END) > 0 THEN 1 ELSE 0 END),
+      sum(CASE WHEN ${THUNDER_DAY_SQL} > 0 THEN 1 ELSE 0 END),
       count(*),
       ?,
       datetime('now')

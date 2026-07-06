@@ -304,5 +304,10 @@ describe('timezone handling', () => {
     const graphRow = graphs.body.find((row: { summary_date: string }) => row.summary_date === day);
     expect(graphRow.lightning_count).toBe(1);
     expect(graphRow.thunder_day).toBe(1);
+
+    const lightningSummary = await request(app).get('/api/lightning');
+    expect(lightningSummary.status).toBe(200);
+    expect(lightningSummary.body.lightning_count).toBeGreaterThanOrEqual(1);
+    expect(lightningSummary.body.furthest_distance).toBe(8);
   });
 });

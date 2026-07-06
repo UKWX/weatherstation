@@ -1,5 +1,6 @@
 import { db } from '../db/connection';
 import { config } from '../config';
+import { LIGHTNING_COUNT_SQL, THUNDER_DAY_SQL } from './lightningClimatologyService';
 
 const CALC_VERSION = 'v2';
 
@@ -32,12 +33,13 @@ export const rebuildRecords = (): void => {
 
   db.prepare(
     `INSERT INTO records(station_id, period_type, variable, record_type, record_value, record_date, source_summary, calc_version)
-     SELECT station_id, 'daily', 'lightning_count', 'highest', max(COALESCE(lightning_count, lightning_strikes, 0)),
-       (SELECT summary_date FROM daily_summary WHERE station_id = ? ORDER BY COALESCE(lightning_count, lightning_strikes, 0) DESC, summary_date ASC LIMIT 1),
+     SELECT station_id, 'daily', 'lightning_count', 'highest', max(${LIGHTNING_COUNT_SQL}),
+       (SELECT summary_date FROM daily_summary WHERE station_id = ? ORDER BY ${LIGHTNING_COUNT_SQL} DESC, summary_date ASC LIMIT 1),
        'daily_summary', ?
      FROM daily_summary WHERE station_id = ?`
   ).run(config.stationId, CALC_VERSION, config.stationId);
 
+  // Prefer the earliest occurrence when values tie so record dates stay deterministic across rebuilds.
   db.prepare(
     `INSERT INTO records(station_id, period_type, variable, record_type, record_value, record_date, source_summary, calc_version)
      SELECT station_id, 'monthly', 'thunder_days', 'highest', max(total_lightning_days),
@@ -150,8 +152,8 @@ export const getThisDayInHistory = (month: number, day: number) =>
   db
     .prepare(
       `SELECT summary_date, max_temp, min_temp, mean_temp, rainfall_total, max_gust,
-             COALESCE(lightning_count, lightning_strikes, 0) as lightning_count,
-             COALESCE(thunder_day, CASE WHEN COALESCE(lightning_count, lightning_strikes, 0) > 0 THEN 1 ELSE 0 END) as thunder_day
+             ${LIGHTNING_COUNT_SQL} as lightning_count,
+             ${THUNDER_DAY_SQL} as thunder_day
        FROM daily_summary
        WHERE station_id = ?
          AND CAST(strftime('%m', summary_date) AS INTEGER) = ?
@@ -164,8 +166,8 @@ export const getClimateCalendar = (year: number, month: number) =>
   db
     .prepare(
       `SELECT summary_date, max_temp, min_temp, rainfall_total, max_gust,
-             COALESCE(lightning_count, lightning_strikes, 0) as lightning_count,
-             COALESCE(thunder_day, CASE WHEN COALESCE(lightning_count, lightning_strikes, 0) > 0 THEN 1 ELSE 0 END) as thunder_day
+             ${LIGHTNING_COUNT_SQL} as lightning_count,
+             ${THUNDER_DAY_SQL} as thunder_day
        FROM daily_summary
        WHERE station_id = ?
          AND CAST(strftime('%Y', summary_date) AS INTEGER) = ?

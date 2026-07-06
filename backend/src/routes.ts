@@ -29,7 +29,9 @@ import {
 import {
   getLightningClimatologyOverview,
   getLightningClimatologySummary,
-  LIGHTNING_CLIMATOLOGY_RADIUS_KM
+  LIGHTNING_COUNT_SQL,
+  LIGHTNING_CLIMATOLOGY_RADIUS_KM,
+  THUNDER_DAY_SQL
 } from './services/lightningClimatologyService';
 
 export const routes = Router();
@@ -221,8 +223,8 @@ routes.get('/api/archive/daily', (req, res) => {
   const graphs = db
     .prepare(
       `SELECT summary_date, mean_temp, rainfall_total, max_adjusted_gust, mean_pressure, mean_humidity,
-             COALESCE(lightning_count, lightning_strikes, 0) as lightning_count,
-             COALESCE(thunder_day, CASE WHEN COALESCE(lightning_count, lightning_strikes, 0) > 0 THEN 1 ELSE 0 END) as thunder_day
+             ${LIGHTNING_COUNT_SQL} as lightning_count,
+             ${THUNDER_DAY_SQL} as thunder_day
        FROM daily_summary
        WHERE summary_date <= ?
        ORDER BY summary_date DESC
@@ -363,8 +365,8 @@ routes.get('/api/climate/graphs', (_req, res) => {
   const rows = db
     .prepare(
       `SELECT summary_date, mean_temp, rainfall_total, max_gust,
-              COALESCE(lightning_count, lightning_strikes, 0) as lightning_count,
-              COALESCE(thunder_day, CASE WHEN COALESCE(lightning_count, lightning_strikes, 0) > 0 THEN 1 ELSE 0 END) as thunder_day
+             ${LIGHTNING_COUNT_SQL} as lightning_count,
+             ${THUNDER_DAY_SQL} as thunder_day
        FROM daily_summary
        ORDER BY summary_date DESC LIMIT 365`
     )

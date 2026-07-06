@@ -10,7 +10,16 @@ const schemaFile = path.join(
 const schemaSql = fs.readFileSync(schemaFile, 'utf8');
 db.exec(schemaSql);
 
+const assertSqlIdentifier = (value: string): void => {
+  if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(value)) {
+    throw new Error(`Invalid SQL identifier: ${value}`);
+  }
+};
+
 const ensureColumn = (table: string, column: string, definition: string): void => {
+  assertSqlIdentifier(table);
+  assertSqlIdentifier(column);
+  // PRAGMA/ALTER identifiers cannot be parameterized in SQLite, so we guard names explicitly.
   const columns = db.prepare(`PRAGMA table_info(${table})`).all() as Array<{ name: string }>;
   if (!columns.some((entry) => entry.name === column)) {
     db.prepare(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`).run();

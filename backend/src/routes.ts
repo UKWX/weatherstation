@@ -29,6 +29,26 @@ import {
 
 export const routes = Router();
 
+type DailySummaryRow = {
+  max_temp: number | null;
+  max_temp_time_local: string | null;
+  min_temp: number | null;
+  min_temp_time_local: string | null;
+  mean_temp: number | null;
+  temp_range: number | null;
+  rainfall_total: number | null;
+  rain_day: number | null;
+  max_wind_speed: number | null;
+  max_raw_gust: number | null;
+  max_adjusted_gust: number | null;
+  max_pressure: number | null;
+  min_pressure: number | null;
+  mean_pressure: number | null;
+  max_humidity: number | null;
+  min_humidity: number | null;
+  mean_humidity: number | null;
+};
+
 routes.get('/health', (_req, res) => {
   res.json({ ok: true, timestamp: DateTime.utc().toISO() });
 });
@@ -166,7 +186,9 @@ routes.get('/api/dashboard/overview', (_req, res) => {
 
 routes.get('/api/archive/daily', (req, res) => {
   const date = String(req.query.date ?? DateTime.now().setZone(config.timezone).toISODate());
-  const row = db.prepare('SELECT * FROM daily_summary WHERE summary_date = ?').get(date);
+  const row = db.prepare('SELECT * FROM daily_summary WHERE summary_date = ?').get(date) as
+    | DailySummaryRow
+    | undefined;
   const dayStart = DateTime.fromISO(date, { zone: config.timezone }).startOf('day');
   const dayEnd = dayStart.plus({ days: 1 });
   const dayStartUtc = dayStart.toUTC().toISO({ suppressMilliseconds: true });
@@ -176,10 +198,11 @@ routes.get('/api/archive/daily', (req, res) => {
       `SELECT count(*) as strike_count,
               max(intensity) as peak_intensity
        FROM lightning_events
-       WHERE event_time_utc >= ?
+       WHERE station_id = ?
+         AND event_time_utc >= ?
          AND event_time_utc < ?`
     )
-    .get(dayStartUtc, dayEndUtc);
+    .get(config.stationId, dayStartUtc, dayEndUtc);
   const graphs = db
     .prepare(
       `SELECT summary_date, mean_temp, rainfall_total, max_adjusted_gust, mean_pressure, mean_humidity

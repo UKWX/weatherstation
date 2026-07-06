@@ -17,10 +17,25 @@ describe('timezone handling', () => {
   });
 
   it('computes daily climate metrics with UK local windows', () => {
-    const day = '2026-03-29';
+    const day =
+      Array.from({ length: 31 }, (_, index) => index + 1)
+        .map((dayOfMonth) =>
+          DateTime.fromObject({ year: 2038, month: 3, day: dayOfMonth, hour: 0 }, { zone: config.timezone })
+        )
+        .find((candidate) => candidate.isValid && candidate.offset !== candidate.plus({ days: 1 }).offset)
+        ?.toISODate() ?? '2038-03-28';
+
+    const localDay = DateTime.fromISO(day, { zone: config.timezone }).startOf('day');
+    const utcIso = (dayOffset: number, hour: number, minute: number): string =>
+      localDay
+        .plus({ days: dayOffset })
+        .set({ hour, minute, second: 0, millisecond: 0 })
+        .toUTC()
+        .toISO({ suppressMilliseconds: true }) ?? '';
+
     const observationRows = [
       {
-        timestamp_utc: '2026-03-29T00:10:00Z',
+        timestamp_utc: utcIso(0, 0, 10),
         temperature: 10,
         rainfall: 0,
         wind_speed: 5,
@@ -29,7 +44,7 @@ describe('timezone handling', () => {
         humidity: 80
       },
       {
-        timestamp_utc: '2026-03-29T11:00:00Z',
+        timestamp_utc: utcIso(0, 12, 0),
         temperature: 15,
         rainfall: 1.2,
         wind_speed: 9,
@@ -38,7 +53,7 @@ describe('timezone handling', () => {
         humidity: 70
       },
       {
-        timestamp_utc: '2026-03-29T22:50:00Z',
+        timestamp_utc: utcIso(0, 23, 50),
         temperature: 12,
         rainfall: 1.8,
         wind_speed: 7,
@@ -46,23 +61,45 @@ describe('timezone handling', () => {
         pressure: 998,
         humidity: 60
       },
-      { timestamp_utc: '2026-03-30T04:50:00Z', temperature: 21 },
-      { timestamp_utc: '2026-03-30T16:30:00Z', temperature: 3 },
-      { timestamp_utc: '2026-03-30T05:10:00Z', temperature: 25 },
-      { timestamp_utc: '2026-03-30T17:10:00Z', temperature: 1 }
+      {
+        timestamp_utc: utcIso(1, 5, 50),
+        temperature: 21,
+        rainfall: null,
+        wind_speed: null,
+        wind_gust: null,
+        pressure: null,
+        humidity: null
+      },
+      {
+        timestamp_utc: utcIso(1, 17, 30),
+        temperature: 3,
+        rainfall: null,
+        wind_speed: null,
+        wind_gust: null,
+        pressure: null,
+        humidity: null
+      },
+      {
+        timestamp_utc: utcIso(1, 6, 10),
+        temperature: 25,
+        rainfall: null,
+        wind_speed: null,
+        wind_gust: null,
+        pressure: null,
+        humidity: null
+      },
+      {
+        timestamp_utc: utcIso(1, 18, 10),
+        temperature: 1,
+        rainfall: null,
+        wind_speed: null,
+        wind_gust: null,
+        pressure: null,
+        humidity: null
+      }
     ];
 
     db.prepare('DELETE FROM daily_summary WHERE station_id = ? AND summary_date = ?').run(config.stationId, day);
-    db.prepare('DELETE FROM raw_observations WHERE station_id = ? AND timestamp_utc BETWEEN ? AND ?').run(
-      config.stationId,
-      '2026-03-29T00:00:00Z',
-      '2026-03-30T23:59:59Z'
-    );
-    db.prepare('DELETE FROM lightning_events WHERE station_id = ? AND event_time_utc BETWEEN ? AND ?').run(
-      config.stationId,
-      '2026-03-29T00:00:00Z',
-      '2026-03-30T23:59:59Z'
-    );
 
     ingestRawObservations(observationRows, 'daily-window-test');
 
@@ -71,8 +108,8 @@ describe('timezone handling', () => {
        VALUES(?,?,?,?,?,?)`
     ).run(
       config.stationId,
-      '2026-03-29T10:00:00Z',
-      DateTime.fromISO('2026-03-29T10:00:00Z', { zone: 'utc' }).setZone(config.timezone).toISO(),
+      utcIso(0, 11, 0),
+      DateTime.fromISO(utcIso(0, 11, 0), { zone: 'utc' }).setZone(config.timezone).toISO(),
       2.5,
       180,
       5
@@ -82,8 +119,8 @@ describe('timezone handling', () => {
        VALUES(?,?,?,?,?,?)`
     ).run(
       config.stationId,
-      '2026-03-30T10:00:00Z',
-      DateTime.fromISO('2026-03-30T10:00:00Z', { zone: 'utc' }).setZone(config.timezone).toISO(),
+      utcIso(1, 11, 0),
+      DateTime.fromISO(utcIso(1, 11, 0), { zone: 'utc' }).setZone(config.timezone).toISO(),
       3.1,
       190,
       6
@@ -139,9 +176,13 @@ describe('timezone handling', () => {
     };
 
     expect(summary.max_temp).toBe(21);
-    expect(summary.max_temp_time_local).toContain('2026-03-30T05:50:00+01:00');
+    expect(summary.max_temp_time_local).toContain(
+      localDay.plus({ days: 1 }).toFormat("yyyy-MM-dd'T'05:50")
+    );
     expect(summary.min_temp).toBe(3);
-    expect(summary.min_temp_time_local).toContain('2026-03-30T17:30:00+01:00');
+    expect(summary.min_temp_time_local).toContain(
+      localDay.plus({ days: 1 }).toFormat("yyyy-MM-dd'T'17:30")
+    );
     expect(summary.mean_temp).toBeCloseTo((10 + 15 + 12) / 3, 6);
     expect(summary.temp_range).toBe(18);
     expect(summary.rainfall_total).toBe(1.8);

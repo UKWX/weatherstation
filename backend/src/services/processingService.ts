@@ -3,6 +3,7 @@ import { db } from '../db/connection';
 import { config } from '../config';
 
 const CALC_VERSION = 'v2';
+const ADJUSTED_GUST_FACTOR = 1.4;
 
 interface WindowBounds {
   startUtc: string;
@@ -13,9 +14,9 @@ const toUtcIso = (value: DateTime): string =>
   value.toUTC().toISO({ suppressMilliseconds: true }) ?? value.toUTC().toISO() ?? '';
 
 const buildUtcWindow = (summaryDate: string, startHour: number): WindowBounds => {
-  const startLocal = DateTime.fromISO(summaryDate, { zone: config.timezone }).startOf('day').plus({
-    hours: startHour
-  });
+  const startLocal = DateTime.fromISO(summaryDate, { zone: config.timezone })
+    .startOf('day')
+    .set({ hour: startHour, minute: 0, second: 0, millisecond: 0 });
   if (!startLocal.isValid) {
     throw new Error(`Invalid summary date ${summaryDate}`);
   }
@@ -138,7 +139,9 @@ export const computeDailySummary = (summaryDate: string): void => {
     const rainfallTotal = dailyStats.rainfall_total ?? null;
     const rainDay = rainfallTotal !== null && rainfallTotal > 0 ? 1 : 0;
     const maxRawGust = dailyStats.max_raw_gust ?? null;
-    const maxAdjustedGust = maxRawGust !== null ? maxRawGust * 1.4 : null;
+    const maxAdjustedGust = maxRawGust !== null ? maxRawGust * ADJUSTED_GUST_FACTOR : null;
+    // Keep legacy max_gust aligned with adjusted gust for existing monthly/annual/archive queries.
+    const legacyMaxGust = maxAdjustedGust;
 
     db.prepare(
       `INSERT INTO daily_summary(
@@ -208,7 +211,7 @@ export const computeDailySummary = (summaryDate: string): void => {
       dailyStats.max_wind_speed ?? null,
       maxRawGust,
       maxAdjustedGust,
-      maxRawGust,
+      legacyMaxGust,
       dailyStats.avg_wind_speed ?? null,
       dailyStats.max_pressure ?? null,
       dailyStats.min_pressure ?? null,

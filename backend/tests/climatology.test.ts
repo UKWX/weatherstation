@@ -45,11 +45,9 @@ beforeAll(() => {
   db.prepare('DELETE FROM anomalies WHERE station_id = ?').run(config.stationId);
   db.prepare('DELETE FROM records WHERE station_id = ?').run(config.stationId);
   db.prepare('DELETE FROM record_history WHERE station_id = ?').run(config.stationId);
-  db.prepare('DELETE FROM lightning_events WHERE station_id = ? AND event_time_utc LIKE ? OR event_time_utc LIKE ?').run(
-    config.stationId,
-    `${YEAR_A}-%`,
-    `${YEAR_B}-%`
-  );
+  db.prepare(
+    'DELETE FROM lightning_events WHERE station_id = ? AND (event_time_utc LIKE ? OR event_time_utc LIKE ?)'
+  ).run(config.stationId, `${YEAR_A}-%`, `${YEAR_B}-%`);
 
   // Seed observations for two days in YEAR_A
   const dateA1 = day(YEAR_A, 6, 10);
@@ -318,7 +316,7 @@ describe('monthly and annual lightning count rollups', () => {
       .get(config.stationId, YEAR_A) as { total_lightning_count: number } | undefined;
 
     expect(row).toBeDefined();
-    // dateA2 had 2 lightning events within radius; dateA1 had none
+    // dateA2 had 1 lightning event within radius; dateA1 had none
     expect(row!.total_lightning_count).toBeGreaterThanOrEqual(1);
   });
 

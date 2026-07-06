@@ -86,19 +86,9 @@ export const rebuildRecords = (): void => {
      FROM daily_summary WHERE station_id = ?`
   ).run(config.stationId, CALC_VERSION, config.stationId);
 
+  // Prefer earliest month when values tie so record dates stay deterministic across rebuilds.
   db.prepare(
     `INSERT INTO records(station_id, period_type, variable, record_type, record_value, record_date, source_summary, calc_version)
-     SELECT station_id, 'monthly', 'rainfall', 'highest', max(total_rainfall),
-       printf('%04d-%02d-01', summary_year, summary_month),
-       'monthly_summary', ?
-     FROM monthly_summary
-     WHERE station_id = ?
-       AND (SELECT summary_year FROM monthly_summary m2 WHERE m2.station_id = monthly_summary.station_id ORDER BY total_rainfall DESC, summary_year ASC, summary_month ASC LIMIT 1) IS NOT NULL`
-  ).run(CALC_VERSION, config.stationId);
-
-  // Prefer earliest month when values tie.
-  db.prepare(
-    `INSERT OR REPLACE INTO records(station_id, period_type, variable, record_type, record_value, record_date, source_summary, calc_version)
      SELECT station_id, 'monthly', 'rainfall', 'highest', max(total_rainfall),
        (SELECT printf('%04d-%02d-01', summary_year, summary_month) FROM monthly_summary WHERE station_id = ? ORDER BY total_rainfall DESC, summary_year ASC, summary_month ASC LIMIT 1),
        'monthly_summary', ?

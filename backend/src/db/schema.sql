@@ -226,3 +226,16 @@ CREATE TABLE IF NOT EXISTS snow_archive (
   notes TEXT,
   UNIQUE(station_id, observed_date)
 );
+
+CREATE TABLE IF NOT EXISTS record_history (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  station_id TEXT NOT NULL,
+  period_type TEXT NOT NULL,
+  variable TEXT NOT NULL,
+  record_type TEXT NOT NULL,
+  previous_value REAL,
+  new_value REAL NOT NULL,
+  record_date TEXT,
+  detected_at TEXT NOT NULL DEFAULT (datetime('now')),
+  UNIQUE(station_id, period_type, variable, record_type, new_value, record_date)
+);

@@ -4,6 +4,8 @@ import { db } from './db/connection';
 import { config } from './config';
 import {
   getClimateCalendar,
+  getDailyNormals,
+  getRecordHistory,
   getThisDayInHistory,
   getTrend,
   rebuildAnomalies,
@@ -325,6 +327,21 @@ routes.get('/api/climate/averages', (_req, res) => {
 routes.get('/api/climate/records', (_req, res) => {
   const rows = db.prepare('SELECT * FROM records ORDER BY variable, record_type').all();
   res.json(rows);
+});
+
+routes.get('/api/climate/record-history', (_req, res) => {
+  res.json(getRecordHistory());
+});
+
+routes.get('/api/climate/daily-normals', (req, res) => {
+  const now = DateTime.now();
+  const month = Number(req.query.month ?? now.month);
+  const day = Number(req.query.day ?? now.day);
+  if (month < 1 || month > 12 || day < 1 || day > 31) {
+    res.status(400).json({ message: 'Invalid month or day' });
+    return;
+  }
+  res.json(getDailyNormals(month, day));
 });
 
 routes.get('/api/climate/extremes', (_req, res) => {

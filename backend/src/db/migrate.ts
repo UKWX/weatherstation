@@ -39,6 +39,8 @@ ensureColumn('daily_summary', 'max_humidity', 'REAL');
 ensureColumn('daily_summary', 'min_humidity', 'REAL');
 ensureColumn('daily_summary', 'lightning_count', 'INTEGER DEFAULT 0');
 ensureColumn('daily_summary', 'thunder_day', 'INTEGER DEFAULT 0');
+ensureColumn('monthly_summary', 'total_lightning_count', 'INTEGER DEFAULT 0');
+ensureColumn('annual_summary', 'total_lightning_count', 'INTEGER DEFAULT 0');
 
 const hasVersion = db
   .prepare('SELECT COUNT(*) as count FROM schema_versions WHERE version = 1')
@@ -67,6 +69,30 @@ const hasVersion3 = db
 if (!hasVersion3.count) {
   db.prepare('INSERT INTO schema_versions(version, description) VALUES(3, ?)').run(
     'Lightning climatology daily archive fields'
+  );
+}
+
+const hasVersion4 = db
+  .prepare('SELECT COUNT(*) as count FROM schema_versions WHERE version = 4')
+  .get() as { count: number };
+
+if (!hasVersion4.count) {
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS record_history (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      station_id TEXT NOT NULL,
+      period_type TEXT NOT NULL,
+      variable TEXT NOT NULL,
+      record_type TEXT NOT NULL,
+      previous_value REAL,
+      new_value REAL NOT NULL,
+      record_date TEXT,
+      detected_at TEXT NOT NULL DEFAULT (datetime('now')),
+      UNIQUE(station_id, period_type, variable, record_type, new_value, record_date)
+    )
+  `);
+  db.prepare('INSERT INTO schema_versions(version, description) VALUES(4, ?)').run(
+    'Record history table and lightning count rollups on monthly/annual summaries'
   );
 }
 

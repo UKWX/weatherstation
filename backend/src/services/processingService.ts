@@ -2,7 +2,30 @@ import { DateTime } from 'luxon';
 import { db } from '../db/connection';
 import { config } from '../config';
 
-const CALC_VERSION = 'v1';
+const CALC_VERSION = 'v2';
+
+interface WindowBounds {
+  startUtc: string;
+  endUtc: string;
+}
+
+const toUtcIso = (value: DateTime): string =>
+  value.toUTC().toISO({ suppressMilliseconds: true }) ?? value.toUTC().toISO() ?? '';
+
+const buildUtcWindow = (summaryDate: string, startHour: number): WindowBounds => {
+  const startLocal = DateTime.fromISO(summaryDate, { zone: config.timezone }).startOf('day').plus({
+    hours: startHour
+  });
+  if (!startLocal.isValid) {
+    throw new Error(`Invalid summary date ${summaryDate}`);
+  }
+
+  const endLocal = startLocal.plus({ days: 1 });
+  return {
+    startUtc: toUtcIso(startLocal),
+    endUtc: toUtcIso(endLocal)
+  };
+};
 
 const startRun = (jobName: string, triggerType: string): number => {
   const run = db
@@ -23,45 +46,180 @@ const finishRun = (id: number, status: 'success' | 'failed', message: string): v
 export const computeDailySummary = (summaryDate: string): void => {
   const runId = startRun('daily_summary', 'manual');
   try {
+    const dailyWindow = buildUtcWindow(summaryDate, 0);
+    const maxTempWindow = buildUtcWindow(summaryDate, 6);
+    const minTempWindow = buildUtcWindow(summaryDate, 18);
+
+    const dailyStats = db
+      .prepare(
+        `SELECT
+          count(*) as observation_count,
+          avg(temperature) as mean_temp,
+          max(rainfall) as rainfall_total,
+          max(rain_rate) as max_rain_rate,
+          max(wind_speed) as max_wind_speed,
+          max(wind_gust) as max_raw_gust,
+          avg(wind_speed) as avg_wind_speed,
+          max(pressure) as max_pressure,
+          min(pressure) as min_pressure,
+          avg(pressure) as mean_pressure,
+          max(humidity) as max_humidity,
+          min(humidity) as min_humidity,
+          avg(humidity) as mean_humidity
+         FROM raw_observations
+         WHERE station_id = ?
+           AND timestamp_utc >= ?
+           AND timestamp_utc < ?`
+      )
+      .get(config.stationId, dailyWindow.startUtc, dailyWindow.endUtc) as {
+      observation_count: number;
+      mean_temp: number | null;
+      rainfall_total: number | null;
+      max_rain_rate: number | null;
+      max_wind_speed: number | null;
+      max_raw_gust: number | null;
+      avg_wind_speed: number | null;
+      max_pressure: number | null;
+      min_pressure: number | null;
+      mean_pressure: number | null;
+      max_humidity: number | null;
+      min_humidity: number | null;
+      mean_humidity: number | null;
+    };
+
+    if (!dailyStats.observation_count) {
+      finishRun(runId, 'success', `No observations found for ${summaryDate}`);
+      return;
+    }
+
+    const maxTempObservation = db
+      .prepare(
+        `SELECT temperature as value, timestamp_local
+         FROM raw_observations
+         WHERE station_id = ?
+           AND timestamp_utc >= ?
+           AND timestamp_utc < ?
+           AND temperature IS NOT NULL
+         ORDER BY temperature DESC, timestamp_utc ASC
+         LIMIT 1`
+      )
+      .get(config.stationId, maxTempWindow.startUtc, maxTempWindow.endUtc) as
+      | { value: number; timestamp_local: string }
+      | undefined;
+
+    const minTempObservation = db
+      .prepare(
+        `SELECT temperature as value, timestamp_local
+         FROM raw_observations
+         WHERE station_id = ?
+           AND timestamp_utc >= ?
+           AND timestamp_utc < ?
+           AND temperature IS NOT NULL
+         ORDER BY temperature ASC, timestamp_utc ASC
+         LIMIT 1`
+      )
+      .get(config.stationId, minTempWindow.startUtc, minTempWindow.endUtc) as
+      | { value: number; timestamp_local: string }
+      | undefined;
+
+    const lightning = db
+      .prepare(
+        `SELECT count(*) as strike_count
+         FROM lightning_events
+         WHERE station_id = ?
+           AND event_time_utc >= ?
+           AND event_time_utc < ?`
+      )
+      .get(config.stationId, dailyWindow.startUtc, dailyWindow.endUtc) as { strike_count: number };
+
+    const maxTemp = maxTempObservation?.value ?? null;
+    const minTemp = minTempObservation?.value ?? null;
+    const tempRange = maxTemp !== null && minTemp !== null ? maxTemp - minTemp : null;
+    const rainfallTotal = dailyStats.rainfall_total ?? null;
+    const rainDay = rainfallTotal !== null && rainfallTotal > 0 ? 1 : 0;
+    const maxRawGust = dailyStats.max_raw_gust ?? null;
+    const maxAdjustedGust = maxRawGust !== null ? maxRawGust * 1.4 : null;
+
     db.prepare(
       `INSERT INTO daily_summary(
-        station_id, summary_date, max_temp, min_temp, mean_temp, rainfall_total, max_rain_rate,
-        max_gust, avg_wind_speed, mean_pressure, mean_humidity, lightning_strikes, observation_count, calc_version, generated_at
-      )
-      SELECT
-        station_id,
-        date(timestamp_local),
-        max(temperature),
-        min(temperature),
-        avg(temperature),
-        sum(COALESCE(rainfall,0)),
-        max(rain_rate),
-        max(wind_gust),
-        avg(wind_speed),
-        avg(pressure),
-        avg(humidity),
-        0,
-        count(*),
+        station_id, summary_date,
+        max_temp, max_temp_time_local,
+        min_temp, min_temp_time_local,
+        mean_temp, temp_range,
+        rainfall_total, rain_day,
+        max_rain_rate, max_wind_speed,
+        max_raw_gust, max_adjusted_gust, max_gust,
+        avg_wind_speed,
+        max_pressure, min_pressure, mean_pressure,
+        max_humidity, min_humidity, mean_humidity,
+        lightning_strikes, observation_count,
+        calc_version, generated_at
+      ) VALUES(
+        ?, ?,
+        ?, ?,
+        ?, ?,
+        ?, ?,
+        ?, ?,
+        ?, ?,
+        ?, ?, ?,
         ?,
-        datetime('now')
-      FROM raw_observations
-      WHERE station_id = ?
-        AND date(timestamp_local) = ?
-      GROUP BY station_id, date(timestamp_local)
+        ?, ?, ?,
+        ?, ?, ?,
+        ?, ?,
+        ?, datetime('now')
+      )
       ON CONFLICT(station_id, summary_date) DO UPDATE SET
         max_temp=excluded.max_temp,
+        max_temp_time_local=excluded.max_temp_time_local,
         min_temp=excluded.min_temp,
+        min_temp_time_local=excluded.min_temp_time_local,
         mean_temp=excluded.mean_temp,
+        temp_range=excluded.temp_range,
         rainfall_total=excluded.rainfall_total,
+        rain_day=excluded.rain_day,
         max_rain_rate=excluded.max_rain_rate,
+        max_wind_speed=excluded.max_wind_speed,
+        max_raw_gust=excluded.max_raw_gust,
+        max_adjusted_gust=excluded.max_adjusted_gust,
         max_gust=excluded.max_gust,
         avg_wind_speed=excluded.avg_wind_speed,
+        max_pressure=excluded.max_pressure,
+        min_pressure=excluded.min_pressure,
         mean_pressure=excluded.mean_pressure,
+        max_humidity=excluded.max_humidity,
+        min_humidity=excluded.min_humidity,
         mean_humidity=excluded.mean_humidity,
+        lightning_strikes=excluded.lightning_strikes,
         observation_count=excluded.observation_count,
         calc_version=excluded.calc_version,
         generated_at=excluded.generated_at`
-    ).run(CALC_VERSION, config.stationId, summaryDate);
+    ).run(
+      config.stationId,
+      summaryDate,
+      maxTemp,
+      maxTempObservation?.timestamp_local ?? null,
+      minTemp,
+      minTempObservation?.timestamp_local ?? null,
+      dailyStats.mean_temp ?? null,
+      tempRange,
+      rainfallTotal,
+      rainDay,
+      dailyStats.max_rain_rate ?? null,
+      dailyStats.max_wind_speed ?? null,
+      maxRawGust,
+      maxAdjustedGust,
+      maxRawGust,
+      dailyStats.avg_wind_speed ?? null,
+      dailyStats.max_pressure ?? null,
+      dailyStats.min_pressure ?? null,
+      dailyStats.mean_pressure ?? null,
+      dailyStats.max_humidity ?? null,
+      dailyStats.min_humidity ?? null,
+      dailyStats.mean_humidity ?? null,
+      lightning.strike_count,
+      dailyStats.observation_count,
+      CALC_VERSION
+    );
 
     finishRun(runId, 'success', `Daily summary generated for ${summaryDate}`);
   } catch (error) {

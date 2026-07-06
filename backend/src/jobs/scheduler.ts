@@ -12,7 +12,7 @@ import { fetchLatestWeatherObservation } from '../services/weatherDataFetcher';
 
 export const startScheduler = (): void => {
   cron.schedule(
-    '*/5 * * * *',
+    '* * * * *',
     () => {
       fetchLatestWeatherObservation().catch((error) => {
         console.error(

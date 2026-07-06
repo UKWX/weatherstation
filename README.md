@@ -39,6 +39,7 @@ cp /home/runner/work/WakefieldStation/WakefieldStation/backend/.env.example /hom
 ```
 
 Set `WEATHER_API_KEY` and `WEATHER_STATION_ID` in `/home/runner/work/WakefieldStation/WakefieldStation/backend/.env` for Weather Underground ingestion.
+`WEATHER_FETCH_CRON` defaults to `* * * * *` (every minute).
 
 ### 3) Run migrations
 

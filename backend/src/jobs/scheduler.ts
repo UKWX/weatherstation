@@ -11,19 +11,23 @@ import { rebuildAnomalies, rebuildRankings, rebuildRecords } from '../services/a
 import { fetchLatestWeatherObservation } from '../services/weatherDataFetcher';
 
 export const startScheduler = (): void => {
-  cron.schedule(
-    '*/5 * * * *',
-    () => {
-      fetchLatestWeatherObservation().catch((error) => {
-        console.error(
-          `Weather fetch failed: ${error instanceof Error ? error.message : 'Unknown error'}`
-        );
-      });
-    },
-    {
-      timezone: config.timezone
-    }
-  );
+  if (config.weatherApiKey && config.weatherStationId) {
+    cron.schedule(
+      config.weatherFetchCron,
+      () => {
+        fetchLatestWeatherObservation().catch((error) => {
+          console.error(
+            `Weather fetch failed: ${error instanceof Error ? error.message : 'Unknown error'}`
+          );
+        });
+      },
+      {
+        timezone: config.timezone
+      }
+    );
+  } else {
+    console.warn('Weather fetch scheduler disabled: WEATHER_API_KEY and WEATHER_STATION_ID must be configured.');
+  }
 
   cron.schedule(
     '5 18 * * *',

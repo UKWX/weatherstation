@@ -1,14 +1,14 @@
-import { NavLink, Route, Routes } from 'react-router-dom';
+import { NavLink, Route, Routes, useNavigate } from 'react-router-dom';
 import { DashboardPage } from './pages/DashboardPage';
 import { ClimateAnalyticsPage } from './pages/ClimateAnalyticsPage';
 import { SectionPage } from './pages/SectionPage';
 import { ReportsPage } from './pages/ReportsPage';
 import { ExportsPage } from './pages/ExportsPage';
+import { LiveConditionsPage } from './pages/LiveConditionsPage';
 import { navigation } from './data/navigation';
 import './styles.css';
 
 const routeMap = [
-  { path: '/live', title: 'Live Conditions', description: 'Live station feed and current observation diagnostics.' },
   { path: '/archives/daily', title: 'Daily Archive', description: 'Daily climate summaries and statistics.' },
   { path: '/archives/monthly', title: 'Monthly Archive', description: 'Monthly summaries with rain, wind, and temperature rollups.' },
   { path: '/archives/annual', title: 'Annual Archive', description: 'Long-term annual climatology archive and reference statistics.' },
@@ -52,6 +52,8 @@ const navigationIcons: Record<string, string> = {
 };
 
 function App() {
+  const navigate = useNavigate();
+
   return (
     <div className="app-shell">
       <aside className="sidebar">
@@ -115,14 +117,21 @@ function App() {
           </div>
           <div className="topbar-actions">
             <span className="toolbar-chip">Archive online</span>
-            <button type="button" aria-label="Search archive">⌕</button>
-            <button type="button" aria-label="Alerts">⚑</button>
-            <button type="button" aria-label="Settings">⚙</button>
+            <button type="button" aria-label="Search archive" onClick={() => navigate('/archives/daily')}>
+              ⌕
+            </button>
+            <button type="button" aria-label="Alerts" onClick={() => navigate('/lightning')}>
+              ⚑
+            </button>
+            <button type="button" aria-label="Settings" onClick={() => navigate('/settings')}>
+              ⚙
+            </button>
           </div>
         </header>
 
         <Routes>
           <Route path="/" element={<DashboardPage />} />
+          <Route path="/live" element={<LiveConditionsPage />} />
           <Route path="/climate/analytics" element={<ClimateAnalyticsPage />} />
           <Route path="/reports" element={<ReportsPage />} />
           <Route path="/exports" element={<ExportsPage />} />

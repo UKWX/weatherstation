@@ -27,41 +27,97 @@ const routeMap = [
   { path: '/settings', title: 'Settings', description: 'Station metadata, processing, timezone, and retention settings.' }
 ];
 
+const navigationIcons: Record<string, string> = {
+  '/': '⌂',
+  '/live': '◉',
+  '/archives/daily': '☰',
+  '/archives/monthly': '◫',
+  '/archives/annual': '◧',
+  '/climate/averages': '◌',
+  '/climate/records': '◎',
+  '/climate/extremes': '▲',
+  '/climate/rankings': '▣',
+  '/climate/trends': '↗',
+  '/climate/graphs': '◨',
+  '/climate/analytics': '◭',
+  '/climate/year-comparisons': '▤',
+  '/climate/calendar': '☷',
+  '/climate/this-day': '◔',
+  '/lightning': '⚡',
+  '/snow': '❄',
+  '/reports': '☷',
+  '/import': '⇪',
+  '/exports': '⇩',
+  '/settings': '⚙'
+};
+
 function App() {
   return (
     <div className="app-shell">
       <aside className="sidebar">
         <div className="brand">
-          <div className="brand-icon">☁️</div>
+          <div className="brand-icon">☁</div>
           <div>
             <h1>UKWX Weather Archive</h1>
-            <p>Personal Weather Station</p>
+            <p>Professional station dashboard</p>
           </div>
+        </div>
+
+        <div className="sidebar-section">
+          <span className="sidebar-pill">Wakefield Station</span>
+          <span className="sidebar-pill sidebar-pill--secondary">Live archive synced</span>
         </div>
 
         <nav>
           {navigation.map((group) => (
             <div key={group.title} className="nav-group">
               <h2>{group.title}</h2>
-              {group.items.map((item) => (
-                <NavLink key={item.path} to={item.path} end className={({ isActive }) => (isActive ? 'active' : '')}>
-                  {item.label}
-                </NavLink>
-              ))}
+              <div className="nav-links">
+                {group.items.map((item) => (
+                  <NavLink key={item.path} to={item.path} end className={({ isActive }) => (isActive ? 'active' : '')}>
+                    <span className="nav-link__icon">{navigationIcons[item.path] ?? '•'}</span>
+                    <span>{item.label}</span>
+                  </NavLink>
+                ))}
+              </div>
             </div>
           ))}
         </nav>
+
+        <div className="sidebar-footer">
+          <div>
+            <strong>Station</strong>
+            <span>UKWX HQ · 53.30° N / 1.50° W</span>
+          </div>
+          <div>
+            <strong>Status</strong>
+            <span className="status-dot ok">All systems operational</span>
+          </div>
+        </div>
       </aside>
 
       <main className="content">
         <header className="topbar">
-          <div>
+          <div className="topbar-copy">
+            <span className="topbar-eyebrow">Professional weather archive interface</span>
             <h2>Wakefield Climatology Archive</h2>
-            <p>Long-term observations, records, trends, and analytics</p>
+            <p>Long-term observations, records, anomalies, and operational insight</p>
           </div>
           <div className="topbar-meta">
-            <span>16:32</span>
-            <span>Local time (BST)</span>
+            <div>
+              <strong>16:32</strong>
+              <span>Wakefield local time (BST)</span>
+            </div>
+            <div>
+              <strong>24 May 2026</strong>
+              <span>Latest station update 16:30</span>
+            </div>
+          </div>
+          <div className="topbar-actions">
+            <span className="toolbar-chip">Archive online</span>
+            <button type="button" aria-label="Search archive">⌕</button>
+            <button type="button" aria-label="Alerts">⚑</button>
+            <button type="button" aria-label="Settings">⚙</button>
           </div>
         </header>
 

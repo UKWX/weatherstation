@@ -9,9 +9,9 @@ interface SectionPageProps {
 export const SectionPage = ({ title, description }: SectionPageProps) => (
   <div className="page-grid">
     <section className="metrics-grid">
-      <MetricCard label="Coverage" value="Complete" trend="Quality controlled" />
-      <MetricCard label="Latest Period" value="2026" trend="Auto refreshed daily" />
-      <MetricCard label="Anomaly Tracking" value="Enabled" trend="Baseline 1991-2020" />
+      <MetricCard label="Coverage" value="Complete" trend="Quality controlled archive" tone="rain" />
+      <MetricCard label="Latest Period" value="2026" trend="Auto refreshed daily" tone="pressure" />
+      <MetricCard label="Anomaly Tracking" value="Enabled" trend="Baseline 1991-2020" tone="temperature" />
     </section>
 
     <PanelCard title={title} subtitle={description}>
@@ -34,19 +34,19 @@ export const SectionPage = ({ title, description }: SectionPageProps) => (
               <td>Current</td>
               <td>Mean Temperature</td>
               <td>11.8°C</td>
-              <td>Normal</td>
+              <td><span className="table-status table-status--temperature">Normal</span></td>
             </tr>
             <tr>
               <td>Current</td>
               <td>Total Rainfall</td>
               <td>32.6 mm</td>
-              <td>Above Normal</td>
+              <td><span className="table-status table-status--rain">Above Normal</span></td>
             </tr>
             <tr>
               <td>Current</td>
               <td>Highest Gust</td>
               <td>43.7 mph</td>
-              <td>Monitored</td>
+              <td><span className="table-status table-status--wind">Monitored</span></td>
             </tr>
           </tbody>
         </table>

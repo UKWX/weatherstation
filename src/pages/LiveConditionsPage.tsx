@@ -23,6 +23,7 @@ type OverviewPayload = {
 };
 
 const REFRESH_INTERVAL_MS = 60_000;
+const REFRESH_INTERVAL_LABEL = `${Math.floor(REFRESH_INTERVAL_MS / 1000)} seconds`;
 
 const formatNumber = (value: number | null | undefined, suffix: string) =>
   typeof value === 'number' && Number.isFinite(value) ? `${value.toFixed(1)}${suffix}` : '—';
@@ -41,8 +42,7 @@ export const LiveConditionsPage = () => {
       }
       const overviewPayload = (await overviewResponse.json()) as OverviewPayload;
       setOverview(overviewPayload);
-      setOverview(overviewPayload);
-      setStatusMessage('Live observations are updating every 60 seconds.');
+      setStatusMessage(`Live observations are updating every ${REFRESH_INTERVAL_LABEL}.`);
       setStatusIsError(false);
       setLastUpdated(new Date().toLocaleTimeString('en-GB'));
     } catch (error) {
@@ -92,7 +92,7 @@ export const LiveConditionsPage = () => {
           <ul className="status-list status-list--stacked live-status-list">
             <li>
               <span>Refresh interval</span>
-              <strong>60 seconds</strong>
+              <strong>{REFRESH_INTERVAL_LABEL}</strong>
             </li>
             <li>
               <span>Status</span>

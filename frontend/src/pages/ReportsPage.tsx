@@ -361,7 +361,7 @@ export const ReportsPage = () => {
                           <Legend />
                           <Bar yAxisId="rain" dataKey="rainfall_total" fill="#3b82f6" radius={[6, 6, 0, 0]} />
                           <Line yAxisId="wind" type="monotone" dataKey="max_adjusted_gust" stroke="#16a34a" strokeWidth={2.5} dot={false} />
-                          <Line yAxisId="rain" type="monotone" dataKey="lightning_count" stroke="#a855f7" strokeWidth={2} dot={false} />
+                          <Line yAxisId="wind" type="monotone" dataKey="lightning_count" stroke="#a855f7" strokeWidth={2} dot={false} />
                         </BarChart>
                       </ResponsiveContainer>
                     </div>

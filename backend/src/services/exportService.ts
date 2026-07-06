@@ -1,6 +1,7 @@
 import { stringify } from 'csv-stringify/sync';
 import { db } from '../db/connection';
 
+// Keep one-page PDF exports readable by constraining rows/columns and per-line character width.
 const MAX_PDF_LINES = 48;
 const MAX_PDF_COLUMNS = 8;
 const MAX_PDF_LINE_LENGTH = 180;

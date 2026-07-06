@@ -70,7 +70,7 @@ export const validateRanges = (row: RawObservationInput, rowIndex: number): Vali
   const issues: ValidationIssue[] = [];
 
   Object.entries(rangeRules).forEach(([field, [min, max]]) => {
-    const value = (row as Record<string, unknown>)[field];
+    const value = (row as unknown as Record<string, unknown>)[field];
     if (typeof value === 'number' && (value < min || value > max)) {
       issues.push({
         row: rowIndex,

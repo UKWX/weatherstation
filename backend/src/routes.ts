@@ -215,6 +215,7 @@ routes.get('/api/archive/daily', (req, res) => {
   const archiveRow = row
     ? {
        ...row,
+       // Keep the legacy field aligned with climatology-filtered counts for existing archive consumers.
        lightning_strikes: lightning.lightning_count,
        lightning_count: lightning.lightning_count,
        thunder_day: lightning.thunder_day

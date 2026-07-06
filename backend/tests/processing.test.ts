@@ -308,6 +308,8 @@ describe('timezone handling', () => {
     const lightningSummary = await request(app).get('/api/lightning');
     expect(lightningSummary.status).toBe(200);
     expect(lightningSummary.body.lightning_count).toBeGreaterThanOrEqual(1);
+    expect(lightningSummary.body.radius_km).toBe(20);
+    // The 24 km event is outside the climatology radius, so the retained maximum distance stays at 8 km.
     expect(lightningSummary.body.furthest_distance).toBe(8);
   });
 });

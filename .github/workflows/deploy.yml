@@ -33,6 +33,8 @@ jobs:
         run: npm ci
 
       - name: Build frontend
+        env:
+          VITE_BASE_PATH: /WakefieldStation/
         run: npm run build:frontend
 
       - name: Setup Pages

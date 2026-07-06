@@ -38,7 +38,7 @@ describe('weatherDataFetcher', () => {
 
     vi.stubGlobal('fetch', fetchMock);
 
-    const { fetchLatestWeatherObservation } = await import('../src/services/weatherDataFetcher');
+    const { fetchLatestWeatherObservation } = await import('../src/services/weatherDataFetcher.js');
     const result = await fetchLatestWeatherObservation();
 
     expect(fetchMock).toHaveBeenCalledTimes(1);

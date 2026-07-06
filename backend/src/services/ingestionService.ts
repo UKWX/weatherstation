@@ -115,6 +115,9 @@ const asString = (value: SpreadsheetCell): string => {
   return String(value).trim();
 };
 
+const isCellEmpty = (value: SpreadsheetCell): boolean =>
+  value === '' || value === null || value === undefined;
+
 const formatIsoDate = (year: number, month: number, day: number): string | null => {
   const dt = DateTime.fromObject({ year, month, day }, { zone: config.timezone });
   if (!dt.isValid) {
@@ -122,6 +125,9 @@ const formatIsoDate = (year: number, month: number, day: number): string | null 
   }
   return dt.toISODate();
 };
+
+const formatDateForMessage = (year: number, month: number, day: number): string =>
+  `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
 
 const createReport = (
   imported: number,
@@ -134,7 +140,7 @@ const createReport = (
   const sortedDates = [...dates].sort((a, b) => a.localeCompare(b));
   return {
     recordsImported: imported,
-    errors: rejected + issues.length,
+    errors: rejected,
     missingData,
     duplicateDates: duplicates,
     dateRange: {
@@ -185,7 +191,7 @@ const parseTemperatureSpreadsheet = (
   const yearColumns: Array<{ colIndex: number; year: number }> = [];
   for (let col = 1; col < header.length; col += 1) {
     const yearValue = Number(asString(header[col]));
-    if (Number.isInteger(yearValue) && yearValue >= 1995) {
+    if (Number.isInteger(yearValue) && yearValue >= config.temperatureHistoryStartYear) {
       yearColumns.push({ colIndex: col, year: yearValue });
       continue;
     }
@@ -199,7 +205,11 @@ const parseTemperatureSpreadsheet = (
   }
 
   if (!yearColumns.length) {
-    issues.push({ row: 1, field: 'year', message: 'No valid year columns found (1995 onwards)' });
+    issues.push({
+      row: 1,
+      field: 'year',
+      message: `No valid year columns found (${config.temperatureHistoryStartYear} onwards)`
+    });
     return { rows, issues, missingData };
   }
 
@@ -228,13 +238,13 @@ const parseTemperatureSpreadsheet = (
         issues.push({
           row: rowIndex + 1,
           field: `year_${year}`,
-          message: `Invalid date ${year}-${dayMonth.month}-${dayMonth.day}`
+          message: `Invalid date ${formatDateForMessage(year, dayMonth.month, dayMonth.day)}`
         });
         return;
       }
 
       const cell = rawRow[colIndex];
-      if (cell === '' || cell === null || cell === undefined) {
+      if (isCellEmpty(cell)) {
         missingData += 1;
         issues.push({
           row: rowIndex + 1,
@@ -282,8 +292,12 @@ const parsePrecipitationSpreadsheet = (
   const rows: HistoricalPrecipitationInput[] = [];
   let missingData = 0;
 
-  if (!Number.isInteger(payload.year) || payload.year < 2020) {
-    issues.push({ row: 1, field: 'year', message: 'Rainfall year must be 2020 or later' });
+  if (!Number.isInteger(payload.year) || payload.year < config.rainfallHistoryStartYear) {
+    issues.push({
+      row: 1,
+      field: 'year',
+      message: `Rainfall year must be ${config.rainfallHistoryStartYear} or later`
+    });
     return { rows, issues, missingData };
   }
 
@@ -341,13 +355,13 @@ const parsePrecipitationSpreadsheet = (
         issues.push({
           row: rowIndex + 1,
           field: `month_${month}`,
-          message: `Invalid date ${payload.year}-${month}-${day}`
+          message: `Invalid date ${formatDateForMessage(payload.year, month, day)}`
         });
         return;
       }
 
       const cell = rawRow[colIndex];
-      if (cell === '' || cell === null || cell === undefined) {
+      if (isCellEmpty(cell)) {
         missingData += 1;
         issues.push({
           row: rowIndex + 1,

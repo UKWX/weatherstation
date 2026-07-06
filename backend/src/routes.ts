@@ -12,7 +12,7 @@ import {
   rebuildRankings,
   rebuildRecords
 } from './services/analyticsService';
-import { fetchDataset, toCsv } from './services/exportService';
+import { fetchDataset, toCsv, toExcelXml, toPdf } from './services/exportService';
 import {
   ingestPrecipitationHistory,
   ingestPrecipitationSpreadsheet,
@@ -41,6 +41,7 @@ import {
   getTrendsData,
   getExtremesData
 } from './services/analyticsChartService';
+import { getAnnualClimateReport, getMonthlyClimateReport } from './services/reportingService';
 
 export const routes = Router();
 
@@ -454,26 +455,36 @@ routes.get('/api/reports/daily', (req, res) => {
 routes.get('/api/reports/monthly', (req, res) => {
   const year = Number(req.query.year ?? DateTime.now().year);
   const month = Number(req.query.month ?? DateTime.now().month);
-  const summary = db
-    .prepare('SELECT * FROM monthly_summary WHERE summary_year = ? AND summary_month = ?')
-    .get(year, month);
 
-  res.json({
-    title: `Monthly Climate Report - ${year}-${String(month).padStart(2, '0')}`,
-    summary,
-    generatedAt: DateTime.utc().toISO()
-  });
+  if (!Number.isInteger(year) || !Number.isInteger(month) || month < 1 || month > 12) {
+    res.status(400).json({ message: 'Invalid year or month query parameter' });
+    return;
+  }
+
+  const report = getMonthlyClimateReport(year, month);
+  if (!report) {
+    res.status(404).json({ message: 'Monthly report not found for requested period' });
+    return;
+  }
+
+  res.json(report);
 });
 
 routes.get('/api/reports/annual', (req, res) => {
   const year = Number(req.query.year ?? DateTime.now().year);
-  const summary = db.prepare('SELECT * FROM annual_summary WHERE summary_year = ?').get(year);
 
-  res.json({
-    title: `Annual Climate Report - ${year}`,
-    summary,
-    generatedAt: DateTime.utc().toISO()
-  });
+  if (!Number.isInteger(year)) {
+    res.status(400).json({ message: 'Invalid year query parameter' });
+    return;
+  }
+
+  const report = getAnnualClimateReport(year);
+  if (!report) {
+    res.status(404).json({ message: 'Annual report not found for requested year' });
+    return;
+  }
+
+  res.json(report);
 });
 
 routes.get('/api/climate/analytics/year-comparison', (_req, res) => {
@@ -496,13 +507,38 @@ routes.get('/api/climate/analytics/extremes', (req, res) => {
 routes.get('/api/exports/:dataset', (req, res) => {
   const dataset = req.params.dataset;
   const format = String(req.query.format ?? 'json').toLowerCase();
-  const rows = fetchDataset(dataset);
 
-  if (format === 'csv') {
-    res.header('content-type', 'text/csv; charset=utf-8');
-    res.send(toCsv(rows));
-    return;
+  try {
+    const rows = fetchDataset(dataset);
+
+    if (format === 'json') {
+      res.json(rows);
+      return;
+    }
+
+    if (format === 'csv') {
+      res.header('content-type', 'text/csv; charset=utf-8');
+      res.attachment(`${dataset}.csv`);
+      res.send(toCsv(rows));
+      return;
+    }
+
+    if (format === 'excel' || format === 'xlsx') {
+      res.header('content-type', 'application/vnd.ms-excel; charset=utf-8');
+      res.attachment(`${dataset}.xls`);
+      res.send(toExcelXml(rows));
+      return;
+    }
+
+    if (format === 'pdf') {
+      res.header('content-type', 'application/pdf');
+      res.attachment(`${dataset}.pdf`);
+      res.send(toPdf(rows, `WakefieldStation ${dataset} export`));
+      return;
+    }
+
+    res.status(400).json({ message: 'Unsupported export format. Use json, csv, excel, xlsx, or pdf.' });
+  } catch (error) {
+    res.status(400).json({ message: error instanceof Error ? error.message : 'Export failed' });
   }
-
-  res.json(rows);
 });

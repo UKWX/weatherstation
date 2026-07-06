@@ -60,7 +60,7 @@ cd /home/runner/work/WakefieldStation/WakefieldStation/frontend && npm run dev
 - Archives: `/api/archive/daily|monthly|annual`
 - Climate analytics: `/api/climate/*`
 - Reports: `/api/reports/daily|monthly|annual`
-- Exports: `/api/exports/:dataset?format=json|csv`
+- Exports: `/api/exports/:dataset?format=json|csv|excel|xlsx|pdf`
 
 ## Quality checks
 

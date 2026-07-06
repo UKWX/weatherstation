@@ -2,6 +2,8 @@ import { NavLink, Route, Routes } from 'react-router-dom';
 import { DashboardPage } from './pages/DashboardPage';
 import { ClimateAnalyticsPage } from './pages/ClimateAnalyticsPage';
 import { SectionPage } from './pages/SectionPage';
+import { ReportsPage } from './pages/ReportsPage';
+import { ExportsPage } from './pages/ExportsPage';
 import { navigation } from './data/navigation';
 import './styles.css';
 
@@ -21,9 +23,7 @@ const routeMap = [
   { path: '/climate/this-day', title: 'This Day In History', description: 'Historical archive for the same day across all years.' },
   { path: '/lightning', title: 'Lightning', description: 'Lightning event statistics and temporal summaries.' },
   { path: '/snow', title: 'Snow Archive', description: 'Snowfall and snow depth climatology archive.' },
-  { path: '/reports', title: 'Reports', description: 'Automated climate reports for daily, monthly, and annual cycles.' },
   { path: '/import', title: 'Data Import', description: 'Import controls for raw and historical climate datasets.' },
-  { path: '/exports', title: 'Exports', description: 'Structured data exports in CSV and JSON formats.' },
   { path: '/settings', title: 'Settings', description: 'Station metadata, processing, timezone, and retention settings.' }
 ];
 
@@ -124,6 +124,8 @@ function App() {
         <Routes>
           <Route path="/" element={<DashboardPage />} />
           <Route path="/climate/analytics" element={<ClimateAnalyticsPage />} />
+          <Route path="/reports" element={<ReportsPage />} />
+          <Route path="/exports" element={<ExportsPage />} />
           {routeMap.map((route) => (
             <Route
               key={route.path}

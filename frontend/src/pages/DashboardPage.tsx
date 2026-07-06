@@ -81,10 +81,12 @@ const temperatureScale = [
 const rainfallScale = ['#dbeafe', '#93c5fd', '#3b82f6', '#1d4ed8'];
 const windScale = ['#dcfce7', '#86efac', '#22c55e', '#15803d'];
 const lightningScale = ['#fef3c7', '#fb923c', '#a855f7'];
+const CHART_MUTED = 'var(--muted)';
+const PRESSURE_DOMAIN_PADDING = 4;
 const pressureValues = signalSeries.map(({ pressure }) => pressure);
 const pressureDomain: [number, number] = [
-  Math.min(...pressureValues) - 4,
-  Math.max(...pressureValues) + 4
+  Math.min(...pressureValues) - PRESSURE_DOMAIN_PADDING,
+  Math.max(...pressureValues) + PRESSURE_DOMAIN_PADDING
 ];
 
 function getRainColor(rainfall: number) {
@@ -298,9 +300,9 @@ export const DashboardPage = () => (
             <ResponsiveContainer width="100%" height={280}>
               <ComposedChart data={signalSeries}>
                 <CartesianGrid strokeDasharray="4 4" stroke="#dbe6fb" />
-                <XAxis dataKey="hour" stroke="#6b7a99" />
-                <YAxis yAxisId="gust" stroke="#6b7a99" unit=" mph" />
-                <YAxis yAxisId="pressure" orientation="right" stroke="#6b7a99" unit=" hPa" domain={pressureDomain} />
+                <XAxis dataKey="hour" stroke={CHART_MUTED} />
+                <YAxis yAxisId="gust" stroke={CHART_MUTED} unit=" mph" />
+                <YAxis yAxisId="pressure" orientation="right" stroke={CHART_MUTED} unit=" hPa" domain={pressureDomain} />
                 <Tooltip />
                 <Legend />
                 <Bar yAxisId="gust" dataKey="gust" fill="#22c55e" radius={[8, 8, 0, 0]} />

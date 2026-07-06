@@ -15,7 +15,7 @@ export const PanelCard = ({ title, subtitle, action, className, children }: Pane
         <h3>{title}</h3>
         {subtitle ? <p>{subtitle}</p> : null}
       </div>
-      {action ? action : null}
+      {action}
     </header>
     <div className="panel-card__content">{children}</div>
   </section>

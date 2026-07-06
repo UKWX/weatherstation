@@ -22,13 +22,6 @@ type OverviewPayload = {
   } | null;
 };
 
-type RefreshStatus = {
-  fetchedAt?: string;
-  imported?: number;
-  duplicates?: number;
-  rejected?: number;
-};
-
 const REFRESH_INTERVAL_MS = 60_000;
 
 const formatNumber = (value: number | null | undefined, suffix: string) =>
@@ -36,28 +29,20 @@ const formatNumber = (value: number | null | undefined, suffix: string) =>
 
 export const LiveConditionsPage = () => {
   const [overview, setOverview] = useState<OverviewPayload | null>(null);
-  const [refreshStatus, setRefreshStatus] = useState<RefreshStatus | null>(null);
   const [statusMessage, setStatusMessage] = useState('Loading live data…');
   const [statusIsError, setStatusIsError] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<string | null>(null);
 
   const refreshLiveData = useCallback(async () => {
     try {
-      const importResponse = await fetch('/api/import/raw/wunderground', { method: 'POST' });
-      if (!importResponse.ok) {
-        throw new Error(`Weather import failed (${importResponse.status})`);
-      }
-      const importPayload = (await importResponse.json()) as RefreshStatus;
-
       const overviewResponse = await fetch('/api/dashboard/overview');
       if (!overviewResponse.ok) {
         throw new Error(`Overview request failed (${overviewResponse.status})`);
       }
-
       const overviewPayload = (await overviewResponse.json()) as OverviewPayload;
       setOverview(overviewPayload);
-      setRefreshStatus(importPayload);
-      setStatusMessage('Live observations are refreshing every 60 seconds.');
+      setOverview(overviewPayload);
+      setStatusMessage('Live observations are updating every 60 seconds.');
       setStatusIsError(false);
       setLastUpdated(new Date().toLocaleTimeString('en-GB'));
     } catch (error) {
@@ -101,7 +86,7 @@ export const LiveConditionsPage = () => {
       <section className="dashboard-feature-grid live-info-grid">
         <PanelCard
           title="Live feed status"
-          subtitle="Weather API ingestion runs every 60 seconds without GitHub Actions."
+          subtitle="Server-side Weather API ingestion runs every 60 seconds."
           action={<span className="panel-badge">Last refresh {lastUpdated ?? '—'}</span>}
         >
           <ul className="status-list status-list--stacked live-status-list">
@@ -114,12 +99,12 @@ export const LiveConditionsPage = () => {
               <strong className={statusIsError ? undefined : 'ok'}>{statusMessage}</strong>
             </li>
             <li>
-              <span>Imported rows</span>
-              <strong>{refreshStatus?.imported ?? '—'}</strong>
+              <span>Current observation time</span>
+              <strong>{live?.timestamp_local ?? '—'}</strong>
             </li>
             <li>
-              <span>Duplicate rows</span>
-              <strong>{refreshStatus?.duplicates ?? '—'}</strong>
+              <span>Data source</span>
+              <strong>Weather Underground API</strong>
             </li>
           </ul>
         </PanelCard>

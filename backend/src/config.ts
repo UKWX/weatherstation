@@ -13,6 +13,7 @@ export const config = {
   weatherApiKey: process.env.WEATHER_API_KEY ?? '',
   weatherApiEndpoint:
     process.env.WEATHER_API_ENDPOINT ?? 'https://api.weather.com/v2/pws/observations/current',
+  weatherFetchCron: process.env.WEATHER_FETCH_CRON ?? '* * * * *',
   temperatureHistoryStartYear: Number(process.env.TEMPERATURE_HISTORY_START_YEAR ?? 1995),
   rainfallHistoryStartYear: Number(process.env.RAINFALL_HISTORY_START_YEAR ?? 2020),
   timezone: process.env.TIMEZONE ?? 'Europe/London',

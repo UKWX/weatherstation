@@ -8,8 +8,23 @@ import {
   computeMonthlySummary
 } from '../services/processingService';
 import { rebuildAnomalies, rebuildRankings, rebuildRecords } from '../services/analyticsService';
+import { fetchLatestWeatherObservation } from '../services/weatherDataFetcher';
 
 export const startScheduler = (): void => {
+  cron.schedule(
+    '*/5 * * * *',
+    () => {
+      fetchLatestWeatherObservation().catch((error) => {
+        console.error(
+          `Weather fetch failed: ${error instanceof Error ? error.message : 'Unknown error'}`
+        );
+      });
+    },
+    {
+      timezone: config.timezone
+    }
+  );
+
   cron.schedule(
     '5 0 * * *',
     () => {

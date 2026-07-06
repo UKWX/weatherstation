@@ -12,9 +12,12 @@ import {
 import { fetchDataset, toCsv } from './services/exportService';
 import {
   ingestPrecipitationHistory,
+  ingestPrecipitationSpreadsheet,
   ingestRawObservations,
-  ingestTemperatureHistory
+  ingestTemperatureHistory,
+  ingestTemperatureSpreadsheet
 } from './services/ingestionService';
+import { fetchLatestWeatherObservation } from './services/weatherDataFetcher';
 import {
   computeAnnualSummary,
   computeClimateNormals,
@@ -52,15 +55,46 @@ routes.post('/api/import/raw', (req, res) => {
   res.json(result);
 });
 
+routes.post('/api/import/raw/wunderground', async (_req, res) => {
+  try {
+    const result = await fetchLatestWeatherObservation();
+    res.json(result);
+  } catch (error) {
+    res.status(400).json({
+      message: error instanceof Error ? error.message : 'Failed to fetch weather observations'
+    });
+  }
+});
+
 routes.post('/api/import/historical/temperature', (req, res) => {
   const rows = Array.isArray(req.body?.rows) ? req.body.rows : [];
   const result = ingestTemperatureHistory(rows);
   res.json(result);
 });
 
+routes.post('/api/import/historical/temperature/spreadsheet', (req, res) => {
+  const rows = Array.isArray(req.body?.rows) ? req.body.rows : [];
+  const result = ingestTemperatureSpreadsheet({
+    rows,
+    source: req.body?.source
+  });
+  res.json(result);
+});
+
 routes.post('/api/import/historical/precipitation', (req, res) => {
   const rows = Array.isArray(req.body?.rows) ? req.body.rows : [];
   const result = ingestPrecipitationHistory(rows);
+  res.json(result);
+});
+
+routes.post('/api/import/historical/precipitation/spreadsheet', (req, res) => {
+  const rows = Array.isArray(req.body?.rows) ? req.body.rows : [];
+  const year = Number(req.body?.year);
+  const result = ingestPrecipitationSpreadsheet({
+    rows,
+    year,
+    source: req.body?.source
+  });
   res.json(result);
 });
 

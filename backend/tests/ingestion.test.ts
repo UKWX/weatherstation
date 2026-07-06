@@ -1,12 +1,17 @@
 import { describe, expect, it } from 'vitest';
 import { db } from '../src/db/connection';
 import '../src/db/migrate';
-import { ingestRawObservations } from '../src/services/ingestionService';
+import {
+  ingestPrecipitationSpreadsheet,
+  ingestRawObservations,
+  ingestTemperatureSpreadsheet
+} from '../src/services/ingestionService';
 import { computeDailySummary } from '../src/services/processingService';
 
 describe('ingestion and reproducibility', () => {
   it('prevents duplicate raw observations', () => {
     const timestamp = `2025-05-17T12:00:${String(Math.floor(Math.random() * 50) + 10).padStart(2, '0')}Z`;
+    db.prepare('DELETE FROM raw_observations WHERE timestamp_utc = ?').run(timestamp);
     const rows = [
       {
         timestamp_utc: timestamp,
@@ -52,5 +57,57 @@ describe('ingestion and reproducibility', () => {
       .get(day);
 
     expect(second).toEqual(first);
+  });
+
+  it('imports historical temperatures from spreadsheet matrix format', () => {
+    const baseYear = 2032;
+    db.prepare('DELETE FROM temperature_history WHERE observed_date BETWEEN ? AND ?').run(
+      `${baseYear}-01-01`,
+      `${baseYear + 1}-12-31`
+    );
+
+    const result = ingestTemperatureSpreadsheet({
+      rows: [
+        ['', baseYear, baseYear + 1],
+        ['01 Jan', 5.1, 4.3],
+        ['31 Feb', 7.2, 8.1],
+        ['02 Jan', '', 3.8]
+      ],
+      source: 'unit-test'
+    });
+
+    expect(result.imported).toBe(3);
+    expect(result.report.missingData).toBe(1);
+    expect(
+      result.issues.some(
+        (issue) => issue.message.includes('Invalid date') && issue.message.includes('-02-31')
+      )
+    ).toBe(true);
+    const impossibleDateRows = db
+      .prepare('SELECT count(*) as count FROM temperature_history WHERE observed_date IN (?, ?)')
+      .get(`${baseYear}-02-31`, `${baseYear + 1}-02-31`) as { count: number };
+    expect(impossibleDateRows.count).toBe(0);
+  });
+
+  it('imports rainfall spreadsheets and rejects impossible dates', () => {
+    const uniqueYear = 2024;
+    db.prepare('DELETE FROM precipitation_history WHERE observed_date BETWEEN ? AND ?').run(
+      `${uniqueYear}-01-01`,
+      `${uniqueYear}-12-31`
+    );
+
+    const result = ingestPrecipitationSpreadsheet({
+      rows: [
+        ['', 'Jan', 'Feb'],
+        [30, 1.1, 0.2],
+        [31, 2.4, 0.5]
+      ],
+      year: uniqueYear,
+      source: 'unit-test'
+    });
+
+    expect(result.imported).toBe(2);
+    expect(result.issues.some((issue) => issue.message.includes('Invalid date'))).toBe(true);
+    expect(result.report.dateRange.start).toContain(`${uniqueYear}-01`);
   });
 });

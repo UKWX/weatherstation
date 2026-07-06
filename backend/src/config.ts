@@ -3,9 +3,18 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 
+const weatherStationId = process.env.WEATHER_STATION_ID ?? '';
+const stationId = process.env.STATION_ID ?? (weatherStationId || 'UKWX');
+
 export const config = {
   port: Number(process.env.PORT ?? 4000),
-  stationId: process.env.STATION_ID ?? 'UKWX',
+  stationId,
+  weatherStationId,
+  weatherApiKey: process.env.WEATHER_API_KEY ?? '',
+  weatherApiEndpoint:
+    process.env.WEATHER_API_ENDPOINT ?? 'https://api.weather.com/v2/pws/observations/current',
+  temperatureHistoryStartYear: Number(process.env.TEMPERATURE_HISTORY_START_YEAR ?? 1995),
+  rainfallHistoryStartYear: Number(process.env.RAINFALL_HISTORY_START_YEAR ?? 2020),
   timezone: process.env.TIMEZONE ?? 'Europe/London',
   dbPath:
     process.env.DB_PATH ??

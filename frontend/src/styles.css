@@ -843,7 +843,7 @@ th {
   background: rgba(241, 245, 249, 0.92);
 }
 
-.year-btn.current-year {
+.year-btn.active-year {
   background: rgba(254, 226, 226, 0.92);
   color: #b91c1c;
 }

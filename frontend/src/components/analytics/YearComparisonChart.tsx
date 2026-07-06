@@ -156,7 +156,7 @@ export const YearComparisonChart = ({ monthly, monthlyAverages, currentYear }: P
         </button>
         {years.includes(currentYear) && (
           <button
-            className={`year-btn current-year${hiddenKeys.has(String(currentYear)) ? ' dimmed' : ''}`}
+            className={`year-btn active-year${hiddenKeys.has(String(currentYear)) ? ' dimmed' : ''}`}
             onClick={() => toggleKey(String(currentYear))}
           >
             {currentYear} ★

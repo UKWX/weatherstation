@@ -81,6 +81,11 @@ const temperatureScale = [
 const rainfallScale = ['#dbeafe', '#93c5fd', '#3b82f6', '#1d4ed8'];
 const windScale = ['#dcfce7', '#86efac', '#22c55e', '#15803d'];
 const lightningScale = ['#fef3c7', '#fb923c', '#a855f7'];
+const pressureValues = signalSeries.map(({ pressure }) => pressure);
+const pressureDomain: [number, number] = [
+  Math.min(...pressureValues) - 4,
+  Math.max(...pressureValues) + 4
+];
 
 function getRainColor(rainfall: number) {
   if (rainfall <= 1) return rainfallScale[0];
@@ -112,7 +117,7 @@ export const DashboardPage = () => (
         label="Wind"
         value="19.6 mph"
         trend="Gust 31.2 mph WNW"
-        detail="Adjusted 43.7 mph"
+        detail="Site-adjusted 43.7 mph"
         tone="wind"
         icon="↗"
       />
@@ -295,7 +300,7 @@ export const DashboardPage = () => (
                 <CartesianGrid strokeDasharray="4 4" stroke="#dbe6fb" />
                 <XAxis dataKey="hour" stroke="#6b7a99" />
                 <YAxis yAxisId="gust" stroke="#6b7a99" unit=" mph" />
-                <YAxis yAxisId="pressure" orientation="right" stroke="#6b7a99" unit=" hPa" domain={[1000, 1022]} />
+                <YAxis yAxisId="pressure" orientation="right" stroke="#6b7a99" unit=" hPa" domain={pressureDomain} />
                 <Tooltip />
                 <Legend />
                 <Bar yAxisId="gust" dataKey="gust" fill="#22c55e" radius={[8, 8, 0, 0]} />

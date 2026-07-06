@@ -1,7 +1,7 @@
 import { DateTime } from 'luxon';
 import { db } from '../db/connection';
 import { config } from '../config';
-import { getLightningClimatologySummary, THUNDER_DAY_SQL } from './lightningClimatologyService';
+import { getLightningClimatologySummary, LIGHTNING_COUNT_SQL, THUNDER_DAY_SQL } from './lightningClimatologyService';
 
 const CALC_VERSION = 'v3';
 const ADJUSTED_GUST_FACTOR = 1.4;
@@ -237,7 +237,7 @@ export const computeMonthlySummary = (year: number, month: number): void => {
   db.prepare(
     `INSERT INTO monthly_summary(
       station_id, summary_year, summary_month, mean_temp, total_rainfall, max_temp,
-      min_temp, max_gust, total_lightning_days, observation_days, calc_version, generated_at
+      min_temp, max_gust, total_lightning_days, total_lightning_count, observation_days, calc_version, generated_at
     )
     SELECT
       station_id,
@@ -249,6 +249,7 @@ export const computeMonthlySummary = (year: number, month: number): void => {
       min(min_temp),
       max(max_gust),
       sum(CASE WHEN ${THUNDER_DAY_SQL} > 0 THEN 1 ELSE 0 END),
+      sum(COALESCE(${LIGHTNING_COUNT_SQL}, 0)),
       count(*),
       ?,
       datetime('now')
@@ -264,6 +265,7 @@ export const computeMonthlySummary = (year: number, month: number): void => {
       min_temp=excluded.min_temp,
       max_gust=excluded.max_gust,
       total_lightning_days=excluded.total_lightning_days,
+      total_lightning_count=excluded.total_lightning_count,
       observation_days=excluded.observation_days,
       calc_version=excluded.calc_version,
       generated_at=excluded.generated_at`
@@ -274,7 +276,7 @@ export const computeAnnualSummary = (year: number): void => {
   db.prepare(
     `INSERT INTO annual_summary(
       station_id, summary_year, mean_temp, total_rainfall, highest_temp,
-      lowest_temp, max_gust, thunder_days, valid_days, calc_version, generated_at
+      lowest_temp, max_gust, thunder_days, total_lightning_count, valid_days, calc_version, generated_at
     )
     SELECT
       station_id,
@@ -285,6 +287,7 @@ export const computeAnnualSummary = (year: number): void => {
       min(min_temp),
       max(max_gust),
       sum(CASE WHEN ${THUNDER_DAY_SQL} > 0 THEN 1 ELSE 0 END),
+      sum(COALESCE(${LIGHTNING_COUNT_SQL}, 0)),
       count(*),
       ?,
       datetime('now')
@@ -299,6 +302,7 @@ export const computeAnnualSummary = (year: number): void => {
       lowest_temp=excluded.lowest_temp,
       max_gust=excluded.max_gust,
       thunder_days=excluded.thunder_days,
+      total_lightning_count=excluded.total_lightning_count,
       valid_days=excluded.valid_days,
       calc_version=excluded.calc_version,
       generated_at=excluded.generated_at`
@@ -308,6 +312,7 @@ export const computeAnnualSummary = (year: number): void => {
 export const computeClimateNormals = (): void => {
   db.prepare('DELETE FROM climate_normals WHERE station_id = ?').run(config.stationId);
 
+  // Monthly normals
   db.prepare(
     `INSERT INTO climate_normals(
       station_id, normal_type, month, day_of_month, variable, value,
@@ -337,34 +342,50 @@ export const computeClimateNormals = (): void => {
     config.climateBaselineEnd
   );
 
-  db.prepare(
-    `INSERT INTO climate_normals(
-      station_id, normal_type, month, day_of_month, variable, value,
-      baseline_start_year, baseline_end_year, calc_version, generated_at
-    )
-    SELECT
-      station_id,
-      'daily',
-      CAST(strftime('%m', summary_date) AS INTEGER),
-      CAST(strftime('%d', summary_date) AS INTEGER),
-      'mean_temp',
-      avg(mean_temp),
-      ?,
-      ?,
-      ?,
-      datetime('now')
-    FROM daily_summary
-    WHERE station_id = ?
-      AND CAST(strftime('%Y', summary_date) AS INTEGER) BETWEEN ? AND ?
-    GROUP BY station_id, strftime('%m', summary_date), strftime('%d', summary_date)`
-  ).run(
-    config.climateBaselineStart,
-    config.climateBaselineEnd,
-    CALC_VERSION,
-    config.stationId,
-    config.climateBaselineStart,
-    config.climateBaselineEnd
-  );
+  // Daily normals — one INSERT per variable to keep queries readable
+  const dailyVariables: Array<{ variable: string; expr: string }> = [
+    { variable: 'mean_temp',            expr: 'avg(mean_temp)' },
+    { variable: 'avg_max_temp',         expr: 'avg(max_temp)' },
+    { variable: 'avg_min_temp',         expr: 'avg(min_temp)' },
+    { variable: 'record_high',          expr: 'max(max_temp)' },
+    { variable: 'record_low',           expr: 'min(min_temp)' },
+    { variable: 'avg_rainfall',         expr: 'avg(COALESCE(rainfall_total, 0))' },
+    { variable: 'max_rainfall',         expr: 'max(COALESCE(rainfall_total, 0))' },
+    { variable: 'avg_lightning_count',  expr: `avg(COALESCE(${LIGHTNING_COUNT_SQL}, 0))` },
+    { variable: 'avg_thunder_days',     expr: `avg(CASE WHEN ${THUNDER_DAY_SQL} > 0 THEN 1.0 ELSE 0.0 END)` },
+  ];
+
+  for (const { variable, expr } of dailyVariables) {
+    db.prepare(
+      `INSERT INTO climate_normals(
+        station_id, normal_type, month, day_of_month, variable, value,
+        baseline_start_year, baseline_end_year, calc_version, generated_at
+      )
+      SELECT
+        station_id,
+        'daily',
+        CAST(strftime('%m', summary_date) AS INTEGER),
+        CAST(strftime('%d', summary_date) AS INTEGER),
+        ?,
+        ${expr},
+        ?,
+        ?,
+        ?,
+        datetime('now')
+      FROM daily_summary
+      WHERE station_id = ?
+        AND CAST(strftime('%Y', summary_date) AS INTEGER) BETWEEN ? AND ?
+      GROUP BY station_id, strftime('%m', summary_date), strftime('%d', summary_date)`
+    ).run(
+      variable,
+      config.climateBaselineStart,
+      config.climateBaselineEnd,
+      CALC_VERSION,
+      config.stationId,
+      config.climateBaselineStart,
+      config.climateBaselineEnd
+    );
+  }
 };
 
 export const rebuildDerivedFromRaw = (startDate: string, endDate: string): void => {

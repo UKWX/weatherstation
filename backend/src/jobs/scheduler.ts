@@ -26,7 +26,7 @@ export const startScheduler = (): void => {
   );
 
   cron.schedule(
-    '5 0 * * *',
+    '5 18 * * *',
     () => {
       const now = DateTime.now().setZone(config.timezone).minus({ days: 1 });
       const day = now.toISODate();

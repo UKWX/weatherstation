@@ -10,8 +10,10 @@ import { computeDailySummary } from '../src/services/processingService';
 
 describe('ingestion and reproducibility', () => {
   it('prevents duplicate raw observations', () => {
-    const timestamp = `2025-05-17T12:00:${String(Math.floor(Math.random() * 50) + 10).padStart(2, '0')}Z`;
-    db.prepare('DELETE FROM raw_observations WHERE timestamp_utc = ?').run(timestamp);
+    const now = Date.now();
+    const minute = String(Math.floor((now / 60000) % 60)).padStart(2, '0');
+    const second = String(Math.floor((now / 1000) % 60)).padStart(2, '0');
+    const timestamp = `2037-05-17T12:${minute}:${second}Z`;
     const rows = [
       {
         timestamp_utc: timestamp,

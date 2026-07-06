@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { DateTime } from 'luxon';
 import { db } from './db/connection';
+import { config } from './config';
 import {
   getClimateCalendar,
   getThisDayInHistory,
@@ -27,6 +28,26 @@ import {
 } from './services/processingService';
 
 export const routes = Router();
+
+type DailySummaryRow = {
+  max_temp: number | null;
+  max_temp_time_local: string | null;
+  min_temp: number | null;
+  min_temp_time_local: string | null;
+  mean_temp: number | null;
+  temp_range: number | null;
+  rainfall_total: number | null;
+  rain_day: number | null;
+  max_wind_speed: number | null;
+  max_raw_gust: number | null;
+  max_adjusted_gust: number | null;
+  max_pressure: number | null;
+  min_pressure: number | null;
+  mean_pressure: number | null;
+  max_humidity: number | null;
+  min_humidity: number | null;
+  mean_humidity: number | null;
+};
 
 routes.get('/health', (_req, res) => {
   res.json({ ok: true, timestamp: DateTime.utc().toISO() });
@@ -99,7 +120,8 @@ routes.post('/api/import/historical/precipitation/spreadsheet', (req, res) => {
 });
 
 routes.post('/api/process/daily', (req, res) => {
-  const date = req.body?.date ?? DateTime.now().minus({ days: 1 }).toISODate();
+  const date =
+    req.body?.date ?? DateTime.now().setZone(config.timezone).minus({ days: 1 }).toISODate();
   if (!date) {
     res.status(400).json({ message: 'date is required' });
     return;
@@ -163,9 +185,89 @@ routes.get('/api/dashboard/overview', (_req, res) => {
 });
 
 routes.get('/api/archive/daily', (req, res) => {
-  const date = String(req.query.date ?? DateTime.now().toISODate());
-  const row = db.prepare('SELECT * FROM daily_summary WHERE summary_date = ?').get(date);
-  res.json({ date, row });
+  const date = String(req.query.date ?? DateTime.now().setZone(config.timezone).toISODate());
+  const row = db.prepare('SELECT * FROM daily_summary WHERE summary_date = ?').get(date) as
+    | DailySummaryRow
+    | undefined;
+  const dayStart = DateTime.fromISO(date, { zone: config.timezone }).startOf('day');
+  const dayEnd = dayStart.plus({ days: 1 });
+  const dayStartUtc = dayStart.toUTC().toISO({ suppressMilliseconds: true });
+  const dayEndUtc = dayEnd.toUTC().toISO({ suppressMilliseconds: true });
+  const lightning = db
+    .prepare(
+      `SELECT count(*) as strike_count,
+              max(intensity) as peak_intensity
+       FROM lightning_events
+       WHERE station_id = ?
+         AND event_time_utc >= ?
+         AND event_time_utc < ?`
+    )
+    .get(config.stationId, dayStartUtc, dayEndUtc);
+  const graphs = db
+    .prepare(
+      `SELECT summary_date, mean_temp, rainfall_total, max_adjusted_gust, mean_pressure, mean_humidity
+       FROM daily_summary
+       WHERE summary_date <= ?
+       ORDER BY summary_date DESC
+       LIMIT 30`
+    )
+    .all(date);
+  const climateComparison = db
+    .prepare(
+      `SELECT variable, observed_value, baseline_value, anomaly_value, anomaly_percent
+       FROM anomalies
+       WHERE period_type = 'daily' AND period_key = ?
+       ORDER BY variable`
+    )
+    .all(date);
+
+  res.json({
+    date,
+    row,
+    page: {
+      date,
+      temperature: row
+        ? {
+            max: row.max_temp,
+            maxTime: row.max_temp_time_local,
+            min: row.min_temp,
+            minTime: row.min_temp_time_local,
+            mean: row.mean_temp,
+            range: row.temp_range
+          }
+        : null,
+      rainfall: row
+        ? {
+            total: row.rainfall_total,
+            rainDay: Boolean(row.rain_day)
+          }
+        : null,
+      wind: row
+        ? {
+            maxWindSpeed: row.max_wind_speed,
+            maxRawGust: row.max_raw_gust,
+            maxAdjustedGust: row.max_adjusted_gust
+          }
+        : null,
+      pressure: row
+        ? {
+            max: row.max_pressure,
+            min: row.min_pressure,
+            mean: row.mean_pressure
+          }
+        : null,
+      humidity: row
+        ? {
+            max: row.max_humidity,
+            min: row.min_humidity,
+            mean: row.mean_humidity
+          }
+        : null,
+      lightning,
+      graphs,
+      climateComparison
+    }
+  });
 });
 
 routes.get('/api/archive/monthly', (req, res) => {
@@ -293,7 +395,7 @@ routes.get('/api/snow', (_req, res) => {
 });
 
 routes.get('/api/reports/daily', (req, res) => {
-  const date = String(req.query.date ?? DateTime.now().toISODate());
+  const date = String(req.query.date ?? DateTime.now().setZone(config.timezone).toISODate());
   const summary = db.prepare('SELECT * FROM daily_summary WHERE summary_date = ?').get(date);
   const anomalies = db
     .prepare(

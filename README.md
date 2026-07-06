@@ -4,7 +4,7 @@ Professional personal weather station climatology archive platform with long-ter
 
 ## Project Structure
 
-- `/frontend` — React + TypeScript premium meteorological interface
+- `/` — React + TypeScript premium meteorological interface
 - `/backend` — Express + TypeScript API, ingestion pipeline, scheduler, and climate processing engine
 - `/backend/src/db/schema.sql` — relational schema for raw, historical, and derived climate layers
 
@@ -28,7 +28,7 @@ Professional personal weather station climatology archive platform with long-ter
 ### 1) Install dependencies
 
 ```bash
-cd /home/runner/work/WakefieldStation/WakefieldStation/frontend && npm install
+cd /home/runner/work/WakefieldStation/WakefieldStation && npm install
 cd /home/runner/work/WakefieldStation/WakefieldStation/backend && npm install
 ```
 
@@ -50,7 +50,7 @@ cd /home/runner/work/WakefieldStation/WakefieldStation/backend && npm run migrat
 
 ```bash
 cd /home/runner/work/WakefieldStation/WakefieldStation/backend && npm run dev
-cd /home/runner/work/WakefieldStation/WakefieldStation/frontend && npm run dev
+cd /home/runner/work/WakefieldStation/WakefieldStation && npm run dev:frontend
 ```
 
 ## Core API Domains
@@ -66,5 +66,5 @@ cd /home/runner/work/WakefieldStation/WakefieldStation/frontend && npm run dev
 
 ```bash
 cd /home/runner/work/WakefieldStation/WakefieldStation/backend && npm run lint && npm run test && npm run build
-cd /home/runner/work/WakefieldStation/WakefieldStation/frontend && npm run lint && npm run build
+cd /home/runner/work/WakefieldStation/WakefieldStation && npm run lint:frontend && npm run build:frontend
 ```

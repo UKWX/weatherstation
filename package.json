@@ -2,15 +2,35 @@
   "name": "wakefieldstation",
   "private": true,
   "version": "0.1.0",
+  "type": "module",
   "workspaces": [
-    "frontend",
     "backend"
   ],
   "scripts": {
-    "dev": "npm run dev -w backend & npm run dev -w frontend",
-    "build": "npm run build -w backend && npm run build -w frontend",
-    "lint": "npm run lint -w backend && npm run lint -w frontend",
+    "dev": "npm run dev:backend & npm run dev:frontend",
+    "dev:backend": "npm run dev -w backend",
+    "dev:frontend": "vite",
+    "build": "npm run build -w backend && npm run build:frontend",
+    "build:frontend": "tsc -b && vite build",
+    "lint": "npm run lint -w backend && npm run lint:frontend",
+    "lint:frontend": "oxlint",
+    "preview": "vite preview",
     "test": "npm run test -w backend",
     "migrate": "npm run migrate -w backend"
+  },
+  "dependencies": {
+    "react": "^19.2.7",
+    "react-dom": "^19.2.7",
+    "react-router-dom": "^7.18.1",
+    "recharts": "^3.9.2"
+  },
+  "devDependencies": {
+    "@types/node": "^24.13.2",
+    "@types/react": "^19.2.17",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^6.0.3",
+    "oxlint": "^1.71.0",
+    "typescript": "~6.0.2",
+    "vite": "^8.1.1"
   }
 }

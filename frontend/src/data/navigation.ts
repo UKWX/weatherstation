@@ -27,6 +27,7 @@ export const navigation: NavGroup[] = [
       { label: 'Rankings', path: '/climate/rankings' },
       { label: 'Trends', path: '/climate/trends' },
       { label: 'Graphs & Analytics', path: '/climate/graphs' },
+      { label: 'Climate Analytics', path: '/climate/analytics' },
       { label: 'Year Comparisons', path: '/climate/year-comparisons' },
       { label: 'Climate Calendar', path: '/climate/calendar' },
       { label: 'This Day In History', path: '/climate/this-day' }

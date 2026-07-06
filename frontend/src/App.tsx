@@ -1,5 +1,6 @@
 import { NavLink, Route, Routes } from 'react-router-dom';
 import { DashboardPage } from './pages/DashboardPage';
+import { ClimateAnalyticsPage } from './pages/ClimateAnalyticsPage';
 import { SectionPage } from './pages/SectionPage';
 import { navigation } from './data/navigation';
 import './styles.css';
@@ -66,6 +67,7 @@ function App() {
 
         <Routes>
           <Route path="/" element={<DashboardPage />} />
+          <Route path="/climate/analytics" element={<ClimateAnalyticsPage />} />
           {routeMap.map((route) => (
             <Route
               key={route.path}

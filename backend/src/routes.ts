@@ -26,6 +26,13 @@ import {
   computeMonthlySummary,
   rebuildDerivedFromRaw
 } from './services/processingService';
+import {
+  getLightningClimatologyOverview,
+  getLightningClimatologySummary,
+  LIGHTNING_COUNT_SQL,
+  LIGHTNING_CLIMATOLOGY_RADIUS_KM,
+  THUNDER_DAY_SQL
+} from './services/lightningClimatologyService';
 
 export const routes = Router();
 
@@ -47,6 +54,9 @@ type DailySummaryRow = {
   max_humidity: number | null;
   min_humidity: number | null;
   mean_humidity: number | null;
+  lightning_strikes: number | null;
+  lightning_count: number | null;
+  thunder_day: number | null;
 };
 
 routes.get('/health', (_req, res) => {
@@ -191,21 +201,27 @@ routes.get('/api/archive/daily', (req, res) => {
     | undefined;
   const dayStart = DateTime.fromISO(date, { zone: config.timezone }).startOf('day');
   const dayEnd = dayStart.plus({ days: 1 });
-  const dayStartUtc = dayStart.toUTC().toISO({ suppressMilliseconds: true });
-  const dayEndUtc = dayEnd.toUTC().toISO({ suppressMilliseconds: true });
-  const lightning = db
-    .prepare(
-      `SELECT count(*) as strike_count,
-              max(intensity) as peak_intensity
-       FROM lightning_events
-       WHERE station_id = ?
-         AND event_time_utc >= ?
-         AND event_time_utc < ?`
-    )
-    .get(config.stationId, dayStartUtc, dayEndUtc);
+  if (!dayStart.isValid || !dayEnd.isValid) {
+    res.status(400).json({ message: 'Invalid date' });
+    return;
+  }
+  const dayStartUtc = dayStart.toUTC().toISO({ suppressMilliseconds: true })!;
+  const dayEndUtc = dayEnd.toUTC().toISO({ suppressMilliseconds: true })!;
+  const lightning = getLightningClimatologySummary(dayStartUtc, dayEndUtc);
+  const archiveRow = row
+    ? {
+       ...row,
+       // Keep the legacy field aligned with climatology-filtered counts for existing archive consumers.
+       lightning_strikes: lightning.lightning_count,
+       lightning_count: lightning.lightning_count,
+       thunder_day: lightning.thunder_day
+      }
+    : null;
   const graphs = db
     .prepare(
-      `SELECT summary_date, mean_temp, rainfall_total, max_adjusted_gust, mean_pressure, mean_humidity
+      `SELECT summary_date, mean_temp, rainfall_total, max_adjusted_gust, mean_pressure, mean_humidity,
+             ${LIGHTNING_COUNT_SQL} as lightning_count,
+             ${THUNDER_DAY_SQL} as thunder_day
        FROM daily_summary
        WHERE summary_date <= ?
        ORDER BY summary_date DESC
@@ -223,47 +239,50 @@ routes.get('/api/archive/daily', (req, res) => {
 
   res.json({
     date,
-    row,
+    row: archiveRow,
     page: {
       date,
-      temperature: row
+      temperature: archiveRow
         ? {
-            max: row.max_temp,
-            maxTime: row.max_temp_time_local,
-            min: row.min_temp,
-            minTime: row.min_temp_time_local,
-            mean: row.mean_temp,
-            range: row.temp_range
+            max: archiveRow.max_temp,
+            maxTime: archiveRow.max_temp_time_local,
+            min: archiveRow.min_temp,
+            minTime: archiveRow.min_temp_time_local,
+            mean: archiveRow.mean_temp,
+            range: archiveRow.temp_range
           }
         : null,
-      rainfall: row
+      rainfall: archiveRow
         ? {
-            total: row.rainfall_total,
-            rainDay: Boolean(row.rain_day)
+            total: archiveRow.rainfall_total,
+            rainDay: Boolean(archiveRow.rain_day)
           }
         : null,
-      wind: row
+      wind: archiveRow
         ? {
-            maxWindSpeed: row.max_wind_speed,
-            maxRawGust: row.max_raw_gust,
-            maxAdjustedGust: row.max_adjusted_gust
+            maxWindSpeed: archiveRow.max_wind_speed,
+            maxRawGust: archiveRow.max_raw_gust,
+            maxAdjustedGust: archiveRow.max_adjusted_gust
           }
         : null,
-      pressure: row
+      pressure: archiveRow
         ? {
-            max: row.max_pressure,
-            min: row.min_pressure,
-            mean: row.mean_pressure
+            max: archiveRow.max_pressure,
+            min: archiveRow.min_pressure,
+            mean: archiveRow.mean_pressure
           }
         : null,
-      humidity: row
+      humidity: archiveRow
         ? {
-            max: row.max_humidity,
-            min: row.min_humidity,
-            mean: row.mean_humidity
+            max: archiveRow.max_humidity,
+            min: archiveRow.min_humidity,
+            mean: archiveRow.mean_humidity
           }
         : null,
-      lightning,
+      lightning: {
+        ...lightning,
+        radius_km: LIGHTNING_CLIMATOLOGY_RADIUS_KM
+      },
       graphs,
       climateComparison
     }
@@ -332,7 +351,9 @@ routes.get('/api/climate/rankings', (_req, res) => {
 routes.get('/api/climate/trends', (_req, res) => {
   const trend = getTrend();
   const rows = db
-    .prepare('SELECT summary_year, mean_temp, total_rainfall FROM annual_summary ORDER BY summary_year')
+    .prepare(
+      'SELECT summary_year, mean_temp, total_rainfall, thunder_days FROM annual_summary ORDER BY summary_year'
+    )
     .all();
   res.json({ trend, rows });
 });
@@ -340,7 +361,9 @@ routes.get('/api/climate/trends', (_req, res) => {
 routes.get('/api/climate/graphs', (_req, res) => {
   const rows = db
     .prepare(
-      `SELECT summary_date, mean_temp, rainfall_total, max_gust
+      `SELECT summary_date, mean_temp, rainfall_total, max_gust,
+             ${LIGHTNING_COUNT_SQL} as lightning_count,
+             ${THUNDER_DAY_SQL} as thunder_day
        FROM daily_summary
        ORDER BY summary_date DESC LIMIT 365`
     )
@@ -351,7 +374,7 @@ routes.get('/api/climate/graphs', (_req, res) => {
 routes.get('/api/climate/year-comparisons', (_req, res) => {
   const rows = db
     .prepare(
-      `SELECT summary_year, mean_temp, total_rainfall, highest_temp, lowest_temp
+      `SELECT summary_year, mean_temp, total_rainfall, highest_temp, lowest_temp, thunder_days
        FROM annual_summary
        ORDER BY summary_year DESC`
     )
@@ -373,15 +396,7 @@ routes.get('/api/climate/this-day', (req, res) => {
 });
 
 routes.get('/api/lightning', (_req, res) => {
-  const summary = db
-    .prepare(
-      `SELECT count(*) as strike_count,
-              max(intensity) as peak_intensity,
-              max(distance_km) as furthest_distance
-       FROM lightning_events`
-    )
-    .get();
-  res.json(summary);
+  res.json(getLightningClimatologyOverview());
 });
 
 routes.get('/api/snow', (_req, res) => {

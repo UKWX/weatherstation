@@ -37,6 +37,8 @@ ensureColumn('daily_summary', 'max_pressure', 'REAL');
 ensureColumn('daily_summary', 'min_pressure', 'REAL');
 ensureColumn('daily_summary', 'max_humidity', 'REAL');
 ensureColumn('daily_summary', 'min_humidity', 'REAL');
+ensureColumn('daily_summary', 'lightning_count', 'INTEGER DEFAULT 0');
+ensureColumn('daily_summary', 'thunder_day', 'INTEGER DEFAULT 0');
 
 const hasVersion = db
   .prepare('SELECT COUNT(*) as count FROM schema_versions WHERE version = 1')
@@ -55,6 +57,16 @@ const hasVersion2 = db
 if (!hasVersion2.count) {
   db.prepare('INSERT INTO schema_versions(version, description) VALUES(2, ?)').run(
     'Daily climate summary enhancements for UK time windows'
+  );
+}
+
+const hasVersion3 = db
+  .prepare('SELECT COUNT(*) as count FROM schema_versions WHERE version = 3')
+  .get() as { count: number };
+
+if (!hasVersion3.count) {
+  db.prepare('INSERT INTO schema_versions(version, description) VALUES(3, ?)').run(
+    'Lightning climatology daily archive fields'
   );
 }
 

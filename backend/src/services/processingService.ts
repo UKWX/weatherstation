@@ -1,8 +1,9 @@
 import { DateTime } from 'luxon';
 import { db } from '../db/connection';
 import { config } from '../config';
+import { getLightningClimatologySummary, THUNDER_DAY_SQL } from './lightningClimatologyService';
 
-const CALC_VERSION = 'v2';
+const CALC_VERSION = 'v3';
 const ADJUSTED_GUST_FACTOR = 1.4;
 
 interface WindowBounds {
@@ -123,15 +124,7 @@ export const computeDailySummary = (summaryDate: string): void => {
       | { value: number; timestamp_local: string }
       | undefined;
 
-    const lightning = db
-      .prepare(
-        `SELECT count(*) as strike_count
-         FROM lightning_events
-         WHERE station_id = ?
-           AND event_time_utc >= ?
-           AND event_time_utc < ?`
-      )
-      .get(config.stationId, dailyWindow.startUtc, dailyWindow.endUtc) as { strike_count: number };
+    const lightning = getLightningClimatologySummary(dailyWindow.startUtc, dailyWindow.endUtc);
 
     const maxTemp = maxTempObservation?.value ?? null;
     const minTemp = minTempObservation?.value ?? null;
@@ -142,6 +135,7 @@ export const computeDailySummary = (summaryDate: string): void => {
     const maxAdjustedGust = maxRawGust !== null ? maxRawGust * ADJUSTED_GUST_FACTOR : null;
     // Keep legacy max_gust aligned with adjusted gust for existing monthly/annual/archive queries.
     const legacyMaxGust = maxAdjustedGust;
+    const legacyLightningStrikes = lightning.lightning_count;
 
     db.prepare(
       `INSERT INTO daily_summary(
@@ -155,7 +149,7 @@ export const computeDailySummary = (summaryDate: string): void => {
         avg_wind_speed,
         max_pressure, min_pressure, mean_pressure,
         max_humidity, min_humidity, mean_humidity,
-        lightning_strikes, observation_count,
+        lightning_strikes, lightning_count, thunder_day, observation_count,
         calc_version, generated_at
       ) VALUES(
         ?, ?,
@@ -168,7 +162,7 @@ export const computeDailySummary = (summaryDate: string): void => {
         ?,
         ?, ?, ?,
         ?, ?, ?,
-        ?, ?,
+        ?, ?, ?, ?,
         ?, datetime('now')
       )
       ON CONFLICT(station_id, summary_date) DO UPDATE SET
@@ -193,6 +187,8 @@ export const computeDailySummary = (summaryDate: string): void => {
         min_humidity=excluded.min_humidity,
         mean_humidity=excluded.mean_humidity,
         lightning_strikes=excluded.lightning_strikes,
+        lightning_count=excluded.lightning_count,
+        thunder_day=excluded.thunder_day,
         observation_count=excluded.observation_count,
         calc_version=excluded.calc_version,
         generated_at=excluded.generated_at`
@@ -219,7 +215,9 @@ export const computeDailySummary = (summaryDate: string): void => {
       dailyStats.max_humidity ?? null,
       dailyStats.min_humidity ?? null,
       dailyStats.mean_humidity ?? null,
-      lightning.strike_count,
+      legacyLightningStrikes,
+      lightning.lightning_count,
+      lightning.thunder_day,
       dailyStats.observation_count,
       CALC_VERSION
     );
@@ -250,7 +248,7 @@ export const computeMonthlySummary = (year: number, month: number): void => {
       max(max_temp),
       min(min_temp),
       max(max_gust),
-      sum(CASE WHEN lightning_strikes > 0 THEN 1 ELSE 0 END),
+      sum(CASE WHEN ${THUNDER_DAY_SQL} > 0 THEN 1 ELSE 0 END),
       count(*),
       ?,
       datetime('now')
@@ -286,7 +284,7 @@ export const computeAnnualSummary = (year: number): void => {
       max(max_temp),
       min(min_temp),
       max(max_gust),
-      sum(CASE WHEN lightning_strikes > 0 THEN 1 ELSE 0 END),
+      sum(CASE WHEN ${THUNDER_DAY_SQL} > 0 THEN 1 ELSE 0 END),
       count(*),
       ?,
       datetime('now')

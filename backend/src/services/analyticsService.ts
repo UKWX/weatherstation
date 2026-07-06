@@ -1,7 +1,8 @@
 import { db } from '../db/connection';
 import { config } from '../config';
+import { LIGHTNING_COUNT_SQL, THUNDER_DAY_SQL } from './lightningClimatologyService';
 
-const CALC_VERSION = 'v1';
+const CALC_VERSION = 'v2';
 
 export const rebuildRecords = (): void => {
   db.prepare('DELETE FROM records WHERE station_id = ?').run(config.stationId);
@@ -28,6 +29,31 @@ export const rebuildRecords = (): void => {
        (SELECT summary_date FROM daily_summary WHERE station_id = ? ORDER BY rainfall_total DESC LIMIT 1),
        'daily_summary', ?
      FROM daily_summary WHERE station_id = ?`
+  ).run(config.stationId, CALC_VERSION, config.stationId);
+
+  db.prepare(
+    `INSERT INTO records(station_id, period_type, variable, record_type, record_value, record_date, source_summary, calc_version)
+     SELECT station_id, 'daily', 'lightning_count', 'highest', max(${LIGHTNING_COUNT_SQL}),
+       (SELECT summary_date FROM daily_summary WHERE station_id = ? ORDER BY ${LIGHTNING_COUNT_SQL} DESC, summary_date ASC LIMIT 1),
+       'daily_summary', ?
+     FROM daily_summary WHERE station_id = ?`
+  ).run(config.stationId, CALC_VERSION, config.stationId);
+
+  // Prefer the earliest occurrence when values tie so record dates stay deterministic across rebuilds.
+  db.prepare(
+    `INSERT INTO records(station_id, period_type, variable, record_type, record_value, record_date, source_summary, calc_version)
+     SELECT station_id, 'monthly', 'thunder_days', 'highest', max(total_lightning_days),
+       (SELECT printf('%04d-%02d-01', summary_year, summary_month) FROM monthly_summary WHERE station_id = ? ORDER BY total_lightning_days DESC, summary_year ASC, summary_month ASC LIMIT 1),
+       'monthly_summary', ?
+     FROM monthly_summary WHERE station_id = ?`
+  ).run(config.stationId, CALC_VERSION, config.stationId);
+
+  db.prepare(
+    `INSERT INTO records(station_id, period_type, variable, record_type, record_value, record_date, source_summary, calc_version)
+     SELECT station_id, 'annual', 'thunder_days', 'highest', max(thunder_days),
+       (SELECT printf('%04d-01-01', summary_year) FROM annual_summary WHERE station_id = ? ORDER BY thunder_days DESC, summary_year ASC LIMIT 1),
+       'annual_summary', ?
+     FROM annual_summary WHERE station_id = ?`
   ).run(config.stationId, CALC_VERSION, config.stationId);
 };
 
@@ -125,7 +151,9 @@ export const getTrend = (): { slope: number; intercept: number } => {
 export const getThisDayInHistory = (month: number, day: number) =>
   db
     .prepare(
-      `SELECT summary_date, max_temp, min_temp, mean_temp, rainfall_total, max_gust, lightning_strikes
+      `SELECT summary_date, max_temp, min_temp, mean_temp, rainfall_total, max_gust,
+             ${LIGHTNING_COUNT_SQL} as lightning_count,
+             ${THUNDER_DAY_SQL} as thunder_day
        FROM daily_summary
        WHERE station_id = ?
          AND CAST(strftime('%m', summary_date) AS INTEGER) = ?
@@ -137,7 +165,9 @@ export const getThisDayInHistory = (month: number, day: number) =>
 export const getClimateCalendar = (year: number, month: number) =>
   db
     .prepare(
-      `SELECT summary_date, max_temp, min_temp, rainfall_total, max_gust
+      `SELECT summary_date, max_temp, min_temp, rainfall_total, max_gust,
+             ${LIGHTNING_COUNT_SQL} as lightning_count,
+             ${THUNDER_DAY_SQL} as thunder_day
        FROM daily_summary
        WHERE station_id = ?
          AND CAST(strftime('%Y', summary_date) AS INTEGER) = ?

@@ -135,6 +135,7 @@ export const computeDailySummary = (summaryDate: string): void => {
     const maxAdjustedGust = maxRawGust !== null ? maxRawGust * ADJUSTED_GUST_FACTOR : null;
     // Keep legacy max_gust aligned with adjusted gust for existing monthly/annual/archive queries.
     const legacyMaxGust = maxAdjustedGust;
+    const legacyLightningStrikes = lightning.lightning_count;
 
     db.prepare(
       `INSERT INTO daily_summary(
@@ -214,7 +215,7 @@ export const computeDailySummary = (summaryDate: string): void => {
       dailyStats.max_humidity ?? null,
       dailyStats.min_humidity ?? null,
       dailyStats.mean_humidity ?? null,
-      lightning.lightning_count,
+      legacyLightningStrikes,
       lightning.lightning_count,
       lightning.thunder_day,
       dailyStats.observation_count,

@@ -199,9 +199,17 @@ routes.get('/api/archive/daily', (req, res) => {
     | undefined;
   const dayStart = DateTime.fromISO(date, { zone: config.timezone }).startOf('day');
   const dayEnd = dayStart.plus({ days: 1 });
+  if (!dayStart.isValid || !dayEnd.isValid) {
+    res.status(400).json({ message: 'Invalid date' });
+    return;
+  }
   const dayStartUtc = dayStart.toUTC().toISO({ suppressMilliseconds: true });
   const dayEndUtc = dayEnd.toUTC().toISO({ suppressMilliseconds: true });
-  const lightning = getLightningClimatologySummary(dayStartUtc ?? '', dayEndUtc ?? '');
+  if (!dayStartUtc || !dayEndUtc) {
+    res.status(400).json({ message: 'Invalid date' });
+    return;
+  }
+  const lightning = getLightningClimatologySummary(dayStartUtc, dayEndUtc);
   const archiveRow = row
     ? {
        ...row,

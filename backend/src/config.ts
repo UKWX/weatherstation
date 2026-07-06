@@ -5,7 +5,11 @@ dotenv.config();
 
 export const config = {
   port: Number(process.env.PORT ?? 4000),
-  stationId: process.env.STATION_ID ?? 'UKWX',
+  stationId: process.env.WEATHER_STATION_ID ?? process.env.STATION_ID ?? 'UKWX',
+  weatherStationId: process.env.WEATHER_STATION_ID ?? process.env.STATION_ID ?? 'UKWX',
+  weatherApiKey: process.env.WEATHER_API_KEY ?? '',
+  weatherApiEndpoint:
+    process.env.WEATHER_API_ENDPOINT ?? 'https://api.weather.com/v2/pws/observations/current',
   timezone: process.env.TIMEZONE ?? 'Europe/London',
   dbPath:
     process.env.DB_PATH ??

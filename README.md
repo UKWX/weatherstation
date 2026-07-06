@@ -38,6 +38,8 @@ cd /home/runner/work/WakefieldStation/WakefieldStation/backend && npm install
 cp /home/runner/work/WakefieldStation/WakefieldStation/backend/.env.example /home/runner/work/WakefieldStation/WakefieldStation/backend/.env
 ```
 
+Set `WEATHER_API_KEY` and `WEATHER_STATION_ID` in `/home/runner/work/WakefieldStation/WakefieldStation/backend/.env` for Weather Underground ingestion.
+
 ### 3) Run migrations
 
 ```bash
@@ -53,7 +55,7 @@ cd /home/runner/work/WakefieldStation/WakefieldStation/frontend && npm run dev
 
 ## Core API Domains
 
-- Ingestion: `/api/import/raw`, `/api/import/historical/*`
+- Ingestion: `/api/import/raw`, `/api/import/raw/wunderground`, `/api/import/historical/*`
 - Processing: `/api/process/daily`, `/api/process/rebuild`
 - Archives: `/api/archive/daily|monthly|annual`
 - Climate analytics: `/api/climate/*`

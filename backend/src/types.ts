@@ -32,8 +32,21 @@ export interface HistoricalPrecipitationInput {
   source?: string;
 }
 
+export type SpreadsheetCell = string | number | null | undefined;
+
 export interface ValidationIssue {
   row: number;
   field: string;
   message: string;
+}
+
+export interface ImportReport {
+  recordsImported: number;
+  errors: number;
+  missingData: number;
+  duplicateDates: number;
+  dateRange: {
+    start: string | null;
+    end: string | null;
+  };
 }

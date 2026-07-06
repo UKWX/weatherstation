@@ -1,7 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import { db } from '../src/db/connection';
 import '../src/db/migrate';
-import { ingestRawObservations } from '../src/services/ingestionService';
+import {
+  ingestPrecipitationSpreadsheet,
+  ingestRawObservations,
+  ingestTemperatureSpreadsheet
+} from '../src/services/ingestionService';
 import { computeDailySummary } from '../src/services/processingService';
 
 describe('ingestion and reproducibility', () => {
@@ -52,5 +56,43 @@ describe('ingestion and reproducibility', () => {
       .get(day);
 
     expect(second).toEqual(first);
+  });
+
+  it('imports historical temperatures from spreadsheet matrix format', () => {
+    const result = ingestTemperatureSpreadsheet({
+      rows: [
+        ['', 2024, 2025],
+        ['01 Jan', 5.1, 4.3],
+        ['31 Feb', 7.2, 8.1],
+        ['02 Jan', '', 3.8]
+      ],
+      source: 'unit-test'
+    });
+
+    expect(result.imported).toBe(3);
+    expect(result.report.missingData).toBe(1);
+    expect(result.issues.some((issue) => issue.message.includes('Invalid date'))).toBe(true);
+  });
+
+  it('imports rainfall spreadsheets and rejects impossible dates', () => {
+    const uniqueYear = 2020 + Math.floor(Math.random() * 5);
+    db.prepare('DELETE FROM precipitation_history WHERE observed_date BETWEEN ? AND ?').run(
+      `${uniqueYear}-01-01`,
+      `${uniqueYear}-12-31`
+    );
+
+    const result = ingestPrecipitationSpreadsheet({
+      rows: [
+        ['', 'Jan', 'Feb'],
+        [30, 1.1, 0.2],
+        [31, 2.4, 0.5]
+      ],
+      year: uniqueYear,
+      source: 'unit-test'
+    });
+
+    expect(result.imported).toBe(3);
+    expect(result.issues.some((issue) => issue.message.includes('Invalid date'))).toBe(true);
+    expect(result.report.dateRange.start).toContain(`${uniqueYear}-01`);
   });
 });

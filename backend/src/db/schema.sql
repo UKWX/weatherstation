@@ -86,6 +86,8 @@ CREATE TABLE IF NOT EXISTS daily_summary (
   min_humidity REAL,
   mean_humidity REAL,
   lightning_strikes INTEGER DEFAULT 0,
+  lightning_count INTEGER DEFAULT 0,
+  thunder_day INTEGER DEFAULT 0,
   observation_count INTEGER NOT NULL DEFAULT 0,
   calc_version TEXT NOT NULL,
   generated_at TEXT NOT NULL DEFAULT (datetime('now')),

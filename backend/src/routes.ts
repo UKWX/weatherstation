@@ -533,7 +533,7 @@ routes.get('/api/exports/:dataset', (req, res) => {
     if (format === 'pdf') {
       res.header('content-type', 'application/pdf');
       res.attachment(`${dataset}.pdf`);
-      res.send(toPdf(rows, `WakefieldStation ${dataset} export`));
+      res.send(toPdf(rows, `${config.stationId} ${dataset} export`));
       return;
     }
 

@@ -30,6 +30,18 @@ const monthEnd = (year: number, month: number): string => {
   return dt.toISODate() ?? `${year}-${String(month).padStart(2, '0')}-31`;
 };
 
+const getDuplicateRawCount = (): number => {
+  const row = db
+    .prepare(
+      `SELECT COUNT(*) - COUNT(DISTINCT timestamp_utc) as duplicate_count
+       FROM raw_observations
+       WHERE station_id = ?`
+    )
+    .get(config.stationId) as { duplicate_count: number | null };
+
+  return row.duplicate_count ?? 0;
+};
+
 export const getMonthlyClimateReport = (year: number, month: number) => {
   const summary = db
     .prepare(
@@ -180,15 +192,6 @@ export const getMonthlyClimateReport = (year: number, month: number) => {
     )
     .all(config.stationId, startDate, startDate, endDate);
 
-  const duplicateRawRows = db
-    .prepare(
-      `SELECT
-        COUNT(*) - COUNT(DISTINCT timestamp_utc) as duplicate_count
-       FROM raw_observations
-       WHERE station_id = ?`
-    )
-    .get(config.stationId) as { duplicate_count: number | null };
-
   const rainDays = db
     .prepare(
       `SELECT COUNT(*) as rain_days
@@ -252,12 +255,9 @@ export const getMonthlyClimateReport = (year: number, month: number) => {
       dailySeries: graphRows
     },
     qualityChecks: {
-      noDuplicateProcessing: (duplicateRawRows.duplicate_count ?? 0) === 0,
+      noDuplicateProcessing: getDuplicateRawCount() === 0,
       allCalculationsAccurate: summary.observation_days === graphRows.length,
       timezoneCorrect: config.timezone,
-      graphsResponsive: true,
-      uiConsistent: true,
-      errorsHandled: true,
       dataValidated: summary.observation_days >= 0
     }
   };
@@ -407,13 +407,10 @@ export const getAnnualClimateReport = (year: number) => {
       annualTrendSeries: annualSeries
     },
     qualityChecks: {
-      noDuplicateProcessing: true,
+      noDuplicateProcessing: getDuplicateRawCount() === 0,
       allCalculationsAccurate: summary.valid_days >= monthlyBreakdown.length,
       timezoneCorrect: config.timezone,
-      graphsResponsive: true,
-      uiConsistent: true,
-      errorsHandled: true,
-      dataValidated: summary.valid_days >= 0
+      dataValidated: summary.valid_days >= 0 && monthlyBreakdown.length <= 12
     }
   };
 };

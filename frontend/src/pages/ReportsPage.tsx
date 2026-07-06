@@ -151,8 +151,26 @@ type AnnualReport = {
   };
 };
 
-const CURRENT_YEAR = new Date().getFullYear();
-const YEARS = Array.from({ length: 16 }, (_, idx) => CURRENT_YEAR - idx);
+
+const STATION_TIMEZONE = 'Europe/London';
+const stationNowParts = new Intl.DateTimeFormat('en-GB', {
+  timeZone: STATION_TIMEZONE,
+  year: 'numeric',
+  month: 'numeric'
+})
+  .formatToParts(new Date())
+  .reduce<{ year: number; month: number }>(
+    (acc, part) => {
+      if (part.type === 'year') acc.year = Number(part.value);
+      if (part.type === 'month') acc.month = Number(part.value);
+      return acc;
+    },
+    { year: new Date().getUTCFullYear(), month: new Date().getUTCMonth() + 1 }
+  );
+
+const YEARS_TO_DISPLAY = 16;
+const CURRENT_YEAR = stationNowParts.year;
+const YEARS = Array.from({ length: YEARS_TO_DISPLAY }, (_, idx) => CURRENT_YEAR - idx);
 const MONTHS = [
   'Jan',
   'Feb',
@@ -183,7 +201,7 @@ const formatValue = (value: number | null | undefined, suffix = ''): string =>
 export const ReportsPage = () => {
   const [tab, setTab] = useState<ReportTab>('monthly');
   const [year, setYear] = useState<number>(CURRENT_YEAR);
-  const [month, setMonth] = useState<number>(new Date().getMonth() + 1);
+  const [month, setMonth] = useState<number>(stationNowParts.month);
 
   const [monthlyReport, setMonthlyReport] = useState<MonthlyReport | null>(null);
   const [annualReport, setAnnualReport] = useState<AnnualReport | null>(null);

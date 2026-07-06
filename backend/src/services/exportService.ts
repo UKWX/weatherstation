@@ -1,6 +1,10 @@
 import { stringify } from 'csv-stringify/sync';
 import { db } from '../db/connection';
 
+const MAX_PDF_LINES = 48;
+const MAX_PDF_COLUMNS = 8;
+const MAX_PDF_LINE_LENGTH = 180;
+
 const datasets: Record<string, string> = {
   raw: 'SELECT * FROM raw_observations ORDER BY timestamp_utc DESC LIMIT 5000',
   daily: 'SELECT * FROM daily_summary ORDER BY summary_date DESC LIMIT 5000',
@@ -112,8 +116,6 @@ const buildPdfDocument = (title: string, lines: string[]): Buffer => {
 
 export const toPdf = (rows: Record<string, unknown>[], title: string): Buffer => {
   const headers = rows.length ? Object.keys(rows[0]) : [];
-  const lineLimit = 48;
-  const valueLimit = 8;
 
   const lines: string[] = [];
   if (!rows.length) {
@@ -122,16 +124,16 @@ export const toPdf = (rows: Record<string, unknown>[], title: string): Buffer =>
     lines.push(headers.join(' | '));
     lines.push('-'.repeat(120));
 
-    rows.slice(0, lineLimit).forEach((row, index) => {
+    rows.slice(0, MAX_PDF_LINES).forEach((row, index) => {
       const values = headers
-        .slice(0, valueLimit)
+        .slice(0, MAX_PDF_COLUMNS)
         .map((header) => String(row[header] ?? ''))
         .join(' | ');
-      lines.push(`${String(index + 1).padStart(3, '0')} ${values}`.slice(0, 180));
+      lines.push(`${String(index + 1).padStart(3, '0')} ${values}`.slice(0, MAX_PDF_LINE_LENGTH));
     });
 
-    if (rows.length > lineLimit) {
-      lines.push(`... truncated ${rows.length - lineLimit} additional rows`);
+    if (rows.length > MAX_PDF_LINES) {
+      lines.push(`... truncated ${rows.length - MAX_PDF_LINES} additional rows`);
     }
   }
 

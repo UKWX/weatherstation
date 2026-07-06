@@ -15,6 +15,9 @@ const formatCopy: Record<ExportFormat, string> = {
   pdf: 'Printable report document export for sharing and archive'
 };
 
+const isDataset = (value: string): value is Dataset => DATASETS.includes(value as Dataset);
+const isExportFormat = (value: string): value is ExportFormat => FORMATS.includes(value as ExportFormat);
+
 export const ExportsPage = () => {
   const [dataset, setDataset] = useState<Dataset>('monthly');
   const [format, setFormat] = useState<ExportFormat>('csv');
@@ -34,7 +37,7 @@ export const ExportsPage = () => {
           <div className="report-filters">
             <label>
               Dataset
-              <select value={dataset} onChange={(event) => setDataset(event.target.value as Dataset)}>
+              <select value={dataset} onChange={(event) => { const value = event.target.value; if (isDataset(value)) setDataset(value); }}>
                 {DATASETS.map((entry) => (
                   <option key={entry} value={entry}>
                     {entry}
@@ -44,7 +47,7 @@ export const ExportsPage = () => {
             </label>
             <label>
               Format
-              <select value={format} onChange={(event) => setFormat(event.target.value as ExportFormat)}>
+              <select value={format} onChange={(event) => { const value = event.target.value; if (isExportFormat(value)) setFormat(value); }}>
                 {FORMATS.map((entry) => (
                   <option key={entry} value={entry}>
                     {entry.toUpperCase()}

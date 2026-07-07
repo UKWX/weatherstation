@@ -158,7 +158,7 @@ const mapRow = (
 
   // Attempt to normalise timestamp to ISO 8601 UTC if it looks like a local datetime
   const ts = obj.timestamp_utc;
-  if (!ts.endsWith('Z') && !ts.includes('+') && !ts.includes('T') === false) {
+  if (!ts.endsWith('Z') && !ts.includes('+') && ts.includes('T')) {
     // already has T separator — assume it may be in ISO but without timezone; append Z
     if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(ts) && !ts.endsWith('Z')) {
       obj.timestamp_utc = ts + 'Z';

@@ -97,7 +97,7 @@ routes.get('/api/status', (_req, res) => {
 
     res.json({
       station: {
-        id: config.weatherStationId || config.stationId,
+        id: config.weatherStationId ?? 'Unknown',
         status: online ? 'Online' : 'Offline',
         lastSuccessfulFetch: lastFetchAt,
         latestObservationTime,

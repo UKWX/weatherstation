@@ -44,6 +44,33 @@ import {
 import { getAnnualClimateReport, getMonthlyClimateReport } from './services/reportingService';
 
 export const routes = Router();
+const LATEST_OBSERVATION_FUTURE_TOLERANCE_MINUTES = 10;
+
+type LatestObservationRow = {
+  timestamp_utc: string;
+  timestamp_local: string | null;
+  ingested_at: string;
+};
+
+const getLatestObservation = (): LatestObservationRow | undefined => {
+  const latestAllowedTimestamp = DateTime.utc()
+    .plus({ minutes: LATEST_OBSERVATION_FUTURE_TOLERANCE_MINUTES })
+    .toISO({ suppressMilliseconds: true });
+
+  if (!latestAllowedTimestamp) {
+    return undefined;
+  }
+
+  return db
+    .prepare(
+      `SELECT timestamp_utc, timestamp_local, ingested_at
+       FROM raw_observations
+       WHERE timestamp_utc <= ?
+       ORDER BY timestamp_utc DESC
+       LIMIT 1`
+    )
+    .get(latestAllowedTimestamp) as LatestObservationRow | undefined;
+};
 
 type DailySummaryRow = {
   max_temp: number | null;
@@ -76,20 +103,13 @@ routes.get('/api/status', (_req, res) => {
   // Database status
   let dbStatus: 'connected' | 'error' = 'error';
   let recordCount = 0;
-  let latest: { timestamp_utc: string; timestamp_local: string; ingested_at: string } | undefined;
+  let latest: LatestObservationRow | undefined;
 
   try {
     recordCount = (
       db.prepare('SELECT COUNT(*) as count FROM raw_observations').get() as { count: number }
     ).count;
-    latest = db
-      .prepare(
-        `SELECT timestamp_utc, timestamp_local, ingested_at
-         FROM raw_observations
-         ORDER BY timestamp_utc DESC
-         LIMIT 1`
-      )
-      .get() as { timestamp_utc: string; timestamp_local: string; ingested_at: string } | undefined;
+    latest = getLatestObservation();
     dbStatus = 'connected';
   } catch (error) {
     console.error('Status endpoint DB error:', error instanceof Error ? error.message : error);
@@ -269,10 +289,15 @@ routes.get('/api/dashboard/overview', (_req, res) => {
       `SELECT temperature, feels_like, humidity, pressure, wind_speed, wind_gust, wind_direction,
               rainfall, solar_radiation, uv_index, timestamp_local
        FROM raw_observations
+       WHERE timestamp_utc <= ?
        ORDER BY timestamp_utc DESC
        LIMIT 1`
     )
-    .get();
+    .get(
+      DateTime.utc()
+       .plus({ minutes: LATEST_OBSERVATION_FUTURE_TOLERANCE_MINUTES })
+       .toISO({ suppressMilliseconds: true })
+    );
 
   const sevenDayRain = db
     .prepare(

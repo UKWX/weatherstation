@@ -14,6 +14,7 @@ export interface RawObservationInput {
   rain_rate?: NumericValue;
   solar_radiation?: NumericValue;
   uv_index?: NumericValue;
+  feels_like?: NumericValue;
   quality_flag?: string;
 }
 

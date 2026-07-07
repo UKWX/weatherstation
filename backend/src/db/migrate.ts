@@ -41,6 +41,7 @@ ensureColumn('daily_summary', 'lightning_count', 'INTEGER DEFAULT 0');
 ensureColumn('daily_summary', 'thunder_day', 'INTEGER DEFAULT 0');
 ensureColumn('monthly_summary', 'total_lightning_count', 'INTEGER DEFAULT 0');
 ensureColumn('annual_summary', 'total_lightning_count', 'INTEGER DEFAULT 0');
+ensureColumn('raw_observations', 'feels_like', 'REAL');
 
 const hasVersion = db
   .prepare('SELECT COUNT(*) as count FROM schema_versions WHERE version = 1')

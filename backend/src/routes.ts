@@ -72,6 +72,45 @@ routes.get('/health', (_req, res) => {
   res.json({ ok: true, timestamp: DateTime.utc().toISO() });
 });
 
+routes.get('/api/status', (_req, res) => {
+  try {
+    const recordCount = (
+      db.prepare('SELECT COUNT(*) as count FROM raw_observations').get() as { count: number }
+    ).count;
+
+    const latest = db
+      .prepare(
+        `SELECT timestamp_utc, timestamp_local, ingested_at
+         FROM raw_observations
+         ORDER BY timestamp_utc DESC
+         LIMIT 1`
+      )
+      .get() as { timestamp_utc: string; timestamp_local: string; ingested_at: string } | undefined;
+
+    const lastFetchAt = latest?.ingested_at ?? null;
+    const latestObservationTime = latest?.timestamp_local ?? latest?.timestamp_utc ?? null;
+
+    const online =
+      latest != null &&
+      DateTime.utc().diff(DateTime.fromISO(latest.timestamp_utc, { zone: 'utc' }), 'minutes')
+        .minutes < 30;
+
+    res.json({
+      station: {
+        id: config.weatherStationId ?? 'Unknown',
+        status: online ? 'Online' : 'Offline',
+        lastSuccessfulFetch: lastFetchAt,
+        latestObservationTime,
+        recordCount,
+        apiConfigured: Boolean(config.weatherApiKey && config.weatherStationId)
+      }
+    });
+  } catch (error) {
+    console.error('Status endpoint error:', error instanceof Error ? error.message : error);
+    res.status(500).json({ message: 'Failed to retrieve status' });
+  }
+});
+
 routes.get('/api/navigation', (_req, res) => {
   res.json({
     sections: [
@@ -174,10 +213,36 @@ routes.post('/api/process/rebuild', (req, res) => {
   res.json({ status: 'ok', startDate, endDate });
 });
 
+routes.get('/api/dashboard/charts', (req, res) => {
+  const days = Math.min(Math.max(Number(req.query.days ?? 30), 7), 365);
+  try {
+    const rows = db
+      .prepare(
+        `SELECT summary_date,
+                max_temp, min_temp, mean_temp,
+                rainfall_total,
+                max_adjusted_gust, max_wind_speed,
+                mean_pressure, max_pressure, min_pressure,
+                mean_humidity,
+                ${LIGHTNING_COUNT_SQL} as lightning_count,
+                ${THUNDER_DAY_SQL} as thunder_day
+         FROM daily_summary
+         ORDER BY summary_date DESC
+         LIMIT ?`
+      )
+      .all(days);
+    res.json({ rows: rows.reverse() });
+  } catch (error) {
+    console.error('Dashboard charts error:', error instanceof Error ? error.message : error);
+    res.status(500).json({ message: 'Failed to retrieve chart data' });
+  }
+});
+
 routes.get('/api/dashboard/overview', (_req, res) => {
   const live = db
     .prepare(
-      `SELECT temperature, humidity, pressure, wind_gust, rainfall, timestamp_local
+      `SELECT temperature, feels_like, humidity, pressure, wind_speed, wind_gust, wind_direction,
+              rainfall, solar_radiation, uv_index, timestamp_local
        FROM raw_observations
        ORDER BY timestamp_utc DESC
        LIMIT 1`
@@ -385,9 +450,10 @@ routes.get('/api/climate/trends', (_req, res) => {
 routes.get('/api/climate/graphs', (_req, res) => {
   const rows = db
     .prepare(
-      `SELECT summary_date, mean_temp, rainfall_total, max_gust,
-             ${LIGHTNING_COUNT_SQL} as lightning_count,
-             ${THUNDER_DAY_SQL} as thunder_day
+      `SELECT summary_date, max_temp, min_temp, mean_temp,
+              rainfall_total, max_adjusted_gust, mean_pressure,
+              ${LIGHTNING_COUNT_SQL} as lightning_count,
+              ${THUNDER_DAY_SQL} as thunder_day
        FROM daily_summary
        ORDER BY summary_date DESC LIMIT 365`
     )

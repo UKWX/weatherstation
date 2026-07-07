@@ -20,6 +20,7 @@ CREATE TABLE IF NOT EXISTS raw_observations (
   rain_rate REAL,
   solar_radiation REAL,
   uv_index REAL,
+  feels_like REAL,
   quality_flag TEXT,
   source_batch_id TEXT,
   ingested_at TEXT NOT NULL DEFAULT (datetime('now')),

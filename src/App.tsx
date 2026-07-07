@@ -5,6 +5,7 @@ import { SectionPage } from './pages/SectionPage';
 import { ReportsPage } from './pages/ReportsPage';
 import { ExportsPage } from './pages/ExportsPage';
 import { LiveConditionsPage } from './pages/LiveConditionsPage';
+import { ImportPage } from './pages/ImportPage';
 import { navigation } from './data/navigation';
 import './styles.css';
 
@@ -23,7 +24,6 @@ const routeMap = [
   { path: '/climate/this-day', title: 'This Day In History', description: 'Historical archive for the same day across all years.' },
   { path: '/lightning', title: 'Lightning', description: 'Lightning event statistics and temporal summaries.' },
   { path: '/snow', title: 'Snow Archive', description: 'Snowfall and snow depth climatology archive.' },
-  { path: '/import', title: 'Data Import', description: 'Import controls for raw and historical climate datasets.' },
   { path: '/settings', title: 'Settings', description: 'Station metadata, processing, timezone, and retention settings.' }
 ];
 
@@ -53,6 +53,9 @@ const navigationIcons: Record<string, string> = {
 
 function App() {
   const navigate = useNavigate();
+  const now = new Date();
+  const timeStr = now.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+  const dateStr = now.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
 
   return (
     <div className="app-shell">
@@ -107,12 +110,12 @@ function App() {
           </div>
           <div className="topbar-meta">
             <div>
-              <strong>16:32</strong>
-              <span>Wakefield local time (BST)</span>
+              <strong>{timeStr}</strong>
+              <span>Wakefield local time</span>
             </div>
             <div>
-              <strong>24 May 2026</strong>
-              <span>Latest station update 16:30</span>
+              <strong>{dateStr}</strong>
+              <span>Weather Underground · IWAKEF50</span>
             </div>
           </div>
           <div className="topbar-actions">
@@ -135,6 +138,7 @@ function App() {
           <Route path="/climate/analytics" element={<ClimateAnalyticsPage />} />
           <Route path="/reports" element={<ReportsPage />} />
           <Route path="/exports" element={<ExportsPage />} />
+          <Route path="/import" element={<ImportPage />} />
           {routeMap.map((route) => (
             <Route
               key={route.path}

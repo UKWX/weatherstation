@@ -11,6 +11,9 @@ describe('weatherDataFetcher', () => {
     process.env.WEATHER_API_KEY = 'test-api-key';
     process.env.WEATHER_STATION_ID = 'IWAKEF50';
 
+    // Ensure DB schema (including feels_like column) is applied before the insert.
+    await import('../src/db/migrate.js');
+
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,
       json: async () => ({
@@ -24,6 +27,8 @@ describe('weatherDataFetcher', () => {
             solarRadiation: 321,
             metric: {
               temp: 18.4,
+              heatIndex: 18.5,
+              windChill: 18.3,
               dewpt: 12.9,
               pressure: 1014.7,
               windSpeed: 11.5,

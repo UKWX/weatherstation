@@ -1,3 +1,4 @@
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Area,
   AreaChart,
@@ -16,56 +17,70 @@ import {
 import { MetricCard } from '../components/MetricCard';
 import { PanelCard } from '../components/PanelCard';
 
-const temperatureSeries = [
-  { day: 'Mon', max: 15.1, mean: 10.4, min: 6.3, normal: 11.6 },
-  { day: 'Tue', max: 16.8, mean: 11.3, min: 7.1, normal: 11.7 },
-  { day: 'Wed', max: 18.4, mean: 12.9, min: 8.4, normal: 11.8 },
-  { day: 'Thu', max: 20.6, mean: 14.8, min: 10.2, normal: 12.1 },
-  { day: 'Fri', max: 19.5, mean: 13.6, min: 9.6, normal: 12.2 },
-  { day: 'Sat', max: 17.3, mean: 11.8, min: 7.7, normal: 12.3 },
-  { day: 'Sun', max: 16.1, mean: 10.9, min: 6.8, normal: 12.4 }
-];
+// ── Types ─────────────────────────────────────────────────────────────────────
 
-const rainfallSeries = [
-  { day: 'Mon', rain: 0.4 },
-  { day: 'Tue', rain: 2.1 },
-  { day: 'Wed', rain: 4.8 },
-  { day: 'Thu', rain: 12.6 },
-  { day: 'Fri', rain: 1.2 },
-  { day: 'Sat', rain: 0 },
-  { day: 'Sun', rain: 3.6 }
-];
+type LiveObservation = {
+  temperature?: number | null;
+  feels_like?: number | null;
+  humidity?: number | null;
+  pressure?: number | null;
+  wind_speed?: number | null;
+  wind_gust?: number | null;
+  wind_direction?: number | null;
+  rainfall?: number | null;
+  solar_radiation?: number | null;
+  uv_index?: number | null;
+  timestamp_local?: string | null;
+};
 
-const signalSeries = [
-  { hour: '00', gust: 13, pressure: 1004, lightning: 0 },
-  { hour: '04', gust: 17, pressure: 1007, lightning: 0 },
-  { hour: '08', gust: 21, pressure: 1010, lightning: 1 },
-  { hour: '12', gust: 28, pressure: 1014, lightning: 2 },
-  { hour: '16', gust: 32, pressure: 1017, lightning: 4 },
-  { hour: '20', gust: 23, pressure: 1019, lightning: 1 },
-  { hour: '24', gust: 18, pressure: 1016, lightning: 0 }
-];
+type OverviewPayload = {
+  live?: LiveObservation | null;
+  sevenDayRain?: Array<{ summary_date: string; rainfall_total: number | null }>;
+  monthly?: {
+    summary_year?: number | null;
+    summary_month?: number | null;
+    mean_temp?: number | null;
+    total_rainfall?: number | null;
+  } | null;
+};
 
-const monthlyOverview = [
-  { label: 'Mean Temperature', value: '11.8°C', context: '-0.4°C vs normal', tone: 'temperature' as const },
-  { label: 'Total Rainfall', value: '42.6 mm', context: '108% of average', tone: 'rain' as const },
-  { label: 'Peak Gust', value: '34.7 mph', context: 'Strongest on 17 May', tone: 'wind' as const },
-  { label: 'Mean Pressure', value: '1016.8 hPa', context: 'Mostly settled', tone: 'pressure' as const }
-];
+type ChartRow = {
+  summary_date: string;
+  max_temp: number | null;
+  min_temp: number | null;
+  mean_temp: number | null;
+  rainfall_total: number | null;
+  max_adjusted_gust: number | null;
+  max_wind_speed: number | null;
+  mean_pressure: number | null;
+  max_pressure: number | null;
+  min_pressure: number | null;
+  mean_humidity: number | null;
+  lightning_count: number;
+  thunder_day: number;
+};
 
-const recordHighlights = [
-  { label: 'Highest Maximum', value: '32.4°C', detail: '15 Jul 2006', tone: 'temperature' as const },
-  { label: 'Lowest Minimum', value: '-15.7°C', detail: '12 Jan 2010', tone: 'pressure' as const },
-  { label: 'Wettest Day', value: '51.6 mm', detail: '09 Jun 2012', tone: 'rain' as const },
-  { label: 'Highest Gust', value: '73.1 mph', detail: '28 Feb 2022', tone: 'wind' as const }
-];
+type ChartsPayload = {
+  rows: ChartRow[];
+};
 
-const anomalyItems = [
-  { title: 'Temperature anomaly', value: '-0.4°C', detail: 'Cooler than the 1991–2020 mean', tone: 'temperature' as const },
-  { title: 'Rainfall anomaly', value: '+8%', detail: 'Wettest spell concentrated mid-month', tone: 'rain' as const },
-  { title: 'Pressure anomaly', value: '+2.7 hPa', detail: 'Higher frequency of settled synoptic patterns', tone: 'pressure' as const },
-  { title: 'Convective signal', value: '3 strikes', detail: 'One thunder day logged this week', tone: 'lightning' as const }
-];
+type StatusPayload = {
+  station?: {
+    id?: string;
+    status?: string;
+    lastSuccessfulFetch?: string | null;
+    latestObservationTime?: string | null;
+    recordCount?: number;
+    apiConfigured?: boolean;
+  };
+};
+
+// ── Constants ─────────────────────────────────────────────────────────────────
+
+const REFRESH_MS = 60_000;
+const CHART_DAYS = 30;
+const CHART_MUTED = 'var(--muted)';
+const PRESSURE_DOMAIN_PADDING = 4;
 
 const temperatureScale = [
   { label: '< -10°C', color: '#7c3aed' },
@@ -81,308 +96,403 @@ const temperatureScale = [
 const rainfallScale = ['#dbeafe', '#93c5fd', '#3b82f6', '#1d4ed8'];
 const windScale = ['#dcfce7', '#86efac', '#22c55e', '#15803d'];
 const lightningScale = ['#fef3c7', '#fb923c', '#a855f7'];
-const CHART_MUTED = 'var(--muted)';
-const PRESSURE_DOMAIN_PADDING = 4;
-const pressureValues = signalSeries.map(({ pressure }) => pressure);
-const pressureDomain: [number, number] = [
-  Math.min(...pressureValues) - PRESSURE_DOMAIN_PADDING,
-  Math.max(...pressureValues) + PRESSURE_DOMAIN_PADDING
-];
 
-function getRainColor(rainfall: number) {
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+const fmt = (v: number | null | undefined, suffix = '') =>
+  typeof v === 'number' && Number.isFinite(v) ? `${v.toFixed(1)}${suffix}` : '—';
+
+const fmtInt = (v: number | null | undefined, suffix = '') =>
+  typeof v === 'number' && Number.isFinite(v) ? `${Math.round(v)}${suffix}` : '—';
+
+const getRainColor = (rainfall: number) => {
   if (rainfall <= 1) return rainfallScale[0];
   if (rainfall <= 4) return rainfallScale[1];
   if (rainfall <= 9) return rainfallScale[2];
   return rainfallScale[3];
+};
+
+const shortDate = (iso: string) => iso.slice(5); // "MM-DD"
+
+const monthLabel = (year: number | null | undefined, month: number | null | undefined) =>
+  year && month
+    ? new Date(year, month - 1, 1).toLocaleString('en-GB', { month: 'long', year: 'numeric' })
+    : '—';
+
+async function apiFetch<T>(path: string): Promise<T> {
+  const res = await fetch(path);
+  if (!res.ok) throw new Error(`API ${res.status}: ${path}`);
+  return res.json() as Promise<T>;
 }
 
-export const DashboardPage = () => (
-  <div className="page-grid">
-    <section className="metrics-grid">
-      <MetricCard
-        label="Current Temperature"
-        value="14.7°C"
-        trend="Feels like 14.2°C"
-        detail="Dew point 9.8°C"
-        tone="temperature"
-        icon="°"
-      />
-      <MetricCard
-        label="Rainfall"
-        value="10.6 mm"
-        trend="Rate 0.0 mm/hr"
-        detail="Rain day: yes"
-        tone="rain"
-        icon="◍"
-      />
-      <MetricCard
-        label="Wind"
-        value="19.6 mph"
-        trend="Gust 31.2 mph WNW"
-        detail="Site-adjusted 43.7 mph"
-        tone="wind"
-        icon="↗"
-      />
-      <MetricCard
-        label="Pressure"
-        value="1018.6 hPa"
-        trend="Steady"
-        detail="24h range 1004–1019"
-        tone="pressure"
-        icon="◎"
-      />
-      <MetricCard
-        label="Lightning"
-        value="3"
-        trend="Thunder day: yes"
-        detail="Closest strike 5.8 km"
-        tone="lightning"
-        icon="⚡"
-      />
-    </section>
+// ── Main Page ─────────────────────────────────────────────────────────────────
 
-    <section className="dashboard-feature-grid">
-      <PanelCard
-        title="Dashboard overview"
-        subtitle="Current conditions, operational health, and quick climate context"
-        action={<span className="panel-badge">Updated 16:32 BST</span>}
-        className="dashboard-overview-card"
-      >
-        <div className="dashboard-overview">
-          <div className="overview-copy">
-            <h3>Wakefield station is running normally with a cooler, showery pattern today.</h3>
-            <p>
-              Morning rain cleared into brighter intervals, pressure is recovering, and gusty west-northwesterly
-              winds continue to moderate through the evening.
-            </p>
-            <div className="overview-tags">
-              <span>Live archive online</span>
-              <span>Monthly summary available</span>
-              <span>Records and anomalies refreshed</span>
-            </div>
-          </div>
+export const DashboardPage = () => {
+  const [overview, setOverview] = useState<OverviewPayload | null>(null);
+  const [charts, setCharts] = useState<ChartsPayload | null>(null);
+  const [status, setStatus] = useState<StatusPayload | null>(null);
+  const [chartDays, setChartDays] = useState(CHART_DAYS);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [lastUpdated, setLastUpdated] = useState<string | null>(null);
 
-          <ul className="status-list status-list--stacked">
-            <li><span>Sensor suite</span><strong className="ok">Operational</strong></li>
-            <li><span>Data logging</span><strong className="ok">Online</strong></li>
-            <li><span>Lightning feed</span><strong className="ok">Connected</strong></li>
-            <li><span>Sunrise / Sunset</span><strong>05:11 / 21:07</strong></li>
-          </ul>
-        </div>
-      </PanelCard>
+  const loadData = useCallback(async () => {
+    try {
+      const [ov, ch, st] = await Promise.all([
+        apiFetch<OverviewPayload>('/api/dashboard/overview'),
+        apiFetch<ChartsPayload>(`/api/dashboard/charts?days=${chartDays}`),
+        apiFetch<StatusPayload>('/api/status')
+      ]);
+      setOverview(ov);
+      setCharts(ch);
+      setStatus(st);
+      setError(null);
+      setLastUpdated(new Date().toLocaleTimeString('en-GB'));
+    } catch (err) {
+      console.error('Dashboard load error:', err);
+      setError(err instanceof Error ? err.message : 'Failed to load dashboard data');
+    } finally {
+      setLoading(false);
+    }
+  }, [chartDays]);
 
-      <PanelCard title="Meteorological colour scales" subtitle="Applied across cards, charts, anomalies, and archive states">
-        <div className="scale-grid">
-          <div className="scale-block">
-            <div className="scale-block__header">
-              <strong>Temperature</strong>
-              <span>Purple → dark red</span>
-            </div>
-            <div className="scale-strip">
-              {temperatureScale.map((stop) => (
-                <span key={stop.label} style={{ backgroundColor: stop.color }} title={stop.label} />
-              ))}
-            </div>
-            <div className="scale-labels scale-labels--dense">
-              {temperatureScale.map((stop) => (
-                <small key={stop.label}>{stop.label}</small>
-              ))}
-            </div>
-          </div>
+  useEffect(() => {
+    void loadData();
+    const timer = window.setInterval(() => void loadData(), REFRESH_MS);
+    return () => window.clearInterval(timer);
+  }, [loadData]);
 
-          <div className="mini-scales">
-            <div className="mini-scale-card">
-              <div className="mini-scale-card__title">
-                <strong>Rain</strong>
-                <span>Light blue → dark blue</span>
+  const live = overview?.live;
+
+  const recentRainTotal = useMemo(
+    () =>
+      (overview?.sevenDayRain ?? []).reduce(
+        (sum, r) => sum + (typeof r.rainfall_total === 'number' ? r.rainfall_total : 0),
+        0
+      ),
+    [overview?.sevenDayRain]
+  );
+
+  const rows = charts?.rows ?? [];
+
+  const pressureValues = rows
+    .map((r) => r.mean_pressure)
+    .filter((v): v is number => typeof v === 'number');
+  const pressureDomain: [number, number] =
+    pressureValues.length > 0
+      ? [Math.min(...pressureValues) - PRESSURE_DOMAIN_PADDING, Math.max(...pressureValues) + PRESSURE_DOMAIN_PADDING]
+      : [990, 1030];
+
+  const chartData = rows.map((r) => ({
+    day: shortDate(r.summary_date),
+    max: r.max_temp,
+    mean: r.mean_temp,
+    min: r.min_temp,
+    rain: r.rainfall_total,
+    gust: r.max_adjusted_gust,
+    pressure: r.mean_pressure,
+    lightning: r.lightning_count
+  }));
+
+  const stationStatus = status?.station;
+  const stationOnline = stationStatus?.status === 'Online';
+
+  return (
+    <div className="page-grid">
+      {/* ── Metric Cards ── */}
+      <section className="metrics-grid">
+        <MetricCard
+          label="Current Temperature"
+          value={fmt(live?.temperature, '°C')}
+          trend={live?.feels_like != null ? `Feels like ${live.feels_like.toFixed(1)}°C` : undefined}
+          detail={live?.humidity != null ? `Humidity ${live.humidity.toFixed(0)}%` : undefined}
+          tone="temperature"
+          icon="°"
+        />
+        <MetricCard
+          label="Rainfall"
+          value={fmt(live?.rainfall, ' mm')}
+          trend={recentRainTotal > 0 ? `7-day total ${recentRainTotal.toFixed(1)} mm` : 'No recent rain'}
+          tone="rain"
+          icon="◍"
+        />
+        <MetricCard
+          label="Wind"
+          value={live?.wind_speed != null ? `${live.wind_speed.toFixed(1)} m/s` : '—'}
+          trend={live?.wind_gust != null ? `Gust ${live.wind_gust.toFixed(1)} m/s` : undefined}
+          detail={live?.wind_direction != null ? `Direction ${Math.round(live.wind_direction)}°` : undefined}
+          tone="wind"
+          icon="↗"
+        />
+        <MetricCard
+          label="Pressure"
+          value={fmt(live?.pressure, ' hPa')}
+          tone="pressure"
+          icon="◎"
+        />
+        <MetricCard
+          label="Solar / UV"
+          value={live?.solar_radiation != null ? `${Math.round(live.solar_radiation)} W/m²` : '—'}
+          trend={live?.uv_index != null ? `UV index ${live.uv_index.toFixed(1)}` : undefined}
+          tone="lightning"
+          icon="☀"
+        />
+      </section>
+
+      {/* ── Overview + Status ── */}
+      <section className="dashboard-feature-grid">
+        <PanelCard
+          title="Dashboard overview"
+          subtitle="Current conditions, operational health, and quick climate context"
+          action={<span className="panel-badge">{lastUpdated ? `Updated ${lastUpdated}` : 'Loading…'}</span>}
+          className="dashboard-overview-card"
+        >
+          {error && <p style={{ color: '#ef4444', marginBottom: '1rem' }}>{error}</p>}
+          <div className="dashboard-overview">
+            <div className="overview-copy">
+              {loading ? (
+                <h3>Loading live data…</h3>
+              ) : live?.timestamp_local ? (
+                <h3>
+                  Wakefield station — latest observation at {live.timestamp_local}.
+                </h3>
+              ) : (
+                <h3>No observations yet. Start the backend and configure the API key.</h3>
+              )}
+              <p>
+                Temperature {fmt(live?.temperature, '°C')}, feels like {fmt(live?.feels_like, '°C')}.
+                Rainfall {fmt(live?.rainfall, ' mm')}, pressure {fmt(live?.pressure, ' hPa')}.
+              </p>
+              <div className="overview-tags">
+                <span>{stationStatus?.recordCount != null ? `${stationStatus.recordCount.toLocaleString()} observations stored` : 'No records yet'}</span>
+                {overview?.monthly && <span>Monthly summary available</span>}
+                {stationStatus?.apiConfigured && <span>API configured</span>}
               </div>
-              <div className="scale-strip scale-strip--compact">
-                {rainfallScale.map((color) => (
-                  <span key={color} style={{ backgroundColor: color }} />
+            </div>
+
+            <ul className="status-list status-list--stacked">
+              <li>
+                <span>Station ID</span>
+                <strong>{stationStatus?.id ?? '—'}</strong>
+              </li>
+              <li>
+                <span>Station status</span>
+                <strong className={stationOnline ? 'ok' : undefined}>
+                  {stationStatus?.status ?? '—'}
+                </strong>
+              </li>
+              <li>
+                <span>Last observation</span>
+                <strong>{stationStatus?.latestObservationTime ?? '—'}</strong>
+              </li>
+              <li>
+                <span>Monthly period</span>
+                <strong>{monthLabel(overview?.monthly?.summary_year, overview?.monthly?.summary_month)}</strong>
+              </li>
+            </ul>
+          </div>
+        </PanelCard>
+
+        <PanelCard title="Meteorological colour scales" subtitle="Applied across cards, charts, anomalies, and archive states">
+          <div className="scale-grid">
+            <div className="scale-block">
+              <div className="scale-block__header">
+                <strong>Temperature</strong>
+                <span>Purple → dark red</span>
+              </div>
+              <div className="scale-strip">
+                {temperatureScale.map((stop) => (
+                  <span key={stop.label} style={{ backgroundColor: stop.color }} title={stop.label} />
+                ))}
+              </div>
+              <div className="scale-labels scale-labels--dense">
+                {temperatureScale.map((stop) => (
+                  <small key={stop.label}>{stop.label}</small>
                 ))}
               </div>
             </div>
 
-            <div className="mini-scale-card">
-              <div className="mini-scale-card__title">
-                <strong>Pressure</strong>
-                <span>Low purple/blue → high dark red</span>
-              </div>
-              <div className="scale-strip scale-strip--compact">
-                <span style={{ backgroundColor: '#5b21b6' }} />
-                <span style={{ backgroundColor: '#1d4ed8' }} />
-                <span style={{ backgroundColor: '#b91c1c' }} />
-              </div>
-            </div>
-
-            <div className="mini-scale-card">
-              <div className="mini-scale-card__title">
-                <strong>Wind</strong>
-                <span>Fresh green scale</span>
-              </div>
-              <div className="scale-strip scale-strip--compact">
-                {windScale.map((color) => (
-                  <span key={color} style={{ backgroundColor: color }} />
-                ))}
-              </div>
-            </div>
-
-            <div className="mini-scale-card">
-              <div className="mini-scale-card__title">
-                <strong>Lightning</strong>
-                <span>Yellow → orange → purple</span>
-              </div>
-              <div className="scale-strip scale-strip--compact">
-                {lightningScale.map((color) => (
-                  <span key={color} style={{ backgroundColor: color }} />
-                ))}
-              </div>
-            </div>
-          </div>
-        </div>
-      </PanelCard>
-    </section>
-
-    <section className="dashboard-section">
-      <div className="section-heading">
-        <div>
-          <span className="section-heading__eyebrow">Dashboard</span>
-          <h3>Recent graphs</h3>
-        </div>
-        <span className="toolbar-chip toolbar-chip--muted">Last 7 days</span>
-      </div>
-
-      <div className="dashboard-chart-grid">
-        <PanelCard title="Temperature profile" subtitle="Max, mean, minimum, and normal daily progression">
-          <div className="chart-wrap">
-            <ResponsiveContainer width="100%" height={280}>
-              <AreaChart data={temperatureSeries}>
-                <defs>
-                  <linearGradient id="tempMeanGradient" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#facc15" stopOpacity={0.35} />
-                    <stop offset="95%" stopColor="#facc15" stopOpacity={0.02} />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="4 4" stroke="#dbe6fb" />
-                <XAxis dataKey="day" stroke="#6b7a99" />
-                <YAxis stroke="#6b7a99" unit="°C" />
-                <Tooltip />
-                <Legend />
-                <Area type="monotone" dataKey="mean" stroke="#f59e0b" fill="url(#tempMeanGradient)" strokeWidth={3} />
-                <Line type="monotone" dataKey="max" stroke="#ef4444" strokeWidth={2.5} dot={false} />
-                <Line type="monotone" dataKey="min" stroke="#2563eb" strokeWidth={2.5} dot={false} />
-                <Line type="monotone" dataKey="normal" stroke="#7c3aed" strokeWidth={2} strokeDasharray="6 4" dot={false} />
-              </AreaChart>
-            </ResponsiveContainer>
-          </div>
-        </PanelCard>
-
-        <PanelCard title="Rainfall distribution" subtitle="Daily totals with meteorological blue intensity scale">
-          <div className="chart-wrap">
-            <ResponsiveContainer width="100%" height={280}>
-              <BarChart data={rainfallSeries}>
-                <CartesianGrid strokeDasharray="4 4" stroke="#dbe6fb" />
-                <XAxis dataKey="day" stroke="#6b7a99" />
-                <YAxis stroke="#6b7a99" unit=" mm" />
-                <Tooltip />
-                <Bar dataKey="rain" radius={[10, 10, 0, 0]}>
-                  {rainfallSeries.map((entry) => (
-                    <Cell key={entry.day} fill={getRainColor(entry.rain)} />
-                  ))}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        </PanelCard>
-
-        <PanelCard title="Wind, pressure, and lightning" subtitle="Hourly signal showing gust strength, pressure recovery, and convective activity">
-          <div className="chart-wrap">
-            <ResponsiveContainer width="100%" height={280}>
-              <ComposedChart data={signalSeries}>
-                <CartesianGrid strokeDasharray="4 4" stroke="#dbe6fb" />
-                <XAxis dataKey="hour" stroke={CHART_MUTED} />
-                <YAxis yAxisId="gust" stroke={CHART_MUTED} unit=" mph" />
-                <YAxis yAxisId="pressure" orientation="right" stroke={CHART_MUTED} unit=" hPa" domain={pressureDomain} />
-                <Tooltip />
-                <Legend />
-                <Bar yAxisId="gust" dataKey="gust" fill="#22c55e" radius={[8, 8, 0, 0]} />
-                <Line yAxisId="pressure" type="monotone" dataKey="pressure" stroke="#b91c1c" strokeWidth={3} dot={false} />
-                <Line yAxisId="gust" type="monotone" dataKey="lightning" stroke="#a855f7" strokeWidth={2.5} dot={{ r: 4, fill: '#f59e0b' }} />
-              </ComposedChart>
-            </ResponsiveContainer>
-          </div>
-        </PanelCard>
-      </div>
-    </section>
-
-    <section className="dashboard-section">
-      <div className="section-heading">
-        <div>
-          <span className="section-heading__eyebrow">Summary</span>
-          <h3>Monthly overview</h3>
-        </div>
-        <span className="toolbar-chip toolbar-chip--muted">May 2026</span>
-      </div>
-
-      <PanelCard title="Monthly overview" subtitle="Professional summary cards for the active climatological month">
-        <div className="summary-grid">
-          {monthlyOverview.map((item) => (
-            <article key={item.label} className={`summary-stat summary-stat--${item.tone}`}>
-              <span>{item.label}</span>
-              <strong>{item.value}</strong>
-              <small>{item.context}</small>
-            </article>
-          ))}
-        </div>
-      </PanelCard>
-    </section>
-
-    <section className="dashboard-detail-grid">
-      <div className="dashboard-section">
-        <div className="section-heading">
-          <div>
-            <span className="section-heading__eyebrow">Archive highlights</span>
-            <h3>Records</h3>
-          </div>
-          <span className="toolbar-chip toolbar-chip--muted">All-time station extremes</span>
-        </div>
-
-        <PanelCard title="Records" subtitle="Current all-time record markers with contextual dates">
-          <div className="record-grid">
-            {recordHighlights.map((record) => (
-              <article key={record.label} className={`record-card record-card--${record.tone}`}>
-                <span>{record.label}</span>
-                <strong>{record.value}</strong>
-                <small>{record.detail}</small>
-              </article>
-            ))}
-          </div>
-        </PanelCard>
-      </div>
-
-      <div className="dashboard-section">
-        <div className="section-heading">
-          <div>
-            <span className="section-heading__eyebrow">Quality control</span>
-            <h3>Anomalies</h3>
-          </div>
-          <span className="toolbar-chip toolbar-chip--muted">Compared with 1991–2020 normals</span>
-        </div>
-
-        <PanelCard title="Anomalies" subtitle="Key deviations from climatological normals and event baselines">
-          <div className="anomaly-list">
-            {anomalyItems.map((item) => (
-              <article key={item.title} className={`anomaly-item anomaly-item--${item.tone}`}>
-                <div>
-                  <strong>{item.title}</strong>
-                  <p>{item.detail}</p>
+            <div className="mini-scales">
+              <div className="mini-scale-card">
+                <div className="mini-scale-card__title">
+                  <strong>Rain</strong>
+                  <span>Light blue → dark blue</span>
                 </div>
-                <span>{item.value}</span>
-              </article>
-            ))}
+                <div className="scale-strip scale-strip--compact">
+                  {rainfallScale.map((color) => (
+                    <span key={color} style={{ backgroundColor: color }} />
+                  ))}
+                </div>
+              </div>
+
+              <div className="mini-scale-card">
+                <div className="mini-scale-card__title">
+                  <strong>Pressure</strong>
+                  <span>Low purple/blue → high dark red</span>
+                </div>
+                <div className="scale-strip scale-strip--compact">
+                  <span style={{ backgroundColor: '#5b21b6' }} />
+                  <span style={{ backgroundColor: '#1d4ed8' }} />
+                  <span style={{ backgroundColor: '#b91c1c' }} />
+                </div>
+              </div>
+
+              <div className="mini-scale-card">
+                <div className="mini-scale-card__title">
+                  <strong>Wind</strong>
+                  <span>Fresh green scale</span>
+                </div>
+                <div className="scale-strip scale-strip--compact">
+                  {windScale.map((color) => (
+                    <span key={color} style={{ backgroundColor: color }} />
+                  ))}
+                </div>
+              </div>
+
+              <div className="mini-scale-card">
+                <div className="mini-scale-card__title">
+                  <strong>Lightning</strong>
+                  <span>Yellow → orange → purple</span>
+                </div>
+                <div className="scale-strip scale-strip--compact">
+                  {lightningScale.map((color) => (
+                    <span key={color} style={{ backgroundColor: color }} />
+                  ))}
+                </div>
+              </div>
+            </div>
           </div>
         </PanelCard>
-      </div>
-    </section>
-  </div>
-);
+      </section>
+
+      {/* ── Charts ── */}
+      <section className="dashboard-section">
+        <div className="section-heading">
+          <div>
+            <span className="section-heading__eyebrow">Dashboard</span>
+            <h3>Recent graphs</h3>
+          </div>
+          <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+            {([7, 14, 30, 90] as const).map((d) => (
+              <button
+                key={d}
+                type="button"
+                className={`toolbar-chip${chartDays === d ? '' : ' toolbar-chip--muted'}`}
+                onClick={() => setChartDays(d)}
+              >
+                {d}d
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {chartData.length === 0 ? (
+          <PanelCard title="No data yet" subtitle="Charts will populate as observations are stored">
+            <p className="panel-body-text">
+              Start the backend server and ensure the weather API key is configured to begin
+              collecting data. Daily summaries are processed at 18:05 UTC.
+            </p>
+          </PanelCard>
+        ) : (
+          <div className="dashboard-chart-grid">
+            <PanelCard title="Temperature profile" subtitle="Max, mean, and minimum daily progression">
+              <div className="chart-wrap">
+                <ResponsiveContainer width="100%" height={280}>
+                  <AreaChart data={chartData}>
+                    <defs>
+                      <linearGradient id="tempMeanGradient" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#facc15" stopOpacity={0.35} />
+                        <stop offset="95%" stopColor="#facc15" stopOpacity={0.02} />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="4 4" stroke="#dbe6fb" />
+                    <XAxis dataKey="day" stroke="#6b7a99" />
+                    <YAxis stroke="#6b7a99" unit="°C" />
+                    <Tooltip />
+                    <Legend />
+                    <Area type="monotone" dataKey="mean" name="Mean" stroke="#f59e0b" fill="url(#tempMeanGradient)" strokeWidth={3} connectNulls />
+                    <Line type="monotone" dataKey="max" name="Max" stroke="#ef4444" strokeWidth={2.5} dot={false} connectNulls />
+                    <Line type="monotone" dataKey="min" name="Min" stroke="#2563eb" strokeWidth={2.5} dot={false} connectNulls />
+                  </AreaChart>
+                </ResponsiveContainer>
+              </div>
+            </PanelCard>
+
+            <PanelCard title="Rainfall distribution" subtitle="Daily totals with meteorological blue intensity scale">
+              <div className="chart-wrap">
+                <ResponsiveContainer width="100%" height={280}>
+                  <BarChart data={chartData}>
+                    <CartesianGrid strokeDasharray="4 4" stroke="#dbe6fb" />
+                    <XAxis dataKey="day" stroke="#6b7a99" />
+                    <YAxis stroke="#6b7a99" unit=" mm" />
+                    <Tooltip />
+                    <Bar dataKey="rain" name="Rainfall (mm)" radius={[10, 10, 0, 0]}>
+                      {chartData.map((entry) => (
+                        <Cell key={entry.day} fill={getRainColor(entry.rain ?? 0)} />
+                      ))}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </PanelCard>
+
+            <PanelCard title="Wind, pressure, and lightning" subtitle="Daily gust strength, pressure, and convective activity">
+              <div className="chart-wrap">
+                <ResponsiveContainer width="100%" height={280}>
+                  <ComposedChart data={chartData}>
+                    <CartesianGrid strokeDasharray="4 4" stroke="#dbe6fb" />
+                    <XAxis dataKey="day" stroke={CHART_MUTED} />
+                    <YAxis yAxisId="gust" stroke={CHART_MUTED} unit=" m/s" />
+                    <YAxis yAxisId="pressure" orientation="right" stroke={CHART_MUTED} unit=" hPa" domain={pressureDomain} />
+                    <Tooltip />
+                    <Legend />
+                    <Bar yAxisId="gust" dataKey="gust" name="Gust (m/s)" fill="#22c55e" radius={[8, 8, 0, 0]} />
+                    <Line yAxisId="pressure" type="monotone" dataKey="pressure" name="Pressure (hPa)" stroke="#b91c1c" strokeWidth={3} dot={false} connectNulls />
+                    <Line yAxisId="gust" type="monotone" dataKey="lightning" name="Lightning" stroke="#a855f7" strokeWidth={2.5} dot={{ r: 4, fill: '#f59e0b' }} connectNulls />
+                  </ComposedChart>
+                </ResponsiveContainer>
+              </div>
+            </PanelCard>
+          </div>
+        )}
+      </section>
+
+      {/* ── Monthly Summary ── */}
+      {overview?.monthly && (
+        <section className="dashboard-section">
+          <div className="section-heading">
+            <div>
+              <span className="section-heading__eyebrow">Summary</span>
+              <h3>Monthly overview</h3>
+            </div>
+            <span className="toolbar-chip toolbar-chip--muted">
+              {monthLabel(overview.monthly.summary_year, overview.monthly.summary_month)}
+            </span>
+          </div>
+
+          <PanelCard title="Monthly overview" subtitle="Summary for the latest processed climatological month">
+            <div className="summary-grid">
+              <article className="summary-stat summary-stat--temperature">
+                <span>Mean Temperature</span>
+                <strong>{fmt(overview.monthly.mean_temp, '°C')}</strong>
+              </article>
+              <article className="summary-stat summary-stat--rain">
+                <span>Total Rainfall</span>
+                <strong>{fmt(overview.monthly.total_rainfall, ' mm')}</strong>
+              </article>
+              <article className="summary-stat summary-stat--pressure">
+                <span>7-day Rain Total</span>
+                <strong>{fmtInt(recentRainTotal, ' mm')}</strong>
+              </article>
+              <article className="summary-stat summary-stat--temperature">
+                <span>Records in DB</span>
+                <strong>{stationStatus?.recordCount?.toLocaleString() ?? '—'}</strong>
+              </article>
+            </div>
+          </PanelCard>
+        </section>
+      )}
+    </div>
+  );
+};
+

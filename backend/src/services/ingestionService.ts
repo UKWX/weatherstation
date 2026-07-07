@@ -409,8 +409,8 @@ export const ingestRawObservations = (
   const insert = db.prepare(
     `INSERT OR IGNORE INTO raw_observations(
       station_id,timestamp_utc,timestamp_local,temperature,humidity,dew_point,pressure,
-      wind_speed,wind_direction,wind_gust,rainfall,rain_rate,solar_radiation,uv_index,quality_flag,source_batch_id
-     ) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`
+      wind_speed,wind_direction,wind_gust,rainfall,rain_rate,solar_radiation,uv_index,feels_like,quality_flag,source_batch_id
+     ) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`
   );
 
   let imported = 0;
@@ -450,6 +450,7 @@ export const ingestRawObservations = (
           normalized.rain_rate ?? null,
           normalized.solar_radiation ?? null,
           normalized.uv_index ?? null,
+          normalized.feels_like ?? null,
           normalized.quality_flag ?? null,
           sourceBatchId
         );

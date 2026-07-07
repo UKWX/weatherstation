@@ -13,6 +13,8 @@ interface WeatherApiObservation {
   solarRadiation?: number;
   metric?: {
     temp?: number;
+    heatIndex?: number;
+    windChill?: number;
     dewpt?: number;
     pressure?: number;
     windSpeed?: number;
@@ -50,6 +52,7 @@ const mapObservationToRaw = (observation: WeatherApiObservation): RawObservation
     timestamp_utc: timestampUtc,
     timestamp_local: observation.obsTimeLocal,
     temperature: toFiniteNumber(observation.metric?.temp),
+    feels_like: toFiniteNumber(observation.metric?.heatIndex ?? observation.metric?.windChill),
     humidity: toFiniteNumber(observation.humidity),
     dew_point: toFiniteNumber(observation.metric?.dewpt),
     pressure: toFiniteNumber(observation.metric?.pressure),

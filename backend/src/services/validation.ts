@@ -14,6 +14,7 @@ const rawSchema = z.object({
   timestamp_utc: z.string().min(1),
   timestamp_local: z.string().optional(),
   temperature: nullableNumber,
+  feels_like: nullableNumber,
   humidity: nullableNumber,
   dew_point: nullableNumber,
   pressure: nullableNumber,
@@ -29,6 +30,7 @@ const rawSchema = z.object({
 
 const rangeRules: Record<string, [number, number]> = {
   temperature: [-60, 60],
+  feels_like: [-60, 60],
   humidity: [0, 100],
   dew_point: [-80, 40],
   pressure: [850, 1100],

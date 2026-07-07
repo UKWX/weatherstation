@@ -118,10 +118,16 @@ const toFiniteNumber = (value: unknown): number | null => {
 };
 
 const fmt = (v: number | null | undefined, suffix = '') =>
-  toFiniteNumber(v) !== null ? `${toFiniteNumber(v)!.toFixed(1)}${suffix}` : '—';
+{
+  const numeric = toFiniteNumber(v);
+  return numeric !== null ? `${numeric.toFixed(1)}${suffix}` : '—';
+};
 
 const fmtInt = (v: number | null | undefined, suffix = '') =>
-  toFiniteNumber(v) !== null ? `${Math.round(toFiniteNumber(v)!)}${suffix}` : '—';
+{
+  const numeric = toFiniteNumber(v);
+  return numeric !== null ? `${Math.round(numeric)}${suffix}` : '—';
+};
 
 const fmtTrend = (v: unknown, suffix = '') => {
   const numeric = toFiniteNumber(v);
@@ -224,6 +230,11 @@ export const DashboardPage = () => {
 
   const stationStatus = status?.station;
   const stationOnline = stationStatus?.status === 'Online';
+  const feelsLikeTrend = fmtTrend(live?.feels_like, '°C');
+  const humidityDetail = fmtRoundedTrend(live?.humidity, '%');
+  const windGustTrend = fmtTrend(live?.wind_gust, ' m/s');
+  const windDirectionDetail = fmtRoundedTrend(live?.wind_direction, '°');
+  const uvTrend = fmtTrend(live?.uv_index);
 
   return (
     <div className="page-grid">
@@ -232,8 +243,8 @@ export const DashboardPage = () => {
         <MetricCard
           label="Current Temperature"
           value={fmt(live?.temperature, '°C')}
-          trend={fmtTrend(live?.feels_like, '°C') ? `Feels like ${fmtTrend(live?.feels_like, '°C')}` : undefined}
-          detail={fmtRoundedTrend(live?.humidity, '%') ? `Humidity ${fmtRoundedTrend(live?.humidity, '%')}` : undefined}
+          trend={feelsLikeTrend ? `Feels like ${feelsLikeTrend}` : undefined}
+          detail={humidityDetail ? `Humidity ${humidityDetail}` : undefined}
           tone="temperature"
           icon="°"
         />
@@ -247,8 +258,8 @@ export const DashboardPage = () => {
         <MetricCard
           label="Wind"
           value={fmt(live?.wind_speed, ' m/s')}
-          trend={fmtTrend(live?.wind_gust, ' m/s') ? `Gust ${fmtTrend(live?.wind_gust, ' m/s')}` : undefined}
-          detail={fmtRoundedTrend(live?.wind_direction, '°') ? `Direction ${fmtRoundedTrend(live?.wind_direction, '°')}` : undefined}
+          trend={windGustTrend ? `Gust ${windGustTrend}` : undefined}
+          detail={windDirectionDetail ? `Direction ${windDirectionDetail}` : undefined}
           tone="wind"
           icon="↗"
         />
@@ -261,7 +272,7 @@ export const DashboardPage = () => {
         <MetricCard
           label="Solar / UV"
           value={live?.solar_radiation != null ? `${Math.round(live.solar_radiation)} W/m²` : '—'}
-          trend={fmtTrend(live?.uv_index) ? `UV index ${fmtTrend(live?.uv_index)}` : undefined}
+          trend={uvTrend ? `UV index ${uvTrend}` : undefined}
           tone="lightning"
           icon="☀"
         />

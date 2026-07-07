@@ -57,7 +57,10 @@ const toFiniteNumber = (value: unknown): number | null => {
 };
 
 const formatNumber = (value: number | null | undefined, suffix: string) =>
-  toFiniteNumber(value) !== null ? `${toFiniteNumber(value)!.toFixed(1)}${suffix}` : '—';
+{
+  const numeric = toFiniteNumber(value);
+  return numeric !== null ? `${numeric.toFixed(1)}${suffix}` : '—';
+};
 
 const formatTrend = (value: unknown, suffix: string) => {
   const numeric = toFiniteNumber(value);
@@ -111,6 +114,8 @@ export const LiveConditionsPage = () => {
   const live = overview?.live;
   const station = stationStatus?.station;
   const stationOnline = station?.status === 'Online';
+  const feelsLikeTrend = formatTrend(live?.feels_like, '°C');
+  const windGustTrend = formatTrend(live?.wind_gust, ' m/s');
 
   const recentRainTotal = useMemo(
     () =>
@@ -124,7 +129,7 @@ export const LiveConditionsPage = () => {
         <MetricCard
           label="Current Temperature"
           value={formatNumber(live?.temperature, '°C')}
-          trend={formatTrend(live?.feels_like, '°C') ? `Feels like ${formatTrend(live?.feels_like, '°C')}` : undefined}
+          trend={feelsLikeTrend ? `Feels like ${feelsLikeTrend}` : undefined}
           detail={live?.timestamp_local ? `Observed ${live.timestamp_local}` : undefined}
           tone="temperature"
           icon="°"
@@ -134,7 +139,7 @@ export const LiveConditionsPage = () => {
         <MetricCard
           label="Wind"
           value={formatNumber(live?.wind_speed, ' m/s')}
-          trend={formatTrend(live?.wind_gust, ' m/s') ? `Gust ${formatTrend(live?.wind_gust, ' m/s')}` : undefined}
+          trend={windGustTrend ? `Gust ${windGustTrend}` : undefined}
           tone="wind"
           icon="↗"
         />

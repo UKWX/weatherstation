@@ -46,8 +46,7 @@ export class AppErrorBoundary extends Component<Props, State> {
           >
             <h1 style={{ marginTop: 0 }}>WakefieldStation hit a display error.</h1>
             <p style={{ marginBottom: 0 }}>
-              Refresh the page. If the problem continues, check the API response for malformed live
-              data.
+              Please refresh the page. If the issue persists, contact support.
             </p>
           </section>
         </main>

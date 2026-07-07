@@ -127,10 +127,9 @@ routes.get('/api/status', (_req, res) => {
     },
     station: {
       id: config.weatherStationId || config.stationId || 'Unknown',
-      name: config.stationId || 'Wakefield Station',
       status: stationStatus,
       lastSuccessfulFetch,
-      latestObservationTime: latestObservationTime ?? (recordCount === 0 ? 'Waiting for data' : null),
+      latestObservationTime,
       recordCount,
       apiConfigured
     }

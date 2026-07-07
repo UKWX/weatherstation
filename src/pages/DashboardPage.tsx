@@ -70,7 +70,6 @@ type StatusPayload = {
   weatherApi?: { status?: string; stationId?: string | null; lastFetch?: string | null };
   station?: {
     id?: string;
-    name?: string;
     status?: string;
     lastSuccessfulFetch?: string | null;
     latestObservationTime?: string | null;

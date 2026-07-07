@@ -44,7 +44,7 @@ import {
 import { getAnnualClimateReport, getMonthlyClimateReport } from './services/reportingService';
 
 export const routes = Router();
-const LATEST_OBSERVATION_FUTURE_TOLERANCE_MINUTES = 10;
+const FUTURE_OBSERVATION_TOLERANCE_MINUTES = 10;
 
 type LatestObservationRow = {
   timestamp_utc: string;
@@ -53,9 +53,7 @@ type LatestObservationRow = {
 };
 
 const getLatestObservation = (): LatestObservationRow | undefined => {
-  const latestAllowedTimestamp = DateTime.utc()
-    .plus({ minutes: LATEST_OBSERVATION_FUTURE_TOLERANCE_MINUTES })
-    .toISO({ suppressMilliseconds: true });
+  const latestAllowedTimestamp = getLatestAllowedTimestamp();
 
   if (!latestAllowedTimestamp) {
     return undefined;
@@ -71,6 +69,11 @@ const getLatestObservation = (): LatestObservationRow | undefined => {
     )
     .get(latestAllowedTimestamp) as LatestObservationRow | undefined;
 };
+
+const getLatestAllowedTimestamp = () =>
+  DateTime.utc()
+    .plus({ minutes: FUTURE_OBSERVATION_TOLERANCE_MINUTES })
+    .toISO({ suppressMilliseconds: true });
 
 const getLatestAllowedSummaryDate = () => DateTime.now().setZone(config.timezone).toISODate();
 
@@ -314,11 +317,7 @@ routes.get('/api/dashboard/overview', (_req, res) => {
        ORDER BY timestamp_utc DESC
        LIMIT 1`
     )
-    .get(
-      DateTime.utc()
-       .plus({ minutes: LATEST_OBSERVATION_FUTURE_TOLERANCE_MINUTES })
-       .toISO({ suppressMilliseconds: true })
-    );
+    .get(getLatestAllowedTimestamp());
 
   const sevenDayRain = db
     .prepare(

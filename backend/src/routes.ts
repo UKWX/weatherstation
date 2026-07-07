@@ -73,12 +73,16 @@ routes.get('/health', (_req, res) => {
 });
 
 routes.get('/api/status', (_req, res) => {
+  // Database status
+  let dbStatus: 'connected' | 'error' = 'error';
+  let recordCount = 0;
+  let latest: { timestamp_utc: string; timestamp_local: string; ingested_at: string } | undefined;
+
   try {
-    const recordCount = (
+    recordCount = (
       db.prepare('SELECT COUNT(*) as count FROM raw_observations').get() as { count: number }
     ).count;
-
-    const latest = db
+    latest = db
       .prepare(
         `SELECT timestamp_utc, timestamp_local, ingested_at
          FROM raw_observations
@@ -86,29 +90,51 @@ routes.get('/api/status', (_req, res) => {
          LIMIT 1`
       )
       .get() as { timestamp_utc: string; timestamp_local: string; ingested_at: string } | undefined;
-
-    const lastFetchAt = latest?.ingested_at ?? null;
-    const latestObservationTime = latest?.timestamp_local ?? latest?.timestamp_utc ?? null;
-
-    const online =
-      latest != null &&
-      DateTime.utc().diff(DateTime.fromISO(latest.timestamp_utc, { zone: 'utc' }), 'minutes')
-        .minutes < 30;
-
-    res.json({
-      station: {
-        id: config.weatherStationId ?? 'Unknown',
-        status: online ? 'Online' : 'Offline',
-        lastSuccessfulFetch: lastFetchAt,
-        latestObservationTime,
-        recordCount,
-        apiConfigured: Boolean(config.weatherApiKey && config.weatherStationId)
-      }
-    });
+    dbStatus = 'connected';
   } catch (error) {
-    console.error('Status endpoint error:', error instanceof Error ? error.message : error);
-    res.status(500).json({ message: 'Failed to retrieve status' });
+    console.error('Status endpoint DB error:', error instanceof Error ? error.message : error);
   }
+
+  const apiConfigured = Boolean(config.weatherApiKey && config.weatherStationId);
+  const lastSuccessfulFetch = latest?.ingested_at ?? null;
+  const latestObservationTime = latest?.timestamp_local ?? latest?.timestamp_utc ?? null;
+
+  const minutesSinceLatest =
+    latest != null
+      ? DateTime.utc().diff(DateTime.fromISO(latest.timestamp_utc, { zone: 'utc' }), 'minutes').minutes
+      : null;
+  const stationStatus =
+    dbStatus === 'error'
+      ? 'Error'
+      : recordCount === 0
+        ? 'Waiting for data'
+        : minutesSinceLatest !== null && minutesSinceLatest < 30
+          ? 'Online'
+          : 'Offline';
+
+  res.json({
+    backend: {
+      status: 'ok'
+    },
+    database: {
+      status: dbStatus,
+      observationCount: recordCount
+    },
+    weatherApi: {
+      status: apiConfigured ? 'configured' : 'unconfigured',
+      stationId: config.weatherStationId || null,
+      lastFetch: lastSuccessfulFetch
+    },
+    station: {
+      id: config.weatherStationId || config.stationId || 'Unknown',
+      name: config.stationId || 'Wakefield Station',
+      status: stationStatus,
+      lastSuccessfulFetch,
+      latestObservationTime: latestObservationTime ?? (recordCount === 0 ? 'Waiting for data' : null),
+      recordCount,
+      apiConfigured
+    }
+  });
 });
 
 routes.get('/api/navigation', (_req, res) => {

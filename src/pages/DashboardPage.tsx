@@ -65,8 +65,12 @@ type ChartsPayload = {
 };
 
 type StatusPayload = {
+  backend?: { status?: string };
+  database?: { status?: string; observationCount?: number };
+  weatherApi?: { status?: string; stationId?: string | null; lastFetch?: string | null };
   station?: {
     id?: string;
+    name?: string;
     status?: string;
     lastSuccessfulFetch?: string | null;
     latestObservationTime?: string | null;

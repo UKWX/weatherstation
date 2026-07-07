@@ -104,9 +104,7 @@ function App() {
       <main className="content">
         <header className="topbar">
           <div className="topbar-copy">
-            <span className="topbar-eyebrow">Professional weather archive interface</span>
             <h2>Wakefield Climatology Archive</h2>
-            <p>Long-term observations, records, anomalies, and operational insight</p>
           </div>
           <div className="topbar-meta">
             <div>

@@ -72,6 +72,8 @@ const getLatestObservation = (): LatestObservationRow | undefined => {
     .get(latestAllowedTimestamp) as LatestObservationRow | undefined;
 };
 
+const getLatestAllowedSummaryDate = () => DateTime.now().setZone(config.timezone).toISODate();
+
 type DailySummaryRow = {
   max_temp: number | null;
   max_temp_time_local: string | null;
@@ -260,6 +262,12 @@ routes.post('/api/process/rebuild', (req, res) => {
 
 routes.get('/api/dashboard/charts', (req, res) => {
   const days = Math.min(Math.max(Number(req.query.days ?? 30), 7), 365);
+  const latestAllowedSummaryDate = getLatestAllowedSummaryDate();
+  if (!latestAllowedSummaryDate) {
+    res.status(500).json({ message: 'Failed to determine the current summary date' });
+    return;
+  }
+
   try {
     const rows = db
       .prepare(
@@ -272,10 +280,11 @@ routes.get('/api/dashboard/charts', (req, res) => {
                 ${LIGHTNING_COUNT_SQL} as lightning_count,
                 ${THUNDER_DAY_SQL} as thunder_day
          FROM daily_summary
+         WHERE summary_date <= ?
          ORDER BY summary_date DESC
          LIMIT ?`
       )
-      .all(days);
+      .all(latestAllowedSummaryDate, days);
     res.json({ rows: rows.reverse() });
   } catch (error) {
     console.error('Dashboard charts error:', error instanceof Error ? error.message : error);
@@ -284,6 +293,18 @@ routes.get('/api/dashboard/charts', (req, res) => {
 });
 
 routes.get('/api/dashboard/overview', (_req, res) => {
+  const latestAllowedSummaryDate = getLatestAllowedSummaryDate();
+  if (!latestAllowedSummaryDate) {
+    res.status(500).json({ message: 'Failed to determine the current summary date' });
+    return;
+  }
+
+  const latestAllowedMonth = DateTime.fromISO(latestAllowedSummaryDate);
+  if (!latestAllowedMonth.isValid) {
+    res.status(500).json({ message: 'Failed to determine the current summary month' });
+    return;
+  }
+
   const live = db
     .prepare(
       `SELECT temperature, feels_like, humidity, pressure, wind_speed, wind_gust, wind_direction,
@@ -303,17 +324,20 @@ routes.get('/api/dashboard/overview', (_req, res) => {
     .prepare(
       `SELECT summary_date, rainfall_total
        FROM daily_summary
+       WHERE summary_date <= ?
        ORDER BY summary_date DESC LIMIT 7`
     )
-    .all();
+    .all(latestAllowedSummaryDate);
 
   const monthly = db
     .prepare(
       `SELECT summary_year, summary_month, mean_temp, total_rainfall
        FROM monthly_summary
+       WHERE summary_year < ?
+          OR (summary_year = ? AND summary_month <= ?)
        ORDER BY summary_year DESC, summary_month DESC LIMIT 1`
     )
-    .get();
+    .get(latestAllowedMonth.year, latestAllowedMonth.year, latestAllowedMonth.month);
 
   res.json({ live, sevenDayRain, monthly });
 });

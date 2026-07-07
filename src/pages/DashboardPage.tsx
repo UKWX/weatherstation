@@ -16,6 +16,7 @@ import {
 } from 'recharts';
 import { MetricCard } from '../components/MetricCard';
 import { PanelCard } from '../components/PanelCard';
+import { toFiniteNumber } from '../utils/numeric';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -103,10 +104,26 @@ const lightningScale = ['#fef3c7', '#fb923c', '#a855f7'];
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 const fmt = (v: number | null | undefined, suffix = '') =>
-  typeof v === 'number' && Number.isFinite(v) ? `${v.toFixed(1)}${suffix}` : '—';
+{
+  const numeric = toFiniteNumber(v);
+  return numeric !== null ? `${numeric.toFixed(1)}${suffix}` : '—';
+};
 
 const fmtInt = (v: number | null | undefined, suffix = '') =>
-  typeof v === 'number' && Number.isFinite(v) ? `${Math.round(v)}${suffix}` : '—';
+{
+  const numeric = toFiniteNumber(v);
+  return numeric !== null ? `${Math.round(numeric)}${suffix}` : '—';
+};
+
+const fmtTrend = (v: unknown, suffix = '') => {
+  const numeric = toFiniteNumber(v);
+  return numeric !== null ? `${numeric.toFixed(1)}${suffix}` : undefined;
+};
+
+const fmtRoundedTrend = (v: unknown, suffix = '') => {
+  const numeric = toFiniteNumber(v);
+  return numeric !== null ? `${Math.round(numeric)}${suffix}` : undefined;
+};
 
 const getRainColor = (rainfall: number) => {
   if (rainfall <= 1) return rainfallScale[0];
@@ -170,7 +187,7 @@ export const DashboardPage = () => {
   const recentRainTotal = useMemo(
     () =>
       (overview?.sevenDayRain ?? []).reduce(
-        (sum, r) => sum + (typeof r.rainfall_total === 'number' ? r.rainfall_total : 0),
+        (sum, r) => sum + (toFiniteNumber(r.rainfall_total) ?? 0),
         0
       ),
     [overview?.sevenDayRain]
@@ -179,8 +196,8 @@ export const DashboardPage = () => {
   const rows = charts?.rows ?? [];
 
   const pressureValues = rows
-    .map((r) => r.mean_pressure)
-    .filter((v): v is number => typeof v === 'number');
+    .map((r) => toFiniteNumber(r.mean_pressure))
+    .filter((v): v is number => v !== null);
   const pressureDomain: [number, number] =
     pressureValues.length > 0
       ? [Math.min(...pressureValues) - PRESSURE_DOMAIN_PADDING, Math.max(...pressureValues) + PRESSURE_DOMAIN_PADDING]
@@ -199,6 +216,11 @@ export const DashboardPage = () => {
 
   const stationStatus = status?.station;
   const stationOnline = stationStatus?.status === 'Online';
+  const feelsLikeTrend = fmtTrend(live?.feels_like, '°C');
+  const humidityDetail = fmtRoundedTrend(live?.humidity, '%');
+  const windGustTrend = fmtTrend(live?.wind_gust, ' m/s');
+  const windDirectionDetail = fmtRoundedTrend(live?.wind_direction, '°');
+  const uvTrend = fmtTrend(live?.uv_index);
 
   return (
     <div className="page-grid">
@@ -207,8 +229,8 @@ export const DashboardPage = () => {
         <MetricCard
           label="Current Temperature"
           value={fmt(live?.temperature, '°C')}
-          trend={live?.feels_like != null ? `Feels like ${live.feels_like.toFixed(1)}°C` : undefined}
-          detail={live?.humidity != null ? `Humidity ${live.humidity.toFixed(0)}%` : undefined}
+          trend={feelsLikeTrend ? `Feels like ${feelsLikeTrend}` : undefined}
+          detail={humidityDetail ? `Humidity ${humidityDetail}` : undefined}
           tone="temperature"
           icon="°"
         />
@@ -221,9 +243,9 @@ export const DashboardPage = () => {
         />
         <MetricCard
           label="Wind"
-          value={live?.wind_speed != null ? `${live.wind_speed.toFixed(1)} m/s` : '—'}
-          trend={live?.wind_gust != null ? `Gust ${live.wind_gust.toFixed(1)} m/s` : undefined}
-          detail={live?.wind_direction != null ? `Direction ${Math.round(live.wind_direction)}°` : undefined}
+          value={fmt(live?.wind_speed, ' m/s')}
+          trend={windGustTrend ? `Gust ${windGustTrend}` : undefined}
+          detail={windDirectionDetail ? `Direction ${windDirectionDetail}` : undefined}
           tone="wind"
           icon="↗"
         />
@@ -236,7 +258,7 @@ export const DashboardPage = () => {
         <MetricCard
           label="Solar / UV"
           value={live?.solar_radiation != null ? `${Math.round(live.solar_radiation)} W/m²` : '—'}
-          trend={live?.uv_index != null ? `UV index ${live.uv_index.toFixed(1)}` : undefined}
+          trend={uvTrend ? `UV index ${uvTrend}` : undefined}
           tone="lightning"
           icon="☀"
         />
@@ -498,4 +520,3 @@ export const DashboardPage = () => {
     </div>
   );
 };
-

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { MetricCard } from '../components/MetricCard';
 import { PanelCard } from '../components/PanelCard';
+import { toFiniteNumber } from '../utils/numeric';
 
 type LiveObservation = {
   temperature?: number | null;
@@ -42,7 +43,15 @@ const REFRESH_INTERVAL_MS = 60_000;
 const REFRESH_INTERVAL_LABEL = `${Math.floor(REFRESH_INTERVAL_MS / 1000)} seconds`;
 
 const formatNumber = (value: number | null | undefined, suffix: string) =>
-  typeof value === 'number' && Number.isFinite(value) ? `${value.toFixed(1)}${suffix}` : '—';
+{
+  const numeric = toFiniteNumber(value);
+  return numeric !== null ? `${numeric.toFixed(1)}${suffix}` : '—';
+};
+
+const formatTrend = (value: unknown, suffix: string) => {
+  const numeric = toFiniteNumber(value);
+  return numeric !== null ? `${numeric.toFixed(1)}${suffix}` : undefined;
+};
 
 export const LiveConditionsPage = () => {
   const [overview, setOverview] = useState<OverviewPayload | null>(null);
@@ -91,10 +100,12 @@ export const LiveConditionsPage = () => {
   const live = overview?.live;
   const station = stationStatus?.station;
   const stationOnline = station?.status === 'Online';
+  const feelsLikeTrend = formatTrend(live?.feels_like, '°C');
+  const windGustTrend = formatTrend(live?.wind_gust, ' m/s');
 
   const recentRainTotal = useMemo(
     () =>
-      (overview?.sevenDayRain ?? []).reduce((sum, row) => sum + (typeof row.rainfall_total === 'number' ? row.rainfall_total : 0), 0),
+      (overview?.sevenDayRain ?? []).reduce((sum, row) => sum + (toFiniteNumber(row.rainfall_total) ?? 0), 0),
     [overview?.sevenDayRain]
   );
 
@@ -104,7 +115,7 @@ export const LiveConditionsPage = () => {
         <MetricCard
           label="Current Temperature"
           value={formatNumber(live?.temperature, '°C')}
-          trend={live?.feels_like != null ? `Feels like ${live.feels_like.toFixed(1)}°C` : undefined}
+          trend={feelsLikeTrend ? `Feels like ${feelsLikeTrend}` : undefined}
           detail={live?.timestamp_local ? `Observed ${live.timestamp_local}` : undefined}
           tone="temperature"
           icon="°"
@@ -113,8 +124,8 @@ export const LiveConditionsPage = () => {
         <MetricCard label="Pressure" value={formatNumber(live?.pressure, ' hPa')} tone="pressure" icon="◎" />
         <MetricCard
           label="Wind"
-          value={live?.wind_speed != null ? `${live.wind_speed.toFixed(1)} m/s` : '—'}
-          trend={live?.wind_gust != null ? `Gust ${live.wind_gust.toFixed(1)} m/s` : undefined}
+          value={formatNumber(live?.wind_speed, ' m/s')}
+          trend={windGustTrend ? `Gust ${windGustTrend}` : undefined}
           tone="wind"
           icon="↗"
         />
@@ -201,7 +212,7 @@ export const LiveConditionsPage = () => {
             {live?.uv_index != null && (
               <article className="summary-stat summary-stat--wind">
                 <span>UV Index</span>
-                <strong>{live.uv_index.toFixed(1)}</strong>
+                <strong>{formatNumber(live.uv_index, '')}</strong>
               </article>
             )}
           </div>

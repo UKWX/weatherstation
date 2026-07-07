@@ -44,6 +44,47 @@ import {
 import { getAnnualClimateReport, getMonthlyClimateReport } from './services/reportingService';
 
 export const routes = Router();
+const MAX_FUTURE_OBSERVATION_OFFSET_MINUTES = 10;
+
+type LatestObservationRow = {
+  timestamp_utc: string;
+  timestamp_local: string | null;
+  ingested_at: string;
+};
+
+const getLatestObservation = (): LatestObservationRow | undefined => {
+  const latestAllowedTimestamp = getLatestAllowedTimestamp();
+
+  if (!latestAllowedTimestamp) {
+    return undefined;
+  }
+
+  return db
+    .prepare(
+      `SELECT timestamp_utc, timestamp_local, ingested_at
+       FROM raw_observations
+       WHERE timestamp_utc <= ?
+       ORDER BY timestamp_utc DESC
+       LIMIT 1`
+    )
+    .get(latestAllowedTimestamp) as LatestObservationRow | undefined;
+};
+
+/**
+ * Allow a small future offset so slightly fast station clocks do not hide an otherwise valid
+ * latest observation.
+ */
+const getLatestAllowedTimestamp = (): string | null =>
+  DateTime.utc()
+    .plus({ minutes: MAX_FUTURE_OBSERVATION_OFFSET_MINUTES })
+    .toISO({ suppressMilliseconds: true });
+
+/**
+ * Use the configured station timezone when filtering summary tables so future-dated test rows do
+ * not surface in the live dashboard payloads.
+ */
+const getLatestAllowedSummaryDate = (): string | null =>
+  DateTime.now().setZone(config.timezone).toISODate();
 
 type DailySummaryRow = {
   max_temp: number | null;
@@ -76,20 +117,13 @@ routes.get('/api/status', (_req, res) => {
   // Database status
   let dbStatus: 'connected' | 'error' = 'error';
   let recordCount = 0;
-  let latest: { timestamp_utc: string; timestamp_local: string; ingested_at: string } | undefined;
+  let latest: LatestObservationRow | undefined;
 
   try {
     recordCount = (
       db.prepare('SELECT COUNT(*) as count FROM raw_observations').get() as { count: number }
     ).count;
-    latest = db
-      .prepare(
-        `SELECT timestamp_utc, timestamp_local, ingested_at
-         FROM raw_observations
-         ORDER BY timestamp_utc DESC
-         LIMIT 1`
-      )
-      .get() as { timestamp_utc: string; timestamp_local: string; ingested_at: string } | undefined;
+    latest = getLatestObservation();
     dbStatus = 'connected';
   } catch (error) {
     console.error('Status endpoint DB error:', error instanceof Error ? error.message : error);
@@ -240,6 +274,12 @@ routes.post('/api/process/rebuild', (req, res) => {
 
 routes.get('/api/dashboard/charts', (req, res) => {
   const days = Math.min(Math.max(Number(req.query.days ?? 30), 7), 365);
+  const latestAllowedSummaryDate = getLatestAllowedSummaryDate();
+  if (!latestAllowedSummaryDate) {
+    res.status(500).json({ message: 'Failed to determine the current summary date' });
+    return;
+  }
+
   try {
     const rows = db
       .prepare(
@@ -252,10 +292,11 @@ routes.get('/api/dashboard/charts', (req, res) => {
                 ${LIGHTNING_COUNT_SQL} as lightning_count,
                 ${THUNDER_DAY_SQL} as thunder_day
          FROM daily_summary
+         WHERE summary_date <= ?
          ORDER BY summary_date DESC
          LIMIT ?`
       )
-      .all(days);
+      .all(latestAllowedSummaryDate, days);
     res.json({ rows: rows.reverse() });
   } catch (error) {
     console.error('Dashboard charts error:', error instanceof Error ? error.message : error);
@@ -264,31 +305,46 @@ routes.get('/api/dashboard/charts', (req, res) => {
 });
 
 routes.get('/api/dashboard/overview', (_req, res) => {
+  const latestAllowedSummaryDate = getLatestAllowedSummaryDate();
+  if (!latestAllowedSummaryDate) {
+    res.status(500).json({ message: 'Failed to determine the current summary date' });
+    return;
+  }
+
+  const latestAllowedMonth = DateTime.fromISO(latestAllowedSummaryDate);
+  if (!latestAllowedMonth.isValid) {
+    res.status(500).json({ message: 'Failed to determine the current summary month' });
+    return;
+  }
+
   const live = db
     .prepare(
       `SELECT temperature, feels_like, humidity, pressure, wind_speed, wind_gust, wind_direction,
               rainfall, solar_radiation, uv_index, timestamp_local
        FROM raw_observations
+       WHERE timestamp_utc <= ?
        ORDER BY timestamp_utc DESC
        LIMIT 1`
     )
-    .get();
+    .get(getLatestAllowedTimestamp());
 
   const sevenDayRain = db
     .prepare(
       `SELECT summary_date, rainfall_total
        FROM daily_summary
+       WHERE summary_date <= ?
        ORDER BY summary_date DESC LIMIT 7`
     )
-    .all();
+    .all(latestAllowedSummaryDate);
 
   const monthly = db
     .prepare(
       `SELECT summary_year, summary_month, mean_temp, total_rainfall
        FROM monthly_summary
+       WHERE summary_year < ? OR (summary_year = ? AND summary_month <= ?)
        ORDER BY summary_year DESC, summary_month DESC LIMIT 1`
     )
-    .get();
+    .get(latestAllowedMonth.year, latestAllowedMonth.year, latestAllowedMonth.month);
 
   res.json({ live, sevenDayRain, monthly });
 });

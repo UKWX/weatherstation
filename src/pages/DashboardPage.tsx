@@ -16,6 +16,7 @@ import {
 } from 'recharts';
 import { MetricCard } from '../components/MetricCard';
 import { PanelCard } from '../components/PanelCard';
+import { toFiniteNumber } from '../utils/numeric';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -101,21 +102,6 @@ const windScale = ['#dcfce7', '#86efac', '#22c55e', '#15803d'];
 const lightningScale = ['#fef3c7', '#fb923c', '#a855f7'];
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
-
-const toFiniteNumber = (value: unknown): number | null => {
-  if (typeof value === 'number' && Number.isFinite(value)) {
-    return value;
-  }
-
-  if (typeof value === 'string' && value.trim() !== '') {
-    const parsed = Number(value);
-    if (Number.isFinite(parsed)) {
-      return parsed;
-    }
-  }
-
-  return null;
-};
 
 const fmt = (v: number | null | undefined, suffix = '') =>
 {

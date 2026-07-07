@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { MetricCard } from '../components/MetricCard';
 import { PanelCard } from '../components/PanelCard';
+import { toFiniteNumber } from '../utils/numeric';
 
 type LiveObservation = {
   temperature?: number | null;
@@ -40,21 +41,6 @@ type StatusPayload = {
 
 const REFRESH_INTERVAL_MS = 60_000;
 const REFRESH_INTERVAL_LABEL = `${Math.floor(REFRESH_INTERVAL_MS / 1000)} seconds`;
-
-const toFiniteNumber = (value: unknown): number | null => {
-  if (typeof value === 'number' && Number.isFinite(value)) {
-    return value;
-  }
-
-  if (typeof value === 'string' && value.trim() !== '') {
-    const parsed = Number(value);
-    if (Number.isFinite(parsed)) {
-      return parsed;
-    }
-  }
-
-  return null;
-};
 
 const formatNumber = (value: number | null | undefined, suffix: string) =>
 {

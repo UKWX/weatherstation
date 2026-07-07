@@ -333,8 +333,7 @@ routes.get('/api/dashboard/overview', (_req, res) => {
     .prepare(
       `SELECT summary_year, summary_month, mean_temp, total_rainfall
        FROM monthly_summary
-       WHERE summary_year < ?
-          OR (summary_year = ? AND summary_month <= ?)
+       WHERE summary_year < ? OR (summary_year = ? AND summary_month <= ?)
        ORDER BY summary_year DESC, summary_month DESC LIMIT 1`
     )
     .get(latestAllowedMonth.year, latestAllowedMonth.year, latestAllowedMonth.month);

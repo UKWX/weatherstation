@@ -74,7 +74,7 @@ const getLatestObservation = (): LatestObservationRow | undefined => {
  * Allow a small future offset so slightly fast station clocks do not hide an otherwise valid
  * latest observation.
  */
-const getLatestAllowedTimestamp = () =>
+const getLatestAllowedTimestamp = (): string | null =>
   DateTime.utc()
     .plus({ minutes: MAX_FUTURE_OBSERVATION_OFFSET_MINUTES })
     .toISO({ suppressMilliseconds: true });
@@ -83,7 +83,8 @@ const getLatestAllowedTimestamp = () =>
  * Use the configured station timezone when filtering summary tables so future-dated test rows do
  * not surface in the live dashboard payloads.
  */
-const getLatestAllowedSummaryDate = () => DateTime.now().setZone(config.timezone).toISODate();
+const getLatestAllowedSummaryDate = (): string | null =>
+  DateTime.now().setZone(config.timezone).toISODate();
 
 type DailySummaryRow = {
   max_temp: number | null;

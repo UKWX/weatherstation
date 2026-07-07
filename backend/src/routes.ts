@@ -44,7 +44,7 @@ import {
 import { getAnnualClimateReport, getMonthlyClimateReport } from './services/reportingService';
 
 export const routes = Router();
-const FUTURE_OBSERVATION_TOLERANCE_MINUTES = 10;
+const MAX_FUTURE_OBSERVATION_OFFSET_MINUTES = 10;
 
 type LatestObservationRow = {
   timestamp_utc: string;
@@ -70,11 +70,19 @@ const getLatestObservation = (): LatestObservationRow | undefined => {
     .get(latestAllowedTimestamp) as LatestObservationRow | undefined;
 };
 
+/**
+ * Allow a small future offset so slightly fast station clocks do not hide an otherwise valid
+ * latest observation.
+ */
 const getLatestAllowedTimestamp = () =>
   DateTime.utc()
-    .plus({ minutes: FUTURE_OBSERVATION_TOLERANCE_MINUTES })
+    .plus({ minutes: MAX_FUTURE_OBSERVATION_OFFSET_MINUTES })
     .toISO({ suppressMilliseconds: true });
 
+/**
+ * Use the configured station timezone when filtering summary tables so future-dated test rows do
+ * not surface in the live dashboard payloads.
+ */
 const getLatestAllowedSummaryDate = () => DateTime.now().setZone(config.timezone).toISODate();
 
 type DailySummaryRow = {

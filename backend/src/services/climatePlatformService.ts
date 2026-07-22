@@ -142,7 +142,10 @@ const average = (values: Array<number | null | undefined>): number | null => {
 };
 
 const sum = (values: Array<number | null | undefined>): number =>
-  values.reduce((total, value) => total + (typeof value === 'number' && Number.isFinite(value) ? value : 0), 0);
+  values.reduce<number>(
+    (total, value) => total + (typeof value === 'number' && Number.isFinite(value) ? value : 0),
+    0
+  );
 
 const asDateTime = (date: string): DateTime => DateTime.fromISO(date, { zone: config.timezone });
 
@@ -999,7 +1002,7 @@ export const getClimatePlatformOverview = () => {
   const meanHistoricalRain = average(historicalRain.map((row) => row.totalRainfall));
 
   const aiSummaries = [
-    currentYearTemp?.meanTemp !== null
+    currentYearTemp?.meanTemp != null
       ? `${currentYear} is running at ${currentYearTemp.meanTemp}°C mean temperature, ${round((currentYearTemp.meanTemp ?? 0) - (meanHistoricalTemp ?? 0))}°C versus the rest of the archive.`
       : `${currentYear} does not yet have enough temperature data for a year-to-date thermal summary.`,
     currentYearRain

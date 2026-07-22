@@ -689,13 +689,13 @@ export const ClimatePlatformPage = () => {
             <table>
               <tbody>
                 {[
-                  ['Warmest year', data.temperature.annualExtremes.warmestYear],
-                  ['Coldest year', data.temperature.annualExtremes.coldestYear],
-                  ['Highest annual mean maximum', data.temperature.annualExtremes.highestAnnualMeanMaximum],
-                  ['Lowest annual mean maximum', data.temperature.annualExtremes.lowestAnnualMeanMaximum],
-                  ['Highest annual mean minimum', data.temperature.annualExtremes.highestAnnualMeanMinimum],
-                  ['Lowest annual mean minimum', data.temperature.annualExtremes.lowestAnnualMeanMinimum]
-                ].map(([label, record]) => (
+                  { label: 'Warmest year', record: data.temperature.annualExtremes.warmestYear },
+                  { label: 'Coldest year', record: data.temperature.annualExtremes.coldestYear },
+                  { label: 'Highest annual mean maximum', record: data.temperature.annualExtremes.highestAnnualMeanMaximum },
+                  { label: 'Lowest annual mean maximum', record: data.temperature.annualExtremes.lowestAnnualMeanMaximum },
+                  { label: 'Highest annual mean minimum', record: data.temperature.annualExtremes.highestAnnualMeanMinimum },
+                  { label: 'Lowest annual mean minimum', record: data.temperature.annualExtremes.lowestAnnualMeanMinimum }
+                ].map(({ label, record }) => (
                   <tr key={label}>
                     <th>{label}</th>
                     <td>{record ? `${record.value} · ${record.year}` : '—'}</td>
@@ -801,16 +801,20 @@ export const ClimatePlatformPage = () => {
           <table>
             <tbody>
               {[
-                ['Highest pressure', data.monthlySummary.extremes.highestPressure],
-                ['Lowest pressure', data.monthlySummary.extremes.lowestPressure],
-                ['Highest wind gust', data.monthlySummary.extremes.highestWindGust],
-                ['Highest monthly lightning count', data.monthlySummary.extremes.highestLightningCount],
-                ['Most thunder days in a month', data.monthlySummary.extremes.mostThunderDaysMonth],
-                ['Most thunder days in a year', data.monthlySummary.extremes.mostThunderDaysYear]
-              ].map(([label, record]) => (
+                { label: 'Highest pressure', record: data.monthlySummary.extremes.highestPressure },
+                { label: 'Lowest pressure', record: data.monthlySummary.extremes.lowestPressure },
+                { label: 'Highest wind gust', record: data.monthlySummary.extremes.highestWindGust },
+                { label: 'Highest monthly lightning count', record: data.monthlySummary.extremes.highestLightningCount },
+                { label: 'Most thunder days in a month', record: data.monthlySummary.extremes.mostThunderDaysMonth },
+                { label: 'Most thunder days in a year', record: data.monthlySummary.extremes.mostThunderDaysYear }
+              ].map(({ label, record }) => (
                 <tr key={label}>
                   <th>{label}</th>
-                  <td>{record ? `${record.value} · ${record.month ?? ''} ${record.year ?? ''}`.trim() : '—'}</td>
+                  <td>
+                    {record
+                      ? `${record.value} · ${'month' in record && record.month ? `${record.month} ` : ''}${record.year}`.trim()
+                      : '—'}
+                  </td>
                 </tr>
               ))}
             </tbody>

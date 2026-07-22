@@ -717,7 +717,7 @@ export const ClimatePlatformPage = () => {
             ))}
             {data.temperature.thresholdStats.minimumTemperature.map((entry) => (
               <div key={`min-${entry.threshold}`} className="threshold-card">
-                <span>Min &lt; {entry.threshold}°C</span>
+                <span>Min {'<'} {entry.threshold}°C</span>
                 <strong>{entry.count}</strong>
               </div>
             ))}
@@ -789,7 +789,7 @@ export const ClimatePlatformPage = () => {
           <div className="threshold-grid">
             {data.rainfall.rainDayCounts.map((entry) => (
               <div key={entry.threshold} className="threshold-card">
-                <span>Rain &gt; {entry.threshold} mm</span>
+                <span>Rain {'>'} {entry.threshold} mm</span>
                 <strong>{entry.count}</strong>
               </div>
             ))}

@@ -753,8 +753,13 @@ const buildMonthlySummaryExtremes = (rows: MonthlyManualRow[]) => {
 
 const validateMonthlySummaryInput = (input: MonthlySummaryInput): string[] => {
   const issues: string[] = [];
-  if (!Number.isInteger(input.year) || input.year < config.temperatureHistoryStartYear) {
-    issues.push(`year must be ${config.temperatureHistoryStartYear} or later`);
+  const maxAllowedYear = DateTime.now().year + 100;
+  if (
+    !Number.isInteger(input.year) ||
+    input.year < config.temperatureHistoryStartYear ||
+    input.year > maxAllowedYear
+  ) {
+    issues.push(`year must be between ${config.temperatureHistoryStartYear} and ${maxAllowedYear}`);
   }
   if (!Number.isInteger(input.month) || input.month < 1 || input.month > 12) {
     issues.push('month must be between 1 and 12');
@@ -941,7 +946,18 @@ export const getClimatePlatformOverview = () => {
     reaches20: { earliest: buildSeasonalBoundary(temperatureRows, (row) => (row.maxTemp ?? Number.NEGATIVE_INFINITY) >= 20, 'first'), latest: buildSeasonalBoundary(temperatureRows, (row) => (row.maxTemp ?? Number.NEGATIVE_INFINITY) >= 20, 'last') },
     reaches25: { earliest: buildSeasonalBoundary(temperatureRows, (row) => (row.maxTemp ?? Number.NEGATIVE_INFINITY) >= 25, 'first'), latest: buildSeasonalBoundary(temperatureRows, (row) => (row.maxTemp ?? Number.NEGATIVE_INFINITY) >= 25, 'last') },
     reaches30: { earliest: buildSeasonalBoundary(temperatureRows, (row) => (row.maxTemp ?? Number.NEGATIVE_INFINITY) >= 30, 'first'), latest: buildSeasonalBoundary(temperatureRows, (row) => (row.maxTemp ?? Number.NEGATIVE_INFINITY) >= 30, 'last') },
-    reaches35: { earliest: buildSeasonalBoundary(temperatureRows, (row) => (row.maxTemp ?? Number.NEGATIVE_INFINITY) >= 35, 'first'), latest: null },
+    reaches35: {
+      earliest: buildSeasonalBoundary(
+        temperatureRows,
+        (row) => (row.maxTemp ?? Number.NEGATIVE_INFINITY) >= 35,
+        'first'
+      ),
+      latest: buildSeasonalBoundary(
+        temperatureRows,
+        (row) => (row.maxTemp ?? Number.NEGATIVE_INFINITY) >= 35,
+        'last'
+      )
+    },
     firstFrost: buildSeasonalBoundary(temperatureRows, (row) => (row.minTemp ?? Number.POSITIVE_INFINITY) < 0, 'first'),
     lastFrost: buildSeasonalBoundary(temperatureRows, (row) => (row.minTemp ?? Number.POSITIVE_INFINITY) < 0, 'last'),
     firstIceDay: buildSeasonalBoundary(temperatureRows, (row) => (row.maxTemp ?? Number.POSITIVE_INFINITY) < 0, 'first'),

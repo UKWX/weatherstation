@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { IsobrontChat } from '../components/isobront/IsobrontChat';
 import Papa from 'papaparse';
 import {
   Brush,
@@ -197,7 +198,8 @@ const NAV_ITEMS = [
   { path: '/climate/monthly-climatology', label: 'Monthly Climatology', icon: '◫' },
   { path: '/climate/rankings', label: 'Rankings', icon: '▣' },
   { path: '/climate/comparisons', label: 'Comparisons', icon: '↗' },
-  { path: '/climate/assistant', label: 'AI Assistant', icon: '✦' }
+  { path: '/climate/assistant', label: 'AI Assistant', icon: '✦' },
+  { path: '/isobront', label: 'Isobront', icon: '⚡' }
 ] as const;
 
 const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -627,7 +629,12 @@ export const ClimatePlatformPage = () => {
         years={data.comparisons.availableYears}
         unit="mm"
       />
+      <IsobrontChat />
     </>
+  );
+
+  const renderIsobront = () => (
+    <IsobrontChat />
   );
 
   const renderDataHub = () => (
@@ -1074,6 +1081,8 @@ export const ClimatePlatformPage = () => {
         return renderComparisons();
       case '/climate/assistant':
         return renderAssistant();
+      case '/isobront':
+        return renderIsobront();
       default:
         return renderOverview();
     }

@@ -97,4 +97,29 @@ if (!hasVersion4.count) {
   );
 }
 
+const hasVersion5 = db
+  .prepare('SELECT COUNT(*) as count FROM schema_versions WHERE version = 5')
+  .get() as { count: number };
+
+if (!hasVersion5.count) {
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS climate_monthly_observations (
+      station_id TEXT NOT NULL,
+      summary_year INTEGER NOT NULL,
+      summary_month INTEGER NOT NULL,
+      highest_pressure REAL,
+      lowest_pressure REAL,
+      highest_wind_gust REAL,
+      lightning_count INTEGER,
+      thunder_days INTEGER,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+      PRIMARY KEY(station_id, summary_year, summary_month)
+    )
+  `);
+  db.prepare('INSERT INTO schema_versions(version, description) VALUES(5, ?)').run(
+    'Manual monthly climate summary storage for the climatology platform'
+  );
+}
+
 console.log('Migration complete');

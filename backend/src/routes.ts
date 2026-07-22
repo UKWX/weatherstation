@@ -41,6 +41,10 @@ import {
   getTrendsData,
   getExtremesData
 } from './services/analyticsChartService';
+import {
+  getClimatePlatformOverview,
+  upsertClimateMonthlySummary
+} from './services/climatePlatformService';
 import { getAnnualClimateReport, getMonthlyClimateReport } from './services/reportingService';
 
 export const routes = Router();
@@ -233,6 +237,37 @@ routes.post('/api/import/historical/precipitation/spreadsheet', (req, res) => {
     year,
     source: req.body?.source
   });
+  res.json(result);
+});
+
+routes.post('/api/climate-platform/import/temperature', (req, res) => {
+  const rows = Array.isArray(req.body?.rows) ? req.body.rows : [];
+  const result = ingestTemperatureHistory(rows);
+  res.json(result);
+});
+
+routes.post('/api/climate-platform/import/rainfall', (req, res) => {
+  const rows = Array.isArray(req.body?.rows) ? req.body.rows : [];
+  const result = ingestPrecipitationHistory(rows);
+  res.json(result);
+});
+
+routes.post('/api/climate-platform/monthly-summary', (req, res) => {
+  const result = upsertClimateMonthlySummary({
+    year: Number(req.body?.year),
+    month: Number(req.body?.month),
+    highestPressure: req.body?.highestPressure ?? null,
+    lowestPressure: req.body?.lowestPressure ?? null,
+    highestWindGust: req.body?.highestWindGust ?? null,
+    lightningCount: req.body?.lightningCount ?? null,
+    thunderDays: req.body?.thunderDays ?? null
+  });
+
+  if (!result.ok) {
+    res.status(400).json(result);
+    return;
+  }
+
   res.json(result);
 });
 
@@ -649,6 +684,10 @@ routes.get('/api/climate/analytics/trends', (_req, res) => {
 routes.get('/api/climate/analytics/extremes', (req, res) => {
   const limit = Math.min(Math.max(Number(req.query.limit ?? 50), 1), 100);
   res.json(getExtremesData(limit));
+});
+
+routes.get('/api/climate-platform/overview', (_req, res) => {
+  res.json(getClimatePlatformOverview());
 });
 
 routes.get('/api/exports/:dataset', (req, res) => {

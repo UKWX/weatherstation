@@ -496,7 +496,51 @@ export const ClimatePlatformPage = () => {
   }
 
   if (error || !data) {
-    return <div className="loading-state">{error ?? 'Failed to load climate archive.'}</div>;
+    return (
+      <div className="climate-app">
+        <aside className="climate-sidebar">
+          <div className="brand-block">
+            <div className="brand-mark">⛅</div>
+            <div>
+              <h1>Wakefield Climatology Platform</h1>
+              <p>Professional archive · extremes · rankings · comparisons</p>
+            </div>
+          </div>
+          <div className="sidebar-pill-group">
+            <span className="sidebar-pill">White · blue · purple premium theme</span>
+            <span className="sidebar-pill sidebar-pill--secondary">Climate engine recalculates automatically</span>
+          </div>
+          <nav className="climate-nav">
+            {NAV_ITEMS.map((item) => (
+              <a key={item.path} href={`#${item.path}`}>
+                <span>{item.icon}</span>
+                <span>{item.label}</span>
+              </a>
+            ))}
+          </nav>
+        </aside>
+        <main className="climate-content">
+          <header className="hero-panel">
+            <div>
+              <span className="hero-kicker">Climate → Extremes Centre → Temperature / Rainfall</span>
+              <h2>Personal climate archive for decades of future data</h2>
+              <p>
+                Daily weather history, monthly climate, annual climate, records, extremes, rankings,
+                trends, comparisons and AI-ready climate analysis from a minimal manual data model.
+              </p>
+            </div>
+          </header>
+          <PanelCard title="Archive not connected" subtitle="The climate archive backend is not reachable. Start the backend service to load the climate data.">
+            <p className="panel-copy">{error ?? 'Failed to load climate archive.'}</p>
+            <div className="button-row">
+              <button type="button" className="button" onClick={() => void refresh()}>
+                Retry connection
+              </button>
+            </div>
+          </PanelCard>
+        </main>
+      </div>
+    );
   }
 
   const overviewMetrics = [

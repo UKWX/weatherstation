@@ -753,7 +753,7 @@ const buildMonthlySummaryExtremes = (rows: MonthlyManualRow[]) => {
 
 const validateMonthlySummaryInput = (input: MonthlySummaryInput): string[] => {
   const issues: string[] = [];
-  const maxAllowedYear = DateTime.now().year + 100;
+  const maxAllowedYear = DateTime.now().year + 5;
   if (
     !Number.isInteger(input.year) ||
     input.year < config.temperatureHistoryStartYear ||

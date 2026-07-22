@@ -32,10 +32,9 @@ export type QueryIntent =
   | 'hotspot'
   | 'general';
 
-export type DateRange = 'today' | 'yesterday' | '3days' | 'week' | 'month' | 'all' | {
-  start: string;
-  end: string;
-};
+export type DateRangePreset = 'today' | 'yesterday' | '3days' | 'week' | 'month' | 'all';
+export type DateRangeCustom = { kind: 'custom'; start: string; end: string };
+export type DateRange = DateRangePreset | DateRangeCustom;
 
 export type AnalysisChartData = {
   type: 'bar' | 'line' | 'horizontal-bar' | 'grouped-bar';
@@ -108,7 +107,7 @@ const EU_CITIES = [
 // ── Query parsing ─────────────────────────────────────────────────────────────
 
 function detectIntent(q: string): QueryIntent {
-  if (/\bcompar[ei]\b|\ bvs\.?\b|\ band\b.*\band\b/.test(q)) return 'comparison';
+  if (/\bcompar[ei]\b|\bvs\.?\b|\band\b.*\band\b/.test(q)) return 'comparison';
   if (/\btop\b|\bmost active\b|\brank(ing)?\b|\bhotspot\b|\bwhere.*most\b|\bmost.*light/i.test(q)) return 'ranking';
   if (/\btrend\b|\bsince\b.*\b(march|april|may|june|july|august|september|october|november|december)\b|\bover time\b|\bcumulative\b/i.test(q)) return 'timeseries';
   if (/\bhotspot\b|\bheat.?map\b|\bmap\b|\bconcentrat/i.test(q)) return 'hotspot';
@@ -157,6 +156,7 @@ function parseDateRange(q: string): DateRange {
       const endStr = end.toISOString().slice(0, 10);
       if (startStr >= ARCHIVE_START || endStr >= ARCHIVE_START) {
         return {
+          kind: 'custom' as const,
           start: startStr < ARCHIVE_START ? ARCHIVE_START : startStr,
           end: endStr > todayISO() ? todayISO() : endStr,
         };
@@ -189,7 +189,7 @@ function dateRangeToSpan(range: DateRange): { start: string; end: string } {
     return { start: d.toISOString().slice(0, 10), end: today };
   }
   if (range === 'all') return { start: ARCHIVE_START, end: today };
-  return range;
+  return { start: range.start, end: range.end };
 }
 
 function describeRange(range: DateRange): string {

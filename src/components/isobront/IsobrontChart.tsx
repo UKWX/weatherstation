@@ -66,7 +66,6 @@ export const IsobrontChart = ({ chart }: Props) => {
                     key={`cell-${idx}`}
                     fill={yk.color}
                     opacity={1 - idx * 0.04}
-                    style={i === 0 ? undefined : undefined}
                   />
                 ))}
               </Bar>

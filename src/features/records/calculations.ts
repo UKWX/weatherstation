@@ -13,7 +13,7 @@ import {
   getMeteorologicalSeason,
   parseIsoClimateDate,
 } from '@/lib/climate'
-import { RAIN_DAY_THRESHOLD_MM, RAINFALL_START_DATE, WEATHER_UNITS } from '@/config/weather'
+import { RAINFALL_START_DATE, WEATHER_UNITS } from '@/config/weather'
 import { isRainfallAvailableForYear } from '@/features/climateArchive/calculations'
 import type { ClimateDateString, ClimateDay, MonthlySummary, AnnualSummary } from '@/types/weather'
 import type {
@@ -84,31 +84,10 @@ function matchesYearRange(
  * Assign dense ranks to a pre-sorted array.
  * All items with the same value get the same rank.
  */
-function assignDenseRanks<T extends { value: number }>(
-  sorted: T[],
-): Array<T & { rank: number }> {
-  let rank = 1
-  return sorted.map((item, i) => {
-    if (i > 0 && sorted[i - 1]!.value !== item.value) {
-      rank = i + 1
-    }
-    return { ...item, rank }
-  })
-}
-
 // ── 1. Overall station records ────────────────────────────────────────────────
 
 export function getOverallRecords(index: RecordsIndex): OverallRecord[] {
   const { daysByMaxTempDesc, daysByMaxTempAsc, daysByMinTempDesc, daysByMinTempAsc, daysByRainfallDesc, monthlySummaries, annualSummaries } = index
-
-  function holdersFromDays(days: ClimateDay[], value: number) {
-    return days
-      .filter((d) => d.maxTempC === value || d.minTempC === value)
-      .map((d) => ({
-        date: d.date,
-        label: d.date,
-      }))
-  }
 
   // Highest daily max
   const highestMaxDay = daysByMaxTempDesc[0]
@@ -479,11 +458,6 @@ function monthlyMetricValue(summary: MonthlySummary, metric: MonthlyMetric): num
     case 'mean-temp':  return summary.meanTempC
     case 'rainfall':   return summary.rainfallTotalMm
   }
-}
-
-function monthlyMetricDirection(metric: MonthlyMetric): 'asc' | 'desc' {
-  // All metrics: highest first
-  return 'desc'
 }
 
 export function getMonthlyRankings(

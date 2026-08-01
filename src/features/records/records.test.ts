@@ -218,10 +218,6 @@ describe('getDailyRankings', () => {
   })
 
   it('filters by year range', () => {
-    const records2 = [
-      ...records,
-      makeDay('2023-08-01', { maxTempC: 40 }),
-    ]
     const idx2 = buildRecordsIndex([
       makePayload(2023, [makeDay('2023-08-01', { maxTempC: 40 })]),
       makePayload(2024, records),

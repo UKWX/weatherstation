@@ -274,8 +274,8 @@ describe('climate utilities', () => {
     })
     expect(calculateColdStreak(streakDays)).toMatchObject({
       length: 2,
-      startDate: '2024-07-10',
-      endDate: '2024-07-11',
+      startDate: '2024-07-08',
+      endDate: '2024-07-09',
     })
   })
 

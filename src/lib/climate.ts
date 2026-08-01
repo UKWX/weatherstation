@@ -659,7 +659,7 @@ function toEuropeLondonClimateDate(date: Date): ClimateDateString {
     throw new RangeError('Unable to format Europe/London climate date')
   }
 
-  return `${year}-${month}-${day}`
+  return `${year}-${month}-${day}` as ClimateDateString
 }
 
 function compareClimateDates(

@@ -226,6 +226,10 @@ describe('publicWeatherApi', () => {
       'fetch',
       vi.fn().mockImplementation((_: string, init?: RequestInit) => {
         return new Promise((_, reject) => {
+          if (init?.signal?.aborted) {
+            reject(new DOMException('Aborted', 'AbortError'))
+            return
+          }
           init?.signal?.addEventListener(
             'abort',
             () => reject(new DOMException('Aborted', 'AbortError')),

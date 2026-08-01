@@ -1051,7 +1051,6 @@ function adaptDailyNormal(raw: RawRecord): DailyNormal {
     normalMeanTempC: optionalNullableNumber(raw, 'normal_mean_temp_c'),
     maxSampleCount: requiredInteger(raw, 'max_sample_count'),
     minSampleCount: requiredInteger(raw, 'min_sample_count'),
-    baseline: requiredString(raw, 'baseline'),
   }
 }
 

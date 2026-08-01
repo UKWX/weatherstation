@@ -283,7 +283,6 @@ const dailyNormalsFixture = {
       normal_mean_temp_c: 5.1,
       max_sample_count: 30,
       min_sample_count: 30,
-      baseline: '1995-2024',
     },
     {
       date_key: '02-29',
@@ -294,7 +293,6 @@ const dailyNormalsFixture = {
       normal_mean_temp_c: 4.5,
       max_sample_count: 8,
       min_sample_count: 8,
-      baseline: '1995-2024',
     },
   ],
 }
@@ -568,7 +566,6 @@ describe('publicWeatherApi', () => {
       normalMeanTempC: 5.1,
       maxSampleCount: 30,
       minSampleCount: 30,
-      baseline: '1995-2024',
     })
     expect(daily.records[1]?.dateKey).toBe('02-29')
     expect('date' in daily.records[0]).toBe(false)
@@ -692,7 +689,6 @@ describe('publicWeatherApi', () => {
           'normal_mean_temp_c',
           'max_sample_count',
           'min_sample_count',
-          'baseline',
         ]),
       },
       february29Record: {

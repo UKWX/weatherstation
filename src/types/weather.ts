@@ -12,7 +12,13 @@ export interface JsonObject {
 
 export type MeteorologicalSeason = 'winter' | 'spring' | 'summer' | 'autumn'
 
-export type ComparisonMode = 'season-vs-season' | 'same-period' | 'custom'
+export type ComparisonMode =
+  | 'date-vs-date'
+  | 'month-vs-month'
+  | 'year-vs-year'
+  | 'season-vs-season'
+  | 'same-period'
+  | 'custom'
 
 export type PeriodKind = 'monthly' | 'annual'
 
@@ -328,7 +334,17 @@ export interface ComparisonPeriodResult {
   rainDays: number
   wettestDay: TiedDatesMetric
   temperatureAnomalyC: NullableMeasurement
+  thresholds: PeriodThresholdCounts
   coverage: PeriodCoverage
+}
+
+export interface PeriodThresholdCounts {
+  atOrAbove20C: number
+  atOrAbove25C: number
+  atOrAbove30C: number
+  frostDays: number
+  rainDays: number
+  heavyRainDays: number
 }
 
 export interface ComparisonResult {

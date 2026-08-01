@@ -604,7 +604,7 @@ function normaliseReferenceClimateDate(
     return value
   }
 
-  return toEuropeLondonClimateDate(value ?? new Date())
+  return getEuropeLondonClimateDate(value ?? new Date())
 }
 
 function getClampedPeriodEndDate(
@@ -643,7 +643,7 @@ function normaliseDateLike(value: ClimateDateString | string | Date): Date {
   return date
 }
 
-function toEuropeLondonClimateDate(date: Date): ClimateDateString {
+export function getEuropeLondonClimateDate(date: Date = new Date()): ClimateDateString {
   const formatter = new Intl.DateTimeFormat('en-CA', {
     timeZone: EUROPE_LONDON_TIMEZONE,
     year: 'numeric',
@@ -662,7 +662,7 @@ function toEuropeLondonClimateDate(date: Date): ClimateDateString {
   return `${year}-${month}-${day}` as ClimateDateString
 }
 
-function compareClimateDates(
+export function compareClimateDates(
   left: ClimateDateString,
   right: ClimateDateString,
 ): number {
@@ -703,7 +703,7 @@ function toUtcDate(parts: ClimateDateParts, hour = 0): Date {
   return new Date(Date.UTC(parts.year, parts.month - 1, parts.day, hour))
 }
 
-function toClimateDateString(
+export function toClimateDateString(
   year: number,
   month: number,
   day: number,
@@ -714,7 +714,7 @@ function toClimateDateString(
   )}-${String(day).padStart(2, '0')}` as ClimateDateString
 }
 
-function daysInMonth(year: number, month: number): number {
+export function daysInMonth(year: number, month: number): number {
   return new Date(Date.UTC(year, month, 0)).getUTCDate()
 }
 

@@ -1254,3 +1254,154 @@ th {
     align-items: flex-start;
   }
 }
+
+.climate-calendar-layout,
+.on-this-day-layout {
+  display: grid;
+  gap: 1rem;
+}
+
+.climate-calendar-annual-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 1rem;
+}
+
+.climate-calendar-mobile-view {
+  display: grid;
+  gap: 1rem;
+}
+
+.climate-calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 0.35rem;
+}
+
+.climate-calendar-weekday {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-align: center;
+}
+
+.climate-calendar-cell {
+  min-height: 4.5rem;
+  border: 1px solid var(--border);
+  border-radius: 0.55rem;
+  background: var(--surface);
+  color: var(--text);
+  padding: 0.35rem;
+  display: grid;
+  align-content: space-between;
+  gap: 0.2rem;
+  text-align: left;
+}
+
+.climate-calendar-cell--selected {
+  outline: 3px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.climate-calendar-cell--empty {
+  border: none;
+  background: transparent;
+  min-height: 4.5rem;
+}
+
+.climate-calendar-cell-day {
+  font-weight: 700;
+}
+
+.climate-calendar-cell-value,
+.climate-calendar-cell-meta {
+  font-size: 0.76rem;
+}
+
+.climate-calendar-cell-meta {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.25rem;
+}
+
+.climate-calendar-provisional-marker {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.1rem;
+  min-height: 1.1rem;
+  border-radius: 999px;
+  background: var(--chart-series-provisional);
+  color: #111;
+  font-size: 0.7rem;
+  font-weight: 700;
+}
+
+.climate-calendar-legend-list {
+  margin: 0;
+  padding-left: 0;
+  list-style: none;
+  display: grid;
+  gap: 0.45rem;
+}
+
+.climate-calendar-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+}
+
+.climate-calendar-selection-summary {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.climate-calendar-cell--missing {
+  background: repeating-linear-gradient(
+    -45deg,
+    var(--surface-muted),
+    var(--surface-muted) 8px,
+    var(--surface) 8px,
+    var(--surface) 16px
+  );
+}
+
+.climate-calendar-cell--unavailable {
+  background: repeating-linear-gradient(
+    45deg,
+    rgba(90, 102, 130, 0.18),
+    rgba(90, 102, 130, 0.18) 6px,
+    transparent 6px,
+    transparent 12px
+  );
+}
+
+.climate-calendar-cell--temp-0,
+.calendar-tone-temp-0 { background: #d9ebff; }
+.climate-calendar-cell--temp-1,
+.calendar-tone-temp-1 { background: #b7d5ff; }
+.climate-calendar-cell--temp-2,
+.calendar-tone-temp-2 { background: #ffe4b2; }
+.climate-calendar-cell--temp-3,
+.calendar-tone-temp-3 { background: #ffc47a; }
+.climate-calendar-cell--temp-4,
+.calendar-tone-temp-4 { background: #ff9e67; }
+
+.climate-calendar-cell--rain-0,
+.calendar-tone-rain-0 { background: #edf7ed; }
+.climate-calendar-cell--rain-1,
+.calendar-tone-rain-1 { background: #d9efe7; }
+.climate-calendar-cell--rain-2,
+.calendar-tone-rain-2 { background: #c5e6ef; }
+.climate-calendar-cell--rain-3,
+.calendar-tone-rain-3 { background: #98d2f1; }
+.climate-calendar-cell--rain-4,
+.calendar-tone-rain-4 { background: #6ab7ec; }
+.climate-calendar-cell--rain-5,
+.calendar-tone-rain-5 { background: #3d92d8; color: #fff; }
+
+@media (max-width: 760px) {
+  .climate-calendar-cell {
+    min-height: 4rem;
+  }
+}

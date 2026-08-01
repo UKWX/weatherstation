@@ -269,6 +269,7 @@ function GraphPanel({
   readonly onDownloadPng: (svg: SVGSVGElement) => void
 }) {
   const svgRef = useRef<SVGSVGElement>(null)
+  const [hoveredTimestamp, setHoveredTimestamp] = useState<number | null>(null)
   const visibleSeries = series.filter((entry) => !entry.hidden)
   const filteredSeries = visibleSeries
     .map((entry) => ({
@@ -299,6 +300,14 @@ function GraphPanel({
     }
     return values
   }, [filteredRanges, filteredSeries])
+  const hoverTimestamps = useMemo(
+    () =>
+      filteredSeries
+        .flatMap((entry) => entry.points.map((point) => point.timestamp))
+        .filter((timestamp, index, values) => values.indexOf(timestamp) === index)
+        .sort((left, right) => left - right),
+    [filteredSeries],
+  )
 
   if (filteredSeries.length === 0 || valueDomain.length === 0) {
     return (
@@ -323,6 +332,18 @@ function GraphPanel({
     CHART_MARGIN.top + plotHeight - ((value - yMin) / Math.max(1, yMax - yMin)) * plotHeight
   const xTickPoints = buildXAxisTicks(filteredSeries[0]!.points)
   const zeroY = yScale(Math.max(0, yMin))
+  const hoveredValues = hoveredTimestamp == null
+    ? []
+    : visibleSeries.map((entry) => ({
+        label: entry.label,
+        color: entry.color,
+        unit: entry.unit,
+        value:
+          filteredSeries
+            .find((candidate) => candidate.id === entry.id)
+            ?.points.find((point) => point.timestamp === hoveredTimestamp)
+            ?.value ?? null,
+      }))
 
   return (
     <section className="card custom-graphs-chart-card">
@@ -343,7 +364,7 @@ function GraphPanel({
           Export PNG
         </button>
       </div>
-      <ResponsiveChartContainer>
+      <ResponsiveChartContainer size="detail">
         <svg
           ref={svgRef}
           viewBox={`0 0 ${SVG_W} ${SVG_H}`}
@@ -464,8 +485,57 @@ function GraphPanel({
               {point.label}
             </text>
           ))}
+          <rect
+            x={CHART_MARGIN.left}
+            y={CHART_MARGIN.top}
+            width={plotWidth}
+            height={plotHeight}
+            fill="transparent"
+            onPointerLeave={() => setHoveredTimestamp(null)}
+            onPointerMove={(event) => {
+              if (svgRef.current == null || hoverTimestamps.length === 0) return
+              const rect = svgRef.current.getBoundingClientRect()
+              const ratio = (event.clientX - rect.left) / rect.width
+              const timestamp = domain.start + (domain.end - domain.start) * ratio
+              let best = hoverTimestamps[0]!
+              let bestDiff = Math.abs(best - timestamp)
+              for (const candidate of hoverTimestamps) {
+                const diff = Math.abs(candidate - timestamp)
+                if (diff < bestDiff) {
+                  best = candidate
+                  bestDiff = diff
+                }
+              }
+              setHoveredTimestamp(best)
+            }}
+            style={{ touchAction: 'none' }}
+          />
+          {hoveredTimestamp != null ? (
+            <line
+              x1={xScale(hoveredTimestamp)}
+              x2={xScale(hoveredTimestamp)}
+              y1={CHART_MARGIN.top}
+              y2={CHART_MARGIN.top + plotHeight}
+              stroke={chartTokens.axisText}
+              strokeDasharray="3 3"
+            />
+          ) : null}
         </svg>
       </ResponsiveChartContainer>
+      <div className="live-chart-data-panel" aria-live="polite" aria-atomic="true">
+        {hoveredTimestamp != null ? (
+          <>
+            <span className="live-chart-data-time">
+              {formatLondonDateTimeDisplay(hoveredTimestamp)}
+            </span>
+            {hoveredValues.map((entry) => (
+              <span key={entry.label} className="live-chart-data-value" style={{ color: entry.color }}>
+                {entry.label}: {entry.value == null ? 'Missing' : `${entry.value.toFixed(1)} ${entry.unit}`}
+              </span>
+            ))}
+          </>
+        ) : null}
+      </div>
       <ul className="custom-graphs-inline-legend" aria-label={`${title} visible series`}>
         {visibleSeries.map((entry) => (
           <li key={entry.id}>

@@ -215,8 +215,7 @@ textarea:focus-visible {
 
 .card,
 .state-card,
-.table-wrapper,
-.responsive-chart-container {
+.table-wrapper {
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 0.8rem;
@@ -368,8 +367,39 @@ th {
 
 .responsive-chart-container {
   width: 100%;
-  min-height: 18rem;
   overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+  --chart-height: clamp(24rem, 48vw, 28.75rem);
+  --chart-min-width: 320px;
+  padding-block: 0.25rem 0.5rem;
+}
+
+.responsive-chart-container--compact {
+  --chart-height: clamp(17.5rem, 34vw, 20rem);
+}
+
+.responsive-chart-container--page {
+  --chart-height: clamp(24rem, 48vw, 28.75rem);
+}
+
+.responsive-chart-container--detail {
+  --chart-height: clamp(20rem, 56vw, 35rem);
+}
+
+.responsive-chart-container__inner {
+  position: relative;
+  width: 100%;
+  min-width: min(100%, var(--chart-min-width));
+  min-height: var(--chart-height);
+  height: var(--chart-height);
+}
+
+.responsive-chart-container__inner > svg,
+.responsive-chart-container__inner > .responsive-chart-fill {
+  width: 100%;
+  height: 100%;
+  display: block;
 }
 
 .chart-frame {
@@ -427,6 +457,18 @@ th {
 
   .mobile-menu-button {
     display: inline-flex;
+  }
+
+  .responsive-chart-container--compact {
+    --chart-height: clamp(17.5rem, 70vw, 21rem);
+  }
+
+  .responsive-chart-container--page {
+    --chart-height: clamp(18rem, 82vw, 26rem);
+  }
+
+  .responsive-chart-container--detail {
+    --chart-height: clamp(19rem, 92vw, 34rem);
   }
 
   .main-container {
@@ -809,9 +851,8 @@ th {
 .live-chart-svg {
   display: block;
   width: 100%;
-  height: auto;
+  height: 100%;
   min-width: 280px;
-  min-height: 130px;
 }
 
 .live-chart-data-panel {
@@ -832,6 +873,64 @@ th {
 
 .live-chart-data-value {
   font-weight: 600;
+}
+
+.date-series-chart {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.date-series-chart__controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.date-series-chart__canvas {
+  position: relative;
+  min-height: 0;
+}
+
+.date-series-chart__svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.date-series-chart__tooltip {
+  position: absolute;
+  top: 0.5rem;
+  transform: translateX(-50%);
+  background: var(--chart-tooltip-background);
+  color: var(--chart-tooltip-text);
+  border: 1px solid var(--chart-tooltip-border);
+  border-radius: 0.55rem;
+  padding: 0.55rem 0.7rem;
+  box-shadow: var(--shadow);
+  max-width: min(22rem, calc(100% - 1rem));
+  pointer-events: none;
+  z-index: 2;
+}
+
+.normals-overlay-controls {
+  border: 1px solid var(--border);
+  border-radius: 0.75rem;
+  padding: 0.8rem 0.95rem;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 0.65rem 0.9rem;
+  margin-bottom: 0.9rem;
+}
+
+.normals-overlay-controls legend {
+  padding: 0 0.35rem;
+  font-weight: 700;
+}
+
+.normals-overlay-option {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
 }
 
 /* observations table */
@@ -2046,7 +2145,7 @@ th {
 
 .custom-graphs-svg {
   width: 100%;
-  height: auto;
+  height: 100%;
   display: block;
 }
 

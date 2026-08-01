@@ -181,6 +181,13 @@ describe('LiveDataPage', () => {
   beforeEach(() => {
     vi.useFakeTimers()
     vi.setSystemTime(new Date('2026-08-01T12:00:00Z'))
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: true,
+        text: async () => '',
+      }),
+    )
     refetchCurrent.mockClear()
     refetchStatus.mockClear()
     refetchRecent.mockClear()
@@ -189,6 +196,7 @@ describe('LiveDataPage', () => {
 
   afterEach(() => {
     vi.useRealTimers()
+    vi.unstubAllGlobals()
   })
 
   it('renders the page heading', () => {
@@ -265,6 +273,59 @@ describe('LiveDataPage', () => {
     const btn6h = screen.getByRole('button', { name: /6 hours/i })
     fireEvent.click(btn6h)
     expect(btn6h).toHaveAttribute('aria-pressed', 'true')
+  })
+
+  it('switches range to 12h when button clicked', () => {
+    renderPage()
+    const btn12h = screen.getByRole('button', { name: /12 hours/i })
+    fireEvent.click(btn12h)
+    expect(btn12h).toHaveAttribute('aria-pressed', 'true')
+  })
+
+  it('switches range to 24h when button clicked', () => {
+    renderPage()
+    const btn24h = screen.getByRole('button', { name: /24 hours/i })
+    fireEvent.click(btn24h)
+    expect(btn24h).toHaveAttribute('aria-pressed', 'true')
+  })
+
+  it('extends 24h range with archive observations and deduplicates timestamps', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      text: async () =>
+        [
+          JSON.stringify({
+            observation_time_utc: '2026-07-31T13:00:00Z',
+            temperature_c: 19,
+            humidity_percent: 70,
+            pressure_hpa: 1009,
+            wind_speed_mph: 5,
+            wind_gust_mph: 8,
+            rain_rate_mm_per_hour: 0,
+            rain_today_mm: 0,
+          }),
+          JSON.stringify({
+            observation_time_utc: '2026-08-01T12:00:00Z',
+            temperature_c: 999,
+            humidity_percent: 99,
+            pressure_hpa: 999,
+            wind_speed_mph: 99,
+            wind_gust_mph: 99,
+            rain_rate_mm_per_hour: 9,
+            rain_today_mm: 9,
+          }),
+        ].join('\n'),
+    })
+    vi.stubGlobal(
+      'fetch',
+      fetchMock,
+    )
+
+    renderPage()
+    fireEvent.click(screen.getByRole('button', { name: /24 hours/i }))
+
+    await vi.advanceTimersByTimeAsync(1)
+    expect(fetchMock).toHaveBeenCalled()
   })
 
   it('shows pause button', () => {

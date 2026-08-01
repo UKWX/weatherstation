@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { DateSeriesChart } from '@/components/charts/DateSeriesChart'
 import {
   Badge,
   ErrorState,
@@ -15,10 +16,17 @@ import {
   WEATHER_UNITS,
 } from '@/config/weather'
 import {
+  buildAnnualQuickRangesForYear,
+  buildAnnualTemperatureRows,
+  buildCalendarDateExtremeSummaries,
+  formatAnnualChartTick,
+  type AnnualExtremeCategory,
+  type CalendarDateExtremeSummary,
+} from '@/features/annualCharts/calculations'
+import {
   buildAnnualSummary,
 } from '@/features/climateArchive/calculations'
 import {
-  buildDailyNormalsRows,
   buildMonthlyRainfallRows,
   buildMonthlyTempAnomalies,
   buildRankingRows,
@@ -30,14 +38,17 @@ import {
 } from '@/features/normalsAnomalies/calculations'
 import {
   useAnnualClimateQuery,
+  useAnnualClimateQueries,
   useClimateArchiveIndexQuery,
   useDailyNormalsQuery,
   useMonthlyNormalsQuery,
 } from '@/hooks/usePublicWeatherQueries'
 import {
+  formatEuropeLondonDisplay,
   formatNullableMeasurement,
   getEuropeLondonClimateDate,
 } from '@/lib/climate'
+import type { AnnualClimatePayload } from '@/types/weather'
 import type {
   ClimateDay,
   DailyNormal,
@@ -99,50 +110,6 @@ function scaleY(value: number, min: number, max: number, chartH = CHART_H): numb
 function scaleX(index: number, count: number): number {
   if (count <= 1) return CHART_PAD.left + innerW() / 2
   return CHART_PAD.left + (index / (count - 1)) * innerW()
-}
-
-function buildLinePath(
-  points: readonly (number | null)[],
-  min: number,
-  max: number,
-  chartH = CHART_H,
-): string {
-  const segments: string[] = []
-  let seg: string[] = []
-  points.forEach((v, i) => {
-    const x = scaleX(i, points.length)
-    if (v == null) {
-      if (seg.length > 1) segments.push(seg.join(' '))
-      seg = []
-      return
-    }
-    const y = scaleY(v, min, max, chartH)
-    seg.push(`${seg.length === 0 ? 'M' : 'L'} ${x.toFixed(1)} ${y.toFixed(1)}`)
-  })
-  if (seg.length > 1) segments.push(seg.join(' '))
-  return segments.join(' ')
-}
-
-function buildAreaPath(
-  upper: readonly (number | null)[],
-  lower: readonly (number | null)[],
-  min: number,
-  max: number,
-  chartH = CHART_H,
-): string {
-  const topPoints: string[] = []
-  const bottomPoints: string[] = []
-  for (let i = 0; i < upper.length; i++) {
-    const u = upper[i]
-    const l = lower[i]
-    if (u != null && l != null) {
-      const x = scaleX(i, upper.length)
-      topPoints.push(`${topPoints.length === 0 ? 'M' : 'L'} ${x.toFixed(1)} ${scaleY(u, min, max, chartH).toFixed(1)}`)
-      bottomPoints.unshift(`${x.toFixed(1)} ${scaleY(l, min, max, chartH).toFixed(1)}`)
-    }
-  }
-  if (topPoints.length === 0) return ''
-  return `${topPoints.join(' ')} L ${bottomPoints.join(' L ')} Z`
 }
 
 interface YAxisProps {
@@ -224,85 +191,107 @@ function MonthXAxis() {
   )
 }
 
-function DayOfYearXAxis({ totalDays, step = 30 }: { totalDays: number; step?: number }) {
-  const labels: React.ReactNode[] = []
-  for (let d = 1; d <= totalDays; d += step) {
-    labels.push(
-      <text
-        key={d}
-        x={scaleX(d - 1, totalDays)}
-        y={CHART_H - CHART_PAD.bottom + 14}
-        textAnchor="middle"
-        fontSize={10}
-        fill={chartTokens.axisText}
-      >
-        {d}
-      </text>,
-    )
-  }
-  return <>{labels}</>
-}
-
 // ── Daily temperature normals chart ──────────────────────────────────────────
 
 interface DailyNormalsChartProps {
   readonly normals: readonly DailyNormal[]
   readonly yearRecords: readonly ClimateDay[]
   readonly year: number
+  readonly overlaySummaries: ReadonlyMap<string, CalendarDateExtremeSummary> | null
+  readonly activeOverlays: Readonly<Record<AnnualExtremeCategory, boolean>>
 }
 
-function DailyNormalsChart({ normals, yearRecords, year }: DailyNormalsChartProps) {
-  const rows = useMemo(
-    () => buildDailyNormalsRows(normals, yearRecords, year),
-    [normals, yearRecords, year],
+function DailyNormalsChart({
+  normals,
+  yearRecords,
+  year,
+  overlaySummaries,
+  activeOverlays,
+}: DailyNormalsChartProps) {
+  const rows = useMemo(() => buildAnnualTemperatureRows(normals, yearRecords), [normals, yearRecords])
+  const chartRows = useMemo(
+    () =>
+      rows.map((row) => {
+        const overlay = overlaySummaries?.get(row.dateKey) ?? null
+        return {
+          timestamp: row.timestamp,
+          label: formatEuropeLondonDisplay(row.date, {
+            day: '2-digit',
+            month: 'short',
+            year: 'numeric',
+          }),
+          provisional: row.status !== 'finalised',
+          values: {
+            normalMax: row.normalMaxC,
+            normalMin: row.normalMinC,
+            observedMax: row.observedMaxC,
+            observedMin: row.observedMinC,
+            highestMax: activeOverlays['highest-max'] ? (overlay?.highestMax.value ?? null) : null,
+            lowestMax: activeOverlays['lowest-max'] ? (overlay?.lowestMax.value ?? null) : null,
+            highestMin: activeOverlays['highest-min'] ? (overlay?.highestMin.value ?? null) : null,
+            lowestMin: activeOverlays['lowest-min'] ? (overlay?.lowestMin.value ?? null) : null,
+          },
+        }
+      }),
+    [activeOverlays, overlaySummaries, rows],
   )
 
-  const normalMaxC = rows.map((r) => r.normalMaxC)
-  const normalMinC = rows.map((r) => r.normalMinC)
-  const obsMaxC = rows.map((r) => r.obsMaxC)
-  const obsMinC = rows.map((r) => r.obsMinC)
-
-  const allValues = [...normalMaxC, ...normalMinC, ...obsMaxC, ...obsMinC].filter(
-    (v): v is number => v != null,
-  )
-  if (allValues.length === 0) {
+  if (chartRows.length === 0) {
     return <p className="normals-no-data">No temperature data available.</p>
   }
 
-  const minV = Math.floor(Math.min(...allValues)) - 2
-  const maxV = Math.ceil(Math.max(...allValues)) + 2
-
-  const normMaxPath = buildLinePath(normalMaxC, minV, maxV)
-  const normMinPath = buildLinePath(normalMinC, minV, maxV)
-  const obsMaxPath = buildLinePath(obsMaxC, minV, maxV)
-  const obsMinPath = buildLinePath(obsMinC, minV, maxV)
-  const areaPath = buildAreaPath(normalMaxC, normalMinC, minV, maxV)
+  const overlayMeta = (rowDateKey: string) => overlaySummaries?.get(rowDateKey) ?? null
 
   return (
-    <svg
-      viewBox={`0 0 ${CHART_W} ${CHART_H}`}
-      aria-label={`Daily temperature normals and ${year} observed — max and min`}
-      role="img"
-      style={{ width: '100%', height: 'auto', minWidth: 300 }}
-    >
-      <YAxis min={minV} max={maxV} unit="°C" />
-      <DayOfYearXAxis totalDays={rows.length} step={30} />
-      {areaPath && (
-        <path d={areaPath} fill={chartTokens.series.reference} fillOpacity={0.12} stroke="none" />
-      )}
-      {normMaxPath && (
-        <path d={normMaxPath} fill="none" stroke={chartTokens.series.reference} strokeWidth={1.5} strokeDasharray="5 3" opacity={0.8} />
-      )}
-      {normMinPath && (
-        <path d={normMinPath} fill="none" stroke={chartTokens.series.reference} strokeWidth={1.5} strokeDasharray="5 3" opacity={0.8} />
-      )}
-      {obsMaxPath && (
-        <path d={obsMaxPath} fill="none" stroke={chartTokens.series.observed} strokeWidth={2} />
-      )}
-      {obsMinPath && (
-        <path d={obsMinPath} fill="none" stroke={chartTokens.series.comparison} strokeWidth={2} />
-      )}
-    </svg>
+    <DateSeriesChart
+      rows={chartRows}
+      unit={WEATHER_UNITS.temperature}
+      ariaLabel={`Daily temperature normals and ${year} observed — max and min`}
+      gapThresholdMs={36 * 60 * 60 * 1000}
+      presets={buildAnnualQuickRangesForYear(year)}
+      xTickFormatter={formatAnnualChartTick}
+      series={[
+        { key: 'normalMax', label: `Normal max (${DAILY_NORMAL_BASELINE})`, color: chartTokens.series.reference, dashed: true },
+        { key: 'normalMin', label: `Normal min (${DAILY_NORMAL_BASELINE})`, color: chartTokens.series.reference, dashed: true },
+        { key: 'observedMax', label: `${year} observed max`, color: chartTokens.series.observed },
+        { key: 'observedMin', label: `${year} observed min`, color: chartTokens.series.comparison },
+        { key: 'highestMax', label: 'Highest daily maximum record', color: '#d81b60', dashed: true },
+        { key: 'lowestMax', label: 'Lowest daily maximum record', color: '#6a1b9a', dashed: true },
+        { key: 'highestMin', label: 'Highest daily minimum record', color: '#fb8c00', dashed: true },
+        { key: 'lowestMin', label: 'Lowest daily minimum record', color: '#00897b', dashed: true },
+      ].filter((series) => {
+        if (series.key === 'highestMax') return activeOverlays['highest-max']
+        if (series.key === 'lowestMax') return activeOverlays['lowest-max']
+        if (series.key === 'highestMin') return activeOverlays['highest-min']
+        if (series.key === 'lowestMin') return activeOverlays['lowest-min']
+        return true
+      })}
+      tooltipRenderer={(row, series, unit) => {
+        const matching = rows.find((entry) => entry.timestamp === row.timestamp)
+        const overlay = matching != null ? overlayMeta(matching.dateKey) : null
+
+        return (
+          <>
+            <strong>{row.label}</strong>
+            {row.provisional ? <div>Provisional</div> : null}
+            {series.map((entry) => {
+              const value = row.values[entry.key]
+              let suffix = ''
+              if (entry.key === 'highestMax') suffix = overlay?.highestMax.years.join(', ') ?? ''
+              if (entry.key === 'lowestMax') suffix = overlay?.lowestMax.years.join(', ') ?? ''
+              if (entry.key === 'highestMin') suffix = overlay?.highestMin.years.join(', ') ?? ''
+              if (entry.key === 'lowestMin') suffix = overlay?.lowestMin.years.join(', ') ?? ''
+              return (
+                <div key={entry.key} style={{ color: entry.color }}>
+                  {entry.label}: {value == null ? 'Missing' : `${value.toFixed(1)} ${unit}`}
+                  {suffix ? ` (${suffix})` : ''}
+                </div>
+              )
+            })}
+          </>
+        )
+      }}
+    />
   )
 }
 
@@ -315,51 +304,41 @@ interface DailyAnomalyChartProps {
 }
 
 function DailyAnomalyChart({ normals, yearRecords, year }: DailyAnomalyChartProps) {
-  const rows = useMemo(
-    () => buildDailyNormalsRows(normals, yearRecords, year),
-    [normals, yearRecords, year],
+  const rows = useMemo(() => buildAnnualTemperatureRows(normals, yearRecords), [normals, yearRecords])
+  const chartRows = useMemo(
+    () =>
+      rows.map((row) => ({
+        timestamp: row.timestamp,
+        label: formatEuropeLondonDisplay(row.date, {
+          day: '2-digit',
+          month: 'short',
+          year: 'numeric',
+        }),
+        provisional: row.status !== 'finalised',
+        values: { maxAnomaly: row.maxAnomalyC },
+      })),
+    [rows],
   )
+  const valid = chartRows
+    .map((row) => row.values.maxAnomaly)
+    .filter((value): value is number => value != null)
 
-  const maxAnomalies = rows.map((r) => r.maxAnomalyC)
-  const valid = maxAnomalies.filter((v): v is number => v != null)
   if (valid.length === 0) {
     return <p className="normals-no-data">No anomaly data available — observed values missing.</p>
   }
 
-  const absMax = Math.ceil(Math.max(...valid.map(Math.abs))) + 1
-  const minV = -absMax
-  const maxV = absMax
-
   return (
-    <svg
-      viewBox={`0 0 ${CHART_W} ${CHART_H}`}
-      aria-label={`Daily maximum temperature anomaly for ${year} against ${DAILY_NORMAL_BASELINE} normal`}
-      role="img"
-      style={{ width: '100%', height: 'auto', minWidth: 300 }}
-    >
-      <YAxis min={minV} max={maxV} unit="°C" />
-      <DayOfYearXAxis totalDays={rows.length} step={30} />
-      <ZeroLine min={minV} max={maxV} />
-      {maxAnomalies.map((v, i) => {
-        if (v == null) return null
-        const x = scaleX(i, maxAnomalies.length)
-        const zeroY = scaleY(0, minV, maxV)
-        const valueY = scaleY(v, minV, maxV)
-        const y = Math.min(zeroY, valueY)
-        const h = Math.max(1, Math.abs(zeroY - valueY))
-        return (
-          <rect
-            key={i}
-            x={x - 0.5}
-            y={y}
-            width={1}
-            height={h}
-            fill={v >= 0 ? 'var(--anomaly-pos, #e05252)' : 'var(--anomaly-neg, #5291e0)'}
-            opacity={0.8}
-          />
-        )
-      })}
-    </svg>
+    <DateSeriesChart
+      rows={chartRows}
+      unit={WEATHER_UNITS.temperature}
+      ariaLabel={`Daily maximum temperature anomaly for ${year} against ${DAILY_NORMAL_BASELINE} normal`}
+      gapThresholdMs={36 * 60 * 60 * 1000}
+      presets={buildAnnualQuickRangesForYear(year)}
+      xTickFormatter={formatAnnualChartTick}
+      series={[
+        { key: 'maxAnomaly', label: 'Daily max anomaly', color: chartTokens.series.observed },
+      ]}
+    />
   )
 }
 
@@ -564,11 +543,56 @@ function DailyTempNormalsSection({
   year,
   normals,
   yearRecords,
+  availableYears,
 }: {
   readonly year: number
   readonly normals: readonly DailyNormal[]
   readonly yearRecords: readonly ClimateDay[]
+  readonly availableYears: readonly number[]
 }) {
+  const [activeOverlays, setActiveOverlays] = useState<Record<AnnualExtremeCategory, boolean>>({
+    'highest-max': false,
+    'lowest-max': false,
+    'highest-min': false,
+    'lowest-min': false,
+  })
+  const shouldLoadOverlays = Object.values(activeOverlays).some(Boolean)
+  const overlayQueries = useAnnualClimateQueries(availableYears, { enabled: shouldLoadOverlays })
+  const overlayPayloads = useMemo(
+    () =>
+      overlayQueries
+        .map((query) => query.data)
+        .filter((payload): payload is AnnualClimatePayload => payload != null),
+    [overlayQueries],
+  )
+  const overlaySummaries = useMemo(
+    () =>
+      shouldLoadOverlays && overlayPayloads.length > 0
+        ? buildCalendarDateExtremeSummaries(overlayPayloads)
+        : null,
+    [overlayPayloads, shouldLoadOverlays],
+  )
+  const overlayLoading = shouldLoadOverlays && overlayQueries.some((query) => query.isLoading && query.data == null)
+
+  const legendItems = [
+    { color: chartTokens.series.reference, label: `Normal max (${DAILY_NORMAL_BASELINE})`, dashed: true },
+    { color: chartTokens.series.reference, label: `Normal min (${DAILY_NORMAL_BASELINE})`, dashed: true },
+    { color: chartTokens.series.observed, label: `${year} observed max` },
+    { color: chartTokens.series.comparison, label: `${year} observed min` },
+    ...(activeOverlays['highest-max']
+      ? [{ color: '#d81b60', label: 'Highest daily maximum record', dashed: true }]
+      : []),
+    ...(activeOverlays['lowest-max']
+      ? [{ color: '#6a1b9a', label: 'Lowest daily maximum record', dashed: true }]
+      : []),
+    ...(activeOverlays['highest-min']
+      ? [{ color: '#fb8c00', label: 'Highest daily minimum record', dashed: true }]
+      : []),
+    ...(activeOverlays['lowest-min']
+      ? [{ color: '#00897b', label: 'Lowest daily minimum record', dashed: true }]
+      : []),
+  ]
+
   return (
     <section className="card normals-section" aria-labelledby="normals-daily-temp-heading">
       <div className="archive-card-heading">
@@ -577,19 +601,49 @@ function DailyTempNormalsSection({
       </div>
       <p>Normal max and min temperature curves (dashed) compared with {year} observed values.</p>
 
-      <ChartLegend items={[
-        { color: chartTokens.series.reference, label: `Normal max/min (${DAILY_NORMAL_BASELINE})`, dashed: true },
-        { color: chartTokens.series.observed, label: `${year} observed max` },
-        { color: chartTokens.series.comparison, label: `${year} observed min` },
-      ]} />
+      <fieldset className="normals-overlay-controls">
+        <legend>All-time extremes</legend>
+        {([
+          ['highest-max', 'Highest daily maximum'],
+          ['lowest-max', 'Lowest daily maximum'],
+          ['highest-min', 'Highest daily minimum'],
+          ['lowest-min', 'Lowest daily minimum'],
+        ] as const).map(([key, label]) => (
+          <label key={key} className="normals-overlay-option">
+            <input
+              type="checkbox"
+              checked={activeOverlays[key]}
+              onChange={(event) =>
+                setActiveOverlays((current) => ({
+                  ...current,
+                  [key]: event.target.checked,
+                }))
+              }
+            />
+            <span>{label}</span>
+          </label>
+        ))}
+      </fieldset>
 
-      <ResponsiveChartContainer>
-        <DailyNormalsChart normals={normals} yearRecords={yearRecords} year={year} />
+      {overlayLoading ? (
+        <IncompleteDataWarning message="Loading all-time calendar-date extremes…" />
+      ) : null}
+
+      <ChartLegend items={legendItems} />
+
+      <ResponsiveChartContainer size="detail">
+        <DailyNormalsChart
+          normals={normals}
+          yearRecords={yearRecords}
+          year={year}
+          overlaySummaries={overlaySummaries}
+          activeOverlays={activeOverlays}
+        />
       </ResponsiveChartContainer>
 
       <h3 style={{ marginTop: '1.5rem' }}>Daily maximum temperature anomaly ({year} vs {DAILY_NORMAL_BASELINE})</h3>
 
-      <ResponsiveChartContainer>
+      <ResponsiveChartContainer size="detail">
         <DailyAnomalyChart normals={normals} yearRecords={yearRecords} year={year} />
       </ResponsiveChartContainer>
 
@@ -620,7 +674,7 @@ function MonthlyTempAnomaliesSection({
       </div>
       <p>Departure from the {MONTHLY_NORMAL_BASELINE} monthly normal for each metric.</p>
 
-      <ResponsiveChartContainer>
+      <ResponsiveChartContainer size="page">
         <MonthlyAnomalyChart summaries={summaries} />
       </ResponsiveChartContainer>
 
@@ -687,7 +741,7 @@ function MonthlyRainfallSection({
         { color: chartTokens.series.observed, label: `${year} observed` },
       ]} />
 
-      <ResponsiveChartContainer>
+      <ResponsiveChartContainer size="page">
         <MonthlyRainfallChart year={year} summaries={summaries} monthlyNormals={monthlyNormals} />
       </ResponsiveChartContainer>
 
@@ -1138,7 +1192,12 @@ export default function NormalsAnomaliesPage() {
 
       <BaselineExplanation />
 
-      <DailyTempNormalsSection year={year} normals={dailyNormals} yearRecords={yearRecords} />
+      <DailyTempNormalsSection
+        year={year}
+        normals={dailyNormals}
+        yearRecords={yearRecords}
+        availableYears={availableYears}
+      />
 
       <MonthlyTempAnomaliesSection year={year} summaries={summaries} />
 

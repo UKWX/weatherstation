@@ -74,6 +74,18 @@ describe('filterObservationsByRange', () => {
     expect(result).toHaveLength(0)
   })
 
+  it('12h range includes observations from the previous 12 hours', () => {
+    const obs10h = makeObs('2026-08-01T02:30:00Z', { temperatureC: 16.0 })
+    const result = filterObservationsByRange([obs10h, OBS_NOW], 12, NOW)
+    expect(result).toHaveLength(2)
+  })
+
+  it('24h range includes observations exactly one day earlier', () => {
+    const obs24h = makeObs('2026-07-31T12:00:00Z', { temperatureC: 14.0 })
+    const result = filterObservationsByRange([obs24h, OBS_NOW], 24, NOW)
+    expect(result).toHaveLength(2)
+  })
+
   it('returns empty array when observations is empty', () => {
     expect(filterObservationsByRange([], 3, NOW)).toHaveLength(0)
   })

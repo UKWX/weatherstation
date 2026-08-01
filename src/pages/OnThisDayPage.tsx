@@ -91,7 +91,7 @@ function TemperatureHistoryChart({
   }, '')
 
   return (
-    <ResponsiveChartContainer>
+    <ResponsiveChartContainer size="page">
       <svg viewBox={`0 0 ${CHART_WIDTH} ${CHART_HEIGHT}`} role="img" aria-label="Historical temperature chart">
         <line x1={CHART_PADDING.left} x2={CHART_WIDTH - CHART_PADDING.right} y1={CHART_HEIGHT - CHART_PADDING.bottom} y2={CHART_HEIGHT - CHART_PADDING.bottom} stroke="var(--chart-grid-lines)" />
         <line x1={CHART_PADDING.left} x2={CHART_PADDING.left} y1={CHART_PADDING.top} y2={CHART_HEIGHT - CHART_PADDING.bottom} stroke="var(--chart-grid-lines)" />
@@ -126,7 +126,7 @@ function MeanAnomalyChart({
   const barWidth = innerWidth / validRows.length - 4
 
   return (
-    <ResponsiveChartContainer>
+    <ResponsiveChartContainer size="page">
       <svg viewBox={`0 0 ${CHART_WIDTH} ${CHART_HEIGHT}`} role="img" aria-label="Mean anomaly by year chart">
         <line x1={CHART_PADDING.left} x2={CHART_WIDTH - CHART_PADDING.right} y1={zeroY} y2={zeroY} stroke="var(--chart-grid-lines)" />
         {validRows.map((row, index) => {

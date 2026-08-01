@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import {
   Badge,
+  IncompleteDataWarning,
   Skeleton,
   StaleDataWarning,
   UnavailableDataDisplay,
@@ -14,6 +15,7 @@ import {
 import { WEATHER_UNITS } from '@/config/weather'
 import { chartTokens } from '@/components/ui/chartTokens'
 import type { CurrentConditions, RecentObservation, StationStatus } from '@/types/weather'
+import { extendRecentObservationsForRange } from '@/features/liveData/archiveExtension'
 import {
   type RangeHours,
   type SortOrder,
@@ -22,7 +24,6 @@ import {
   computeObservationAgeSeconds,
   deriveFeelsLikeFromObservation,
   exportObservationsCsv,
-  filterObservationsByRange,
   formatLondonDateTime,
   formatLondonTime,
   formatObservationAge,
@@ -73,6 +74,122 @@ function useLiveDataQueries(paused: boolean) {
   return { currentQuery, statusQuery, recentQuery, refreshAll, isRefreshing, lastUpdatedAt }
 }
 
+function useExtendedLiveObservations(
+  recentObservations: readonly RecentObservation[],
+  rangeHours: RangeHours,
+) {
+  const [state, setState] = useState<{
+    status: 'idle' | 'loading' | 'ready' | 'error'
+    observations: readonly RecentObservation[]
+    requestedStartMs: number | null
+    requestedEndMs: number | null
+    partialCoverage: boolean
+    message: string | null
+  }>({
+    status: 'idle',
+    observations: recentObservations,
+    requestedStartMs: null,
+    requestedEndMs: null,
+    partialCoverage: false,
+    message: null,
+  })
+
+  useEffect(() => {
+    if (recentObservations.length === 0) {
+      setState({
+        status: 'idle',
+        observations: [],
+        requestedStartMs: null,
+        requestedEndMs: null,
+        partialCoverage: false,
+        message: null,
+      })
+      return
+    }
+
+    const timestamps = recentObservations
+      .map((observation) => new Date(observation.observationTimeUtc).valueOf())
+      .filter((timestamp) => !Number.isNaN(timestamp))
+      .sort((left, right) => left - right)
+
+    if (timestamps.length === 0) {
+      return
+    }
+
+    const requestedEndMs = timestamps[timestamps.length - 1]!
+    const requestedStartMs = requestedEndMs - rangeHours * 3_600_000
+    const earliestRecentMs = timestamps[0]!
+
+    if (rangeHours <= 6 || earliestRecentMs <= requestedStartMs) {
+      setState({
+        status: 'ready',
+        observations: recentObservations,
+        requestedStartMs,
+        requestedEndMs,
+        partialCoverage: earliestRecentMs > requestedStartMs,
+        message:
+          earliestRecentMs > requestedStartMs
+            ? 'Full requested coverage is not available in recent observations.'
+            : null,
+      })
+      return
+    }
+
+    const controller = new AbortController()
+    setState((current) => ({
+      ...current,
+      status: 'loading',
+      observations: recentObservations,
+      requestedStartMs,
+      requestedEndMs,
+      partialCoverage: false,
+      message: 'Loading archive observations to extend the selected range…',
+    }))
+
+    void extendRecentObservationsForRange(
+      recentObservations,
+      requestedStartMs,
+      requestedEndMs,
+      controller.signal,
+    )
+      .then((result) => {
+        setState({
+          status: 'ready',
+          observations: result.observations,
+          requestedStartMs: result.requestedStartMs,
+          requestedEndMs: result.requestedEndMs,
+          partialCoverage: result.isPartialCoverage,
+          message: result.isPartialCoverage
+            ? 'Full requested coverage is unavailable. Showing all observations that could be loaded.'
+            : result.warningMessages[0] ?? null,
+        })
+      })
+      .catch((error: unknown) => {
+        if (controller.signal.aborted) {
+          return
+        }
+
+        setState({
+          status: 'error',
+          observations: recentObservations,
+          requestedStartMs,
+          requestedEndMs,
+          partialCoverage: earliestRecentMs > requestedStartMs,
+          message:
+            error instanceof Error
+              ? error.message
+              : 'Unable to extend the selected live-data range.',
+        })
+      })
+
+    return () => {
+      controller.abort()
+    }
+  }, [rangeHours, recentObservations])
+
+  return state
+}
+
 // ---------- main page ----------
 export default function LiveDataPage() {
   const [paused, setPaused] = useState(false)
@@ -101,15 +218,25 @@ export default function LiveDataPage() {
   const status = statusQuery.data ?? null
   const recentPayload = recentQuery.data ?? null
 
-  // Stable reference: use the actual observations array, falling back to a module-level constant
-  const allObservations: readonly RecentObservation[] =
+  const recentObservations: readonly RecentObservation[] =
     recentPayload?.observations ?? EMPTY_OBSERVATIONS
+  const extendedRange = useExtendedLiveObservations(recentObservations, rangeHours)
 
-  // Use default `now` inside the util (new Date()) so the filter is fresh on each recompute
-  // but we don't need to add `now` as a dependency (avoids per-second useMemo invalidation)
+  const allObservations =
+    extendedRange.status === 'ready' || extendedRange.status === 'loading'
+      ? extendedRange.observations
+      : recentObservations
   const filteredObservations = useMemo(
-    () => filterObservationsByRange(allObservations, rangeHours),
-    [allObservations, rangeHours],
+    () =>
+      allObservations.filter((observation) => {
+        const timestamp = new Date(observation.observationTimeUtc).valueOf()
+        return (
+          !Number.isNaN(timestamp) &&
+          timestamp >= now.valueOf() - rangeHours * 3_600_000 &&
+          timestamp <= now.valueOf()
+        )
+      }),
+    [allObservations, now, rangeHours],
   )
 
   const sortedTableObservations = useMemo(
@@ -318,6 +445,18 @@ export default function LiveDataPage() {
           ))}
         </div>
       </div>
+
+      {rangeHours > 6 && extendedRange.message != null ? (
+        <IncompleteDataWarning
+          message={
+            extendedRange.status === 'loading'
+              ? extendedRange.message
+              : extendedRange.partialCoverage
+                ? `${extendedRange.message} Requested ${rangeHours} hours.`
+                : extendedRange.message
+          }
+        />
+      ) : null}
 
       {/* ── Two-panel: current conditions + station health ── */}
       <div className="live-panels-grid">

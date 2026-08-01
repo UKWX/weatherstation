@@ -718,6 +718,10 @@ export function daysInMonth(year: number, month: number): number {
   return new Date(Date.UTC(year, month, 0)).getUTCDate()
 }
 
+export function isLeapYear(year: number): boolean {
+  return year % 400 === 0 || (year % 4 === 0 && year % 100 !== 0)
+}
+
 function isFiniteNumber(value: number | null | undefined): value is number {
   return value != null && Number.isFinite(value)
 }

@@ -52,7 +52,7 @@ export function PlaceholderPage({
       ) : null}
 
       {showChart ? (
-        <ResponsiveChartContainer>
+        <ResponsiveChartContainer size="compact">
           <div className="chart-frame" role="img" aria-label={`${title} chart placeholder`}>
             Responsive chart container
           </div>

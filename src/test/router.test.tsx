@@ -44,4 +44,15 @@ describe('AppRouter placeholder routes', () => {
     const links = nav.querySelectorAll('a')
     expect(links.length).toBe(12)
   })
+
+  it('renders dev diagnostics route when DEV mode is enabled', async () => {
+    if (!import.meta.env.DEV) {
+      return
+    }
+
+    renderWithRouter('/dev/api-diagnostics')
+    expect(
+      await screen.findByRole('heading', { name: 'API Diagnostics (DEV)' }),
+    ).toBeTruthy()
+  })
 })

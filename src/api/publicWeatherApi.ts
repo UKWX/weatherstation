@@ -1,4 +1,4 @@
-import { queryOptions, useQuery, type UseQueryResult } from '@tanstack/react-query'
+import { queryOptions, useQueries, useQuery, type UseQueryResult } from '@tanstack/react-query'
 import { PUBLIC_STATION_DATA_BASE_URL } from '@/config/weather'
 import type {
   AnnualClimatePayload,
@@ -440,6 +440,12 @@ export function useClimateArchiveIndexQuery() {
 
 export function useAnnualClimateQuery(year: number) {
   return useQuery(annualClimateQueryOptions(year))
+}
+
+export function useAnnualClimateQueries(years: readonly number[]) {
+  return useQueries({
+    queries: years.map((year) => annualClimateQueryOptions(year)),
+  })
 }
 
 export function useDailyNormalsQuery() {

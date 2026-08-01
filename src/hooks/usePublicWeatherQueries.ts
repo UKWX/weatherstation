@@ -6,6 +6,7 @@ export {
   useClimateIndexQuery,
   useClimateArchiveIndexQuery,
   useAnnualClimateQuery,
+  useAnnualClimateQueries,
   useDailyNormalsQuery,
   useMonthlyNormalsQuery,
   derivePublicDataState,

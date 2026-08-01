@@ -55,6 +55,8 @@ const DATE_FORMAT: Intl.DateTimeFormatOptions = {
 
 const DATE_PARAM_PATTERN = /^\d{4}-\d{2}-\d{2}$/
 const MOBILE_QUERY = '(max-width: 760px)'
+const EMPTY_RECORDS: readonly ClimateDay[] = []
+const EMPTY_NORMALS: readonly DailyNormal[] = []
 
 function useIsMobileView() {
   const [matches, setMatches] = useState(() =>
@@ -454,8 +456,8 @@ export default function ClimateCalendarPage() {
     }
   }, [availableYears.length, latestYear, metric, mobileMonth, searchParams, setSearchParams])
 
-  const records = annualQuery.data?.records ?? []
-  const normals = dailyNormalsQuery.data?.records ?? []
+  const records = annualQuery.data?.records ?? EMPTY_RECORDS
+  const normals = dailyNormalsQuery.data?.records ?? EMPTY_NORMALS
   const months = useMemo(
     () => buildAnnualCalendarViews(year, records, normals, metric),
     [metric, normals, records, year],
@@ -536,7 +538,15 @@ export default function ClimateCalendarPage() {
   }
 
   if (records.length === 0) {
-    return <ErrorState title="No climate calendar data" message="No daily archive data is available for the selected year." />
+    return (
+      <ErrorState
+        title="No climate calendar data"
+        message="No daily archive data is available for the selected year."
+        onRetry={() => {
+          void annualQuery.refetch()
+        }}
+      />
+    )
   }
 
   const rainfallSelectedBeforeAvailability = metric === 'rainfall' && compareClimateDates(`${year}-01-01` as ClimateDateString, RAINFALL_START_DATE) < 0

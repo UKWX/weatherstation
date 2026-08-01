@@ -180,6 +180,10 @@ export default function OnThisDayPage() {
 
   const selectedDateLabel = `${CALENDAR_MONTH_NAMES[month - 1]} ${day}`
   const dayOptions = Array.from({ length: month === 2 ? 29 : daysInMonth(2025, month) }, (_, index) => index + 1)
+  const hasTemperatureNormal =
+    data.normal?.normalMaxTempC != null ||
+    data.normal?.normalMinTempC != null ||
+    data.normal?.normalMeanTempC != null
 
   return (
     <div className="archive-layout on-this-day-layout">
@@ -247,7 +251,7 @@ export default function OnThisDayPage() {
             <dd>{data.rainfallSampleSize}</dd>
           </div>
         </dl>
-        {data.normal == null ? (
+        {!hasTemperatureNormal ? (
           <p className="archive-obs-note">The normals endpoint does not provide a daily normal for this date.</p>
         ) : null}
       </section>

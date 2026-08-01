@@ -6,6 +6,22 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { AppRouter } from '@/app/router'
 import { ThemeProvider } from '@/app/theme'
 
+vi.mock('@/lib/supabaseClient', () => ({
+  supabase: {
+    auth: {
+      getSession: vi.fn().mockResolvedValue({ data: { session: null } }),
+      onAuthStateChange: vi.fn().mockReturnValue({
+        data: { subscription: { unsubscribe: vi.fn() } },
+      }),
+    },
+  },
+}))
+
+vi.mock('@/features/adminAuth/useAdminAuth', () => ({
+  useAdminAuth: () => ({ permissionState: 'loading', session: null }),
+  redirectToLogin: vi.fn(),
+}))
+
 vi.mock('@/hooks/usePublicWeatherQueries', () => ({
   useCurrentConditionsQuery: () => ({
     data: {
@@ -215,9 +231,10 @@ describe('AppRouter shell and navigation', () => {
     })
   })
 
-  it('shows unavailable data corrections state', async () => {
+  it('shows data corrections page with loading state', async () => {
     renderWithRouter('/data-corrections')
     expect(screen.getByRole('heading', { name: 'Data Corrections' })).toBeInTheDocument()
-    expect(await screen.findByText('Data Corrections locked')).toBeInTheDocument()
+    // Permission check is in-progress (mocked to return 'loading')
+    expect(await screen.findByLabelText(/checking permissions/i)).toBeInTheDocument()
   })
 })

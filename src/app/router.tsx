@@ -1,10 +1,7 @@
 import { lazy, Suspense, useEffect, useMemo, useState } from 'react'
 import { NavLink, Route, Routes, useLocation } from 'react-router-dom'
 import { DEFAULT_PAGE_META, findNavigationItem, NAVIGATION_ITEMS } from '@/app/navigation'
-import {
-  derivePublicDataState,
-  useStationStatusQuery,
-} from '@/hooks/usePublicWeatherQueries'
+import { useStationStatusQuery } from '@/hooks/usePublicWeatherQueries'
 import { useTheme } from '@/app/theme'
 import {
   Badge,
@@ -75,12 +72,11 @@ function LoadingFallback() {
 
 function StationStatusBadge() {
   const statusQuery = useStationStatusQuery()
-  const dataState = derivePublicDataState(statusQuery, {
-    isEmpty: () => false,
-    staleWhen: (value) => !value.online,
-  })
+  const loading = statusQuery.isLoading && statusQuery.data == null
+  const stale = statusQuery.isStale || statusQuery.isPlaceholderData || !statusQuery.data?.online
+  const offline = statusQuery.error != null || !statusQuery.data?.online
 
-  if (dataState.loading) {
+  if (loading) {
     return <Skeleton lines={1} />
   }
 
@@ -96,14 +92,14 @@ function StationStatusBadge() {
     )
   }
 
-  const online = (statusQuery.data?.online ?? false) && !dataState.offline
+  const online = (statusQuery.data?.online ?? false) && !offline
 
   return (
     <div className="header-meta">
       <Badge variant={online ? 'success' : 'error'}>
         {online ? 'Station online' : 'Station offline'}
       </Badge>
-      {dataState.stale ? (
+      {stale ? (
         <StaleDataWarning message="Showing last successful status snapshot." />
       ) : null}
     </div>

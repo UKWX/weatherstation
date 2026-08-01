@@ -12,14 +12,6 @@ vi.mock('@/hooks/usePublicWeatherQueries', () => ({
     error: null,
     refetch: vi.fn(),
   }),
-  derivePublicDataState: () => ({
-    loading: false,
-    empty: false,
-    stale: false,
-    offline: false,
-    retry: false,
-    malformedData: false,
-  }),
 }))
 
 function setMatchMedia(matches: boolean) {
@@ -103,9 +95,11 @@ describe('AppRouter shell and navigation', () => {
     const user = userEvent.setup()
     renderWithRouter('/station-information')
 
-    await user.click(screen.getByRole('button', { name: 'View data lifecycle definitions' }))
+    await user.click(
+      await screen.findByRole('button', { name: 'View data lifecycle definitions' }),
+    )
 
-    const closeButton = screen.getByRole('button', { name: 'Close dialog' })
+    const closeButton = await screen.findByRole('button', { name: 'Close dialog' })
     expect(closeButton).toHaveFocus()
 
     await user.keyboard('{Escape}')
@@ -114,9 +108,9 @@ describe('AppRouter shell and navigation', () => {
     })
   })
 
-  it('shows unavailable data corrections state', () => {
+  it('shows unavailable data corrections state', async () => {
     renderWithRouter('/data-corrections')
     expect(screen.getByRole('heading', { name: 'Data Corrections' })).toBeInTheDocument()
-    expect(screen.getByText('Data Corrections locked')).toBeInTheDocument()
+    expect(await screen.findByText('Data Corrections locked')).toBeInTheDocument()
   })
 })

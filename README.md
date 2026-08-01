@@ -23,12 +23,25 @@ public/
   404.html    GitHub Pages SPA fallback (preserves deep paths)
 ```
 
-## Quick start
+## Local development
 
 ```bash
 npm install
 npm run dev          # development server at http://localhost:5173/weatherstation/
 ```
+
+The frontend lives at repository root. No backend service runs in this repository.
+
+## Required environment variables
+
+Create `.env.local`:
+
+```bash
+VITE_SUPABASE_URL=https://<project>.supabase.co
+VITE_SUPABASE_ANON_KEY=<supabase-anon-key>
+```
+
+These values are only used for shared administrator session discovery and protected `station-admin` requests.
 
 ## Quality checks
 
@@ -40,7 +53,7 @@ npm run test:frontend    # Vitest unit tests
 npm run build:frontend   # production build
 ```
 
-## Deployment
+## GitHub Pages deployment
 
 ### URL
 
@@ -77,6 +90,64 @@ The deployed site is separate from `UKWX.github.io`. No source code in this repo
 
 All internal links are relative to the basename and work correctly both locally (dev server) and on GitHub Pages.
 
-### Backend
+## Route structure (12 tabs)
+
+- `/` Overview
+- `/live-data`
+- `/custom-graphs`
+- `/climate-archive`
+- `/normals-anomalies`
+- `/records`
+- `/comparisons`
+- `/reports`
+- `/climate-calendar`
+- `/on-this-day`
+- `/station-information`
+- `/data-corrections` (protected)
+
+## Public station-data endpoints
 
 Data is served by a separate DigitalOcean backend. Public endpoints are under `https://ukwx.duckdns.org/station-data`. See `docs/weather-dashboard-spec.md` §3 for the full contract.
+
+Primary endpoints used by the app:
+
+- `/current.json`
+- `/status.json`
+- `/recent.json`
+- `/today.json`
+- `/climate/index.json`
+- `/climate/archive/index.json`
+- `/climate/archive/{year}.json`
+- `/climate/normals/daily.json`
+- `/climate/normals/monthly.json`
+
+Public data is read-only in this application.
+
+## Protected station-admin behaviour
+
+- Protected base URL: `https://ukwx.duckdns.org/station-admin`
+- `/data-corrections` requires an existing Supabase session.
+- Signed-out users are redirected to `https://ukwx.github.io/admin/login` with a safe local return path.
+- Authorisation is checked by probing `/audit?limit=1`.
+- Every protected request obtains the current token immediately before fetch and sends it in the HTTP Authorization header.
+- Admin operations edit existing records only; missing records are not created.
+
+## Shared login behaviour
+
+The dashboard and `ukwx.github.io/admin` share origin and Supabase project configuration, so an existing admin login session is reused automatically when present.
+
+## Testing commands
+
+```bash
+npm run lint:frontend
+npm run type-check
+npm run test:frontend
+npx playwright test
+npm run build:frontend
+```
+
+## Known genuine limitations
+
+- Data Corrections depends on external Supabase/session availability.
+- GitHub Pages cannot serve dynamic server-rendered routes; deep-link restoration is handled by the SPA fallback.
+- Admin writes are constrained by backend safety checks (for example, conflicting later edits can block reverts).

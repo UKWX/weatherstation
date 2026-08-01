@@ -38,3 +38,31 @@ export interface AdminPatchResponse {
   backup: string
   message?: string
 }
+
+export interface AdminAuditEntry {
+  id: number
+  action: string
+  climate_date: ClimateDateString
+  admin_user_id: string | null
+  reason: string
+  created_at_utc: string
+  reverted_at_utc: string | null
+  reverted_by_user_id: string | null
+  related_audit_id: number | null
+  previous_record: AdminDailyRecord | null
+  new_record: AdminDailyRecord | null
+}
+
+export interface AdminAuditListResponse {
+  entries: AdminAuditEntry[]
+  count: number
+}
+
+export interface AdminRevertResponse {
+  status: string
+  record: AdminDailyRecord
+  original_audit_id: number
+  revert_audit_id: number
+  backup: string
+  message?: string
+}

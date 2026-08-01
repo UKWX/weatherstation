@@ -1,11 +1,21 @@
-import { useCallback, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { useAdminAuth } from '@/features/adminAuth/useAdminAuth'
-import { getAdminDaily, patchAdminDaily } from '@/api/stationAdminApi'
+import {
+  getAdminAudit,
+  getAdminDaily,
+  patchAdminDaily,
+  revertAdminAudit,
+} from '@/api/stationAdminApi'
 import { weatherQueryKeys } from '@/api/publicWeatherApi'
 import { RAINFALL_START_DATE } from '@/config/weather'
-import { Modal, Skeleton } from '@/components/ui'
-import type { AdminDailyRecord, AdminPatchPayload } from '@/types/admin'
+import { Badge, EmptyState, ErrorState, Modal, Skeleton, TableWrapper } from '@/components/ui'
+import { formatEuropeLondonDisplay } from '@/lib/climate'
+import type {
+  AdminAuditEntry,
+  AdminDailyRecord,
+  AdminPatchPayload,
+} from '@/types/admin'
 import type { AdminPermissionState } from '@/types/admin'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -40,6 +50,58 @@ function getErrorMessage(err: unknown): string {
   return 'An unexpected error occurred'
 }
 
+function formatAuditTimestamp(value: string): string {
+  return formatEuropeLondonDisplay(value, {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    timeZoneName: 'short',
+  })
+}
+
+function normaliseAction(action: string): string {
+  return action.trim().toLowerCase()
+}
+
+function isRevertAction(action: string): boolean {
+  return normaliseAction(action).includes('revert')
+}
+
+function isUpdateAction(action: string): boolean {
+  return normaliseAction(action).includes('update')
+}
+
+function canRevertEntry(entry: AdminAuditEntry): boolean {
+  if (isRevertAction(entry.action)) return false
+  if (entry.reverted_at_utc != null) return false
+  if (entry.related_audit_id != null) return false
+  return isUpdateAction(entry.action)
+}
+
+function formatAuditAction(action: string): string {
+  return action.replace(/[_-]/g, ' ')
+}
+
+function actionBadgeVariant(action: string): 'default' | 'success' | 'warning' | 'error' {
+  if (isRevertAction(action)) return 'warning'
+  if (isUpdateAction(action)) return 'success'
+  return 'default'
+}
+
+function sortAuditEntriesNewestFirst(entries: readonly AdminAuditEntry[]): AdminAuditEntry[] {
+  return [...entries].sort((a, b) => {
+    const at = Date.parse(a.created_at_utc)
+    const bt = Date.parse(b.created_at_utc)
+    if (Number.isNaN(at) || Number.isNaN(bt)) {
+      return b.id - a.id
+    }
+    return bt - at
+  })
+}
+
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 type RecordStatus =
@@ -55,6 +117,11 @@ type EditMode =
   | { kind: 'confirming' }
   | { kind: 'saving' }
   | { kind: 'saved'; auditId: string; message: string }
+
+type AuditStatus =
+  | { kind: 'loading' }
+  | { kind: 'error'; status: number; message: string }
+  | { kind: 'loaded'; entries: AdminAuditEntry[]; count: number }
 
 type FormState = {
   maxTempC: string
@@ -240,6 +307,82 @@ function MeanPreview({
   )
 }
 
+function formatAuditRecordValue(
+  label: 'max' | 'min' | 'mean' | 'rain',
+  value: number | null,
+  climateDate: string,
+): string {
+  if (label === 'rain') {
+    return formatRainMm(value, climateDate)
+  }
+  return formatTempC(value)
+}
+
+function AuditRecordDiff({
+  entry,
+}: {
+  readonly entry: AdminAuditEntry
+}) {
+  const previous = entry.previous_record
+  const next = entry.new_record
+  const rows = [
+    {
+      key: 'max',
+      label: 'Max temperature',
+      previous: previous?.max_temp_c ?? null,
+      next: next?.max_temp_c ?? null,
+    },
+    {
+      key: 'min',
+      label: 'Min temperature',
+      previous: previous?.min_temp_c ?? null,
+      next: next?.min_temp_c ?? null,
+    },
+    {
+      key: 'mean',
+      label: 'Mean temperature',
+      previous: previous?.mean_temp_c ?? null,
+      next: next?.mean_temp_c ?? null,
+    },
+    {
+      key: 'rain',
+      label: 'Rainfall',
+      previous: previous?.rainfall_mm ?? null,
+      next: next?.rainfall_mm ?? null,
+    },
+  ] as const
+
+  if (!previous && !next) {
+    return <p className="corrections-field-note">No record snapshots are available for this entry.</p>
+  }
+
+  return (
+    <TableWrapper>
+      <table className="audit-diff-table">
+        <thead>
+          <tr>
+            <th>Field</th>
+            <th>Previous record</th>
+            <th>New record</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((row) => {
+            const changed = row.previous !== row.next
+            return (
+              <tr key={row.key} className={changed ? 'audit-changed-row' : ''}>
+                <th scope="row">{row.label}</th>
+                <td>{formatAuditRecordValue(row.key, row.previous, entry.climate_date)}</td>
+                <td>{formatAuditRecordValue(row.key, row.next, entry.climate_date)}</td>
+              </tr>
+            )
+          })}
+        </tbody>
+      </table>
+    </TableWrapper>
+  )
+}
+
 function PermissionOverlay({
   permissionState,
 }: {
@@ -290,8 +433,11 @@ function CorrectionEditor() {
   const queryClient = useQueryClient()
 
   const [selectedDate, setSelectedDate] = useState(todayDateString())
+  const [auditDateFilter, setAuditDateFilter] = useState('')
+  const [auditLimit, setAuditLimit] = useState(25)
   const [recordStatus, setRecordStatus] = useState<RecordStatus>({ kind: 'idle' })
   const [editMode, setEditMode] = useState<EditMode>({ kind: 'view' })
+  const [auditStatus, setAuditStatus] = useState<AuditStatus>({ kind: 'loading' })
   const [form, setForm] = useState<FormState>({
     maxTempC: '',
     maxTempCCleared: false,
@@ -303,6 +449,25 @@ function CorrectionEditor() {
   })
   const [validationErrors, setValidationErrors] = useState<ValidationErrors>({})
   const [saveError, setSaveError] = useState<string | null>(null)
+  const [revertTarget, setRevertTarget] = useState<AdminAuditEntry | null>(null)
+  const [reverting, setReverting] = useState(false)
+  const [revertError, setRevertError] = useState<string | null>(null)
+  const [revertSuccess, setRevertSuccess] = useState<string | null>(null)
+
+  const refreshPublicClimateQueries = useCallback(
+    async (year: number) => {
+      const invalidationTargets = [
+        ...weatherQueryKeys.invalidationKeysForYear(year),
+        weatherQueryKeys.climateRoot,
+      ]
+      await Promise.all(
+        invalidationTargets.map((key) =>
+          queryClient.invalidateQueries({ queryKey: key as readonly unknown[] }),
+        ),
+      )
+    },
+    [queryClient],
+  )
 
   const loadRecord = useCallback(async (date: string) => {
     setRecordStatus({ kind: 'loading' })
@@ -320,6 +485,31 @@ function CorrectionEditor() {
       }
     }
   }, [])
+
+  const loadAuditHistory = useCallback(async () => {
+    setAuditStatus({ kind: 'loading' })
+    try {
+      const response = await getAdminAudit({
+        climateDate: auditDateFilter || undefined,
+        limit: auditLimit,
+      })
+      setAuditStatus({
+        kind: 'loaded',
+        entries: sortAuditEntriesNewestFirst(response.entries),
+        count: response.count,
+      })
+    } catch (error) {
+      setAuditStatus({
+        kind: 'error',
+        status: getErrorStatus(error),
+        message: getErrorMessage(error),
+      })
+    }
+  }, [auditDateFilter, auditLimit])
+
+  useEffect(() => {
+    void loadAuditHistory()
+  }, [loadAuditHistory])
 
   const enterEdit = useCallback(() => {
     if (recordStatus.kind !== 'loaded') return
@@ -367,12 +557,8 @@ function CorrectionEditor() {
       })
 
       const year = new Date(selectedDate).getUTCFullYear()
-      const keysToInvalidate = weatherQueryKeys.invalidationKeysForYear(year)
-      await Promise.all(
-        keysToInvalidate.map((key) =>
-          queryClient.invalidateQueries({ queryKey: key as readonly unknown[] }),
-        ),
-      )
+      await refreshPublicClimateQueries(year)
+      await loadAuditHistory()
     } catch (err) {
       const status = getErrorStatus(err)
       let message = getErrorMessage(err)
@@ -391,10 +577,48 @@ function CorrectionEditor() {
       setSaveError(message)
       setEditMode({ kind: 'editing' })
     }
-  }, [recordStatus, selectedDate, form, queryClient])
+  }, [recordStatus, selectedDate, form, loadAuditHistory, refreshPublicClimateQueries])
+
+  const handleConfirmRevert = useCallback(async () => {
+    if (!revertTarget) return
+
+    setReverting(true)
+    setRevertError(null)
+    setRevertSuccess(null)
+    try {
+      const response = await revertAdminAudit(revertTarget.id)
+      const year = new Date(response.record.date).getUTCFullYear()
+      await Promise.all([
+        loadAuditHistory(),
+        loadRecord(selectedDate),
+        refreshPublicClimateQueries(year),
+      ])
+      setRevertSuccess(`Reverted audit entry #${response.original_audit_id}.`)
+      setRevertTarget(null)
+    } catch (error) {
+      const status = getErrorStatus(error)
+      let message = getErrorMessage(error)
+      if (status === 404) {
+        message = 'Revert failed: the audit entry or record no longer exists (404).'
+      } else if (status === 409) {
+        message =
+          'Revert blocked (409): the record changed after this edit, so reverting now would be unsafe.'
+      } else if (status === 422) {
+        message = `Revert validation failed (422): ${message}`
+      }
+      setRevertError(message)
+    } finally {
+      setReverting(false)
+    }
+  }, [loadAuditHistory, loadRecord, refreshPublicClimateQueries, revertTarget, selectedDate])
 
   const record = recordStatus.kind === 'loaded' ? recordStatus.record : null
   const showModal = editMode.kind === 'confirming' || editMode.kind === 'saving'
+  const canCloseRevertModal = !reverting
+  const auditEntries = useMemo(
+    () => (auditStatus.kind === 'loaded' ? auditStatus.entries : []),
+    [auditStatus],
+  )
   const { changes } =
     showModal && record
       ? buildPatchPayload(selectedDate, record, form)
@@ -774,6 +998,210 @@ function CorrectionEditor() {
           </Modal>
         </>
       )}
+
+      <section className="card audit-panel" aria-label="Audit history">
+        <div className="audit-panel-header">
+          <h2>Audit history</h2>
+          <p className="corrections-field-note">Newest entries are shown first.</p>
+        </div>
+        <div className="audit-controls">
+          <label className="audit-control">
+            <span>Climate date</span>
+            <input
+              type="date"
+              value={auditDateFilter}
+              onChange={(event) => setAuditDateFilter(event.target.value)}
+            />
+          </label>
+          <label className="audit-control">
+            <span>Limit</span>
+            <select
+              value={auditLimit}
+              onChange={(event) => setAuditLimit(Number(event.target.value))}
+            >
+              {[10, 25, 50, 100, 250, 500].map((value) => (
+                <option key={value} value={value}>
+                  {value}
+                </option>
+              ))}
+            </select>
+          </label>
+          <div className="audit-control-actions">
+            <button type="button" className="button" onClick={() => { void loadAuditHistory() }}>
+              Refresh audit
+            </button>
+            <button
+              type="button"
+              className="button button-ghost"
+              onClick={() => {
+                setAuditDateFilter('')
+                setAuditLimit(25)
+              }}
+            >
+              Reset filters
+            </button>
+          </div>
+        </div>
+
+        {revertSuccess ? (
+          <section className="state-card state-success" role="status" aria-live="polite">
+            <p>{revertSuccess}</p>
+          </section>
+        ) : null}
+
+        {auditStatus.kind === 'loading' ? (
+          <section className="card" aria-live="polite" aria-label="Loading audit history">
+            <Skeleton lines={4} />
+          </section>
+        ) : null}
+
+        {auditStatus.kind === 'error' ? (
+          <ErrorState
+            title="Failed to load audit history"
+            message={`Status ${auditStatus.status || 'unknown'}: ${auditStatus.message}`}
+            onRetry={() => {
+              void loadAuditHistory()
+            }}
+          />
+        ) : null}
+
+        {auditStatus.kind === 'loaded' && auditEntries.length === 0 ? (
+          <EmptyState
+            title="No audit entries found"
+            message="No audit entries match the current filters."
+          />
+        ) : null}
+
+        {auditStatus.kind === 'loaded' && auditEntries.length > 0 ? (
+          <div className="audit-list">
+            <p className="corrections-field-note">
+              Showing {auditEntries.length} of {auditStatus.count} entries.
+            </p>
+            {auditEntries.map((entry) => {
+              const eligibleForRevert = canRevertEntry(entry)
+              const reverted = entry.reverted_at_utc != null
+              return (
+                <article
+                  className="card audit-entry"
+                  id={`audit-entry-${entry.id}`}
+                  key={entry.id}
+                >
+                  <div className="audit-entry-header">
+                    <h3>Entry #{entry.id}</h3>
+                    <Badge variant={actionBadgeVariant(entry.action)}>
+                      {formatAuditAction(entry.action)}
+                    </Badge>
+                  </div>
+                  <dl className="audit-entry-meta">
+                    <div>
+                      <dt>Climate date</dt>
+                      <dd>{entry.climate_date}</dd>
+                    </div>
+                    <div>
+                      <dt>Timestamp</dt>
+                      <dd>{formatAuditTimestamp(entry.created_at_utc)}</dd>
+                    </div>
+                    <div>
+                      <dt>Administrator ID</dt>
+                      <dd>{entry.admin_user_id ?? 'Unknown'}</dd>
+                    </div>
+                    <div>
+                      <dt>Reason</dt>
+                      <dd>{entry.reason || '—'}</dd>
+                    </div>
+                  </dl>
+                  <div className="audit-entry-status">
+                    {reverted ? <Badge variant="warning">Reverted</Badge> : null}
+                    {entry.related_audit_id != null ? (
+                      <a href={`#audit-entry-${entry.related_audit_id}`}>
+                        Linked revert entry #{entry.related_audit_id}
+                      </a>
+                    ) : null}
+                    {entry.reverted_at_utc ? (
+                      <span>
+                        Reverted at {formatAuditTimestamp(entry.reverted_at_utc)}
+                        {entry.reverted_by_user_id ? ` by ${entry.reverted_by_user_id}` : ''}
+                      </span>
+                    ) : null}
+                  </div>
+                  <AuditRecordDiff entry={entry} />
+                  <div className="audit-entry-actions">
+                    {eligibleForRevert ? (
+                      <button
+                        type="button"
+                        className="button"
+                        onClick={() => {
+                          setRevertTarget(entry)
+                          setRevertError(null)
+                        }}
+                      >
+                        Revert this update
+                      </button>
+                    ) : (
+                      <p className="corrections-field-note">
+                        {isRevertAction(entry.action)
+                          ? 'Revert is not available for revert entries.'
+                          : reverted
+                            ? 'This update has already been reverted.'
+                            : 'Revert is only available for eligible update entries.'}
+                      </p>
+                    )}
+                  </div>
+                </article>
+              )
+            })}
+          </div>
+        ) : null}
+      </section>
+
+      <Modal
+        title={revertTarget ? `Revert entry #${revertTarget.id}` : 'Revert entry'}
+        open={revertTarget != null}
+        onClose={() => {
+          if (canCloseRevertModal) {
+            setRevertTarget(null)
+            setRevertError(null)
+          }
+        }}
+      >
+        {revertTarget ? (
+          <div className="corrections-before-after">
+            <p>
+              This will revert the selected update and restore the previous record values. If a
+              later conflicting edit exists, the server will block the revert to prevent unsafe
+              history changes.
+            </p>
+            {revertError ? (
+              <div className="state-error corrections-save-error" role="alert">
+                {revertError}
+              </div>
+            ) : null}
+            <AuditRecordDiff entry={revertTarget} />
+            <div className="corrections-action-row">
+              <button
+                type="button"
+                className="button button-ghost"
+                disabled={!canCloseRevertModal}
+                onClick={() => {
+                  setRevertTarget(null)
+                  setRevertError(null)
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="button"
+                disabled={reverting}
+                aria-busy={reverting}
+                onClick={() => { void handleConfirmRevert() }}
+              >
+                {reverting ? 'Reverting…' : 'Confirm revert'}
+              </button>
+            </div>
+          </div>
+        ) : null}
+      </Modal>
     </div>
   )
 }

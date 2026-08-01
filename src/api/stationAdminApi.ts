@@ -1,9 +1,11 @@
 import { supabase } from '@/lib/supabaseClient'
 import { STATION_ADMIN_BASE_URL } from '@/config/weather'
 import type {
+  AdminAuditListResponse,
   AdminDailyResponse,
   AdminPatchPayload,
   AdminPatchResponse,
+  AdminRevertResponse,
 } from '@/types/admin'
 
 const ADMIN_TIMEOUT_MS = 15_000
@@ -94,5 +96,28 @@ export async function patchAdminDaily(
   return adminFetch<AdminPatchResponse>(`/daily/${date}`, {
     method: 'PATCH',
     body: JSON.stringify(payload),
+  })
+}
+
+/** GET /audit */
+export async function getAdminAudit(params?: {
+  climateDate?: string
+  limit?: number
+}): Promise<AdminAuditListResponse> {
+  const query = new URLSearchParams()
+  if (params?.climateDate) {
+    query.set('climate_date', params.climateDate)
+  }
+  if (params?.limit != null) {
+    query.set('limit', String(params.limit))
+  }
+  const suffix = query.toString()
+  return adminFetch<AdminAuditListResponse>(`/audit${suffix ? `?${suffix}` : ''}`)
+}
+
+/** POST /audit/{id}/revert */
+export async function revertAdminAudit(auditId: number): Promise<AdminRevertResponse> {
+  return adminFetch<AdminRevertResponse>(`/audit/${auditId}/revert`, {
+    method: 'POST',
   })
 }

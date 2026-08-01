@@ -1,21 +1,25 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import DataCorrectionsPage, {
   buildPatchPayload,
   validateForm,
 } from '@/pages/DataCorrectionsPage'
-import type { AdminDailyRecord } from '@/types/admin'
+import type { AdminAuditEntry, AdminDailyRecord } from '@/types/admin'
 import type { AdminPermissionState } from '@/types/admin'
 
 // ── Mocks ─────────────────────────────────────────────────────────────────────
 
 const mockGetAdminDaily = vi.fn()
 const mockPatchAdminDaily = vi.fn()
+const mockGetAdminAudit = vi.fn()
+const mockRevertAdminAudit = vi.fn()
 
 vi.mock('@/api/stationAdminApi', () => ({
   getAdminDaily: (...args: unknown[]) => mockGetAdminDaily(...args),
   patchAdminDaily: (...args: unknown[]) => mockPatchAdminDaily(...args),
+  getAdminAudit: (...args: unknown[]) => mockGetAdminAudit(...args),
+  revertAdminAudit: (...args: unknown[]) => mockRevertAdminAudit(...args),
   StationAdminError: class extends Error {
     status: number
     constructor(status: number, msg: string) {
@@ -53,6 +57,23 @@ function makeQueryClient() {
   return new QueryClient({ defaultOptions: { queries: { retry: false } } })
 }
 
+function makeAuditEntry(overrides: Partial<AdminAuditEntry> = {}): AdminAuditEntry {
+  return {
+    id: 31,
+    action: 'update',
+    climate_date: '2026-07-29' as AdminDailyRecord['date'],
+    admin_user_id: 'admin-1',
+    reason: 'Corrected from logbook',
+    created_at_utc: '2026-08-01T10:20:30Z',
+    reverted_at_utc: null,
+    reverted_by_user_id: null,
+    related_audit_id: null,
+    previous_record: makeRecord({ max_temp_c: 25.8, mean_temp_c: 21.7 }),
+    new_record: makeRecord({ max_temp_c: 26.3, mean_temp_c: 21.9 }),
+    ...overrides,
+  }
+}
+
 function renderPage(queryClient?: QueryClient) {
   const qc = queryClient ?? makeQueryClient()
   return {
@@ -78,6 +99,11 @@ async function enterEditMode(record: AdminDailyRecord) {
   await loadRecord(record)
   fireEvent.click(screen.getByRole('button', { name: /edit this record/i }))
 }
+
+beforeEach(() => {
+  mockGetAdminAudit.mockResolvedValue({ entries: [], count: 0 })
+  mockRevertAdminAudit.mockReset()
+})
 
 // ── Permission state tests ─────────────────────────────────────────────────────
 
@@ -381,6 +407,106 @@ describe('DataCorrectionsPage – save and invalidation', () => {
 
     await waitFor(() =>
       expect(screen.getByText(/conflict/i)).toBeInTheDocument(),
+    )
+  })
+})
+
+describe('DataCorrectionsPage – audit and revert', () => {
+  afterEach(() => {
+    mockPermissionState = 'authorised'
+    vi.clearAllMocks()
+  })
+
+  it('shows audit entries with changed-field highlighting', async () => {
+    mockGetAdminAudit.mockResolvedValueOnce({
+      entries: [makeAuditEntry()],
+      count: 1,
+    })
+
+    renderPage()
+
+    await waitFor(() => {
+      expect(screen.getByText(/entry #31/i)).toBeInTheDocument()
+    })
+    expect(screen.queryByText(/linked revert entry/i)).not.toBeInTheDocument()
+    expect(screen.getByText(/revert this update/i)).toBeInTheDocument()
+    expect(screen.getByText(/max temperature/i)).toBeInTheDocument()
+  })
+
+  it('hides revert action for revert entries and reverted entries', async () => {
+    mockGetAdminAudit.mockResolvedValueOnce({
+      entries: [
+        makeAuditEntry({ id: 32, action: 'revert' }),
+        makeAuditEntry({
+          id: 33,
+          reverted_at_utc: '2026-08-01T11:00:00Z',
+          related_audit_id: 34,
+        }),
+      ],
+      count: 2,
+    })
+
+    renderPage()
+
+    await waitFor(() => {
+      expect(screen.getByText(/entry #32/i)).toBeInTheDocument()
+    })
+    expect(screen.getByText(/revert is not available for revert entries/i)).toBeInTheDocument()
+    expect(screen.getByText(/this update has already been reverted/i)).toBeInTheDocument()
+  })
+
+  it('submits a revert and refreshes audit/record data', async () => {
+    const qc = makeQueryClient()
+    vi.spyOn(qc, 'invalidateQueries')
+    mockGetAdminAudit.mockResolvedValueOnce({
+      entries: [makeAuditEntry()],
+      count: 1,
+    })
+    mockGetAdminDaily.mockResolvedValueOnce({ record: makeRecord() })
+    mockRevertAdminAudit.mockResolvedValueOnce({
+      status: 'ok',
+      record: makeRecord(),
+      original_audit_id: 31,
+      revert_audit_id: 45,
+      backup: 'backup.zip',
+    })
+    mockGetAdminAudit.mockResolvedValueOnce({
+      entries: [makeAuditEntry({ id: 45, action: 'revert', related_audit_id: 31 })],
+      count: 2,
+    })
+    mockGetAdminDaily.mockResolvedValueOnce({ record: makeRecord() })
+
+    renderPage(qc)
+    fireEvent.click(screen.getByRole('button', { name: /load record/i }))
+    await waitFor(() => expect(screen.getByText(/record for 2026-07-29/i)).toBeInTheDocument())
+    await waitFor(() => expect(screen.getByText(/entry #31/i)).toBeInTheDocument())
+
+    fireEvent.click(screen.getByRole('button', { name: /revert this update/i }))
+    fireEvent.click(screen.getByRole('button', { name: /confirm revert/i }))
+
+    await waitFor(() =>
+      expect(screen.getByText(/reverted audit entry #31/i)).toBeInTheDocument(),
+    )
+    expect(mockRevertAdminAudit).toHaveBeenCalledWith(31)
+    expect(qc.invalidateQueries).toHaveBeenCalled()
+  })
+
+  it('shows clear conflict message for 409 revert error', async () => {
+    mockGetAdminAudit.mockResolvedValueOnce({
+      entries: [makeAuditEntry()],
+      count: 1,
+    })
+    mockRevertAdminAudit.mockRejectedValueOnce(
+      Object.assign(new Error('Conflict detected'), { status: 409 }),
+    )
+
+    renderPage()
+    await waitFor(() => expect(screen.getByText(/entry #31/i)).toBeInTheDocument())
+    fireEvent.click(screen.getByRole('button', { name: /revert this update/i }))
+    fireEvent.click(screen.getByRole('button', { name: /confirm revert/i }))
+
+    await waitFor(() =>
+      expect(screen.getByText(/revert blocked \(409\)/i)).toBeInTheDocument(),
     )
   })
 })

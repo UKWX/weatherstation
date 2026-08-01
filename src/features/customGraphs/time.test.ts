@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import type { ClimateDateString } from '@/types/weather'
 import {
   MINUTE_ARCHIVE_MAX_DAYS,
   buildArchiveDayPath,
@@ -40,8 +41,22 @@ describe('custom graph archive planning', () => {
   })
 
   it('limits minute archive requests to the documented day count', () => {
-    expect(validateMinuteArchiveLimit(Array.from({ length: MINUTE_ARCHIVE_MAX_DAYS }, (_, index) => `2024-06-0${index + 1}` as const))).toBe(true)
-    expect(validateMinuteArchiveLimit(Array.from({ length: MINUTE_ARCHIVE_MAX_DAYS + 1 }, (_, index) => `2024-06-${String(index + 1).padStart(2, '0')}` as const))).toBe(false)
+    expect(
+      validateMinuteArchiveLimit(
+        Array.from(
+          { length: MINUTE_ARCHIVE_MAX_DAYS },
+          (_, index) => `2024-06-0${index + 1}` as ClimateDateString,
+        ),
+      ),
+    ).toBe(true)
+    expect(
+      validateMinuteArchiveLimit(
+        Array.from(
+          { length: MINUTE_ARCHIVE_MAX_DAYS + 1 },
+          (_, index) => `2024-06-${String(index + 1).padStart(2, '0')}` as ClimateDateString,
+        ),
+      ),
+    ).toBe(false)
   })
 
   it('only requests annual climate files for selected and comparison years', () => {

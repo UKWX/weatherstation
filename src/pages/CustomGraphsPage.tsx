@@ -1064,7 +1064,11 @@ export default function CustomGraphsPage() {
       ) : null}
 
       {minuteState.status === 'error' && minuteState.error != null ? (
-        <ErrorState title="Minute archive request failed" message={minuteState.error} />
+        <ErrorState
+          title="Minute archive request failed"
+          message={minuteState.error}
+          onRetry={handleSubmit}
+        />
       ) : null}
 
       {result != null ? (

@@ -1,12 +1,19 @@
+/// <reference lib="webworker" />
+
 import {
   MinuteArchiveParserCancelledError,
   parseMinuteArchiveJsonl,
 } from '@/features/customGraphs/parser'
 
-const workerScope = self as DedicatedWorkerGlobalScope
+type CustomGraphWorkerMessage = { type: 'parse'; text: string } | { type: 'cancel' }
+
+const workerScope = self as typeof self & {
+  postMessage: (message: unknown) => void
+  onmessage: ((event: MessageEvent<CustomGraphWorkerMessage>) => void) | null
+}
 let cancelled = false
 
-workerScope.onmessage = async (event: MessageEvent<{ type: 'parse'; text: string } | { type: 'cancel' }>) => {
+workerScope.onmessage = async (event: MessageEvent<CustomGraphWorkerMessage>) => {
   if (event.data.type === 'cancel') {
     cancelled = true
     return

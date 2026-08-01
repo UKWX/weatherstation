@@ -18,6 +18,7 @@ import type {
   MonthlyNormal,
 } from '@/types/weather'
 import type {
+  CustomGraphWarning,
   CustomGraphAggregation,
   CustomGraphChartType,
   CustomGraphDataContext,
@@ -407,7 +408,16 @@ function buildNormalPoints(
 
   return primaryPoints.map((point) => ({
     ...point,
-    value: annualNormal[variable],
+    value:
+      variable === 'maxTempC'
+        ? annualNormal.maxTempC
+        : variable === 'minTempC'
+          ? annualNormal.minTempC
+          : variable === 'meanTempC'
+            ? annualNormal.meanTempC
+            : variable === 'rainfallMm'
+              ? annualNormal.rainfallMm
+              : null,
   }))
 }
 
@@ -537,7 +547,7 @@ export function buildCustomGraphResult(
   comparisonRange: { startMs: number; endMs: number } | null,
 ): CustomGraphResult {
   const usesMinuteArchive = isMinuteArchiveResolution(formState.resolution)
-  const warnings = [] as CustomGraphResult['warnings']
+  const warnings: CustomGraphWarning[] = []
   const series: CustomGraphSeries[] = []
   const temperatureRanges: TemperatureRangeSeries[] = []
 
@@ -553,10 +563,11 @@ export function buildCustomGraphResult(
     let comparisonPoints: CustomGraphSeriesPoint[] = []
 
     if (usesMinuteArchive) {
+      const resolution = formState.resolution as 'minute' | 'hourly'
       primaryPoints = bucketMinuteObservations(
         context.minuteObservations,
         variable,
-        formState.resolution,
+        resolution,
         formState.aggregation,
         primaryRange.startMs,
         primaryRange.endMs,
@@ -567,7 +578,7 @@ export function buildCustomGraphResult(
           bucketMinuteObservations(
             context.minuteObservations,
             variable,
-            formState.resolution,
+            resolution,
             formState.aggregation,
             comparisonRange.startMs,
             comparisonRange.endMs,
@@ -575,10 +586,11 @@ export function buildCustomGraphResult(
         )
       }
     } else {
+      const resolution = formState.resolution as 'daily' | 'monthly' | 'annual'
       primaryPoints = buildClimateSeriesPoints(
         context.climateRecords,
         variable,
-        formState.resolution,
+        resolution,
         formState.aggregation,
         primaryDates.startDate,
         primaryDates.endDate,
@@ -589,7 +601,7 @@ export function buildCustomGraphResult(
           buildClimateSeriesPoints(
             context.climateRecords,
             variable,
-            formState.resolution,
+            resolution,
             formState.aggregation,
             comparisonDates.startDate,
             comparisonDates.endDate,
@@ -641,7 +653,7 @@ export function buildCustomGraphResult(
     if (!usesMinuteArchive && formState.normalOverlay) {
       const normalPoints = buildNormalPoints(
         variable,
-        formState.resolution,
+        formState.resolution as 'daily' | 'monthly' | 'annual',
         primaryPoints,
         context.dailyNormals,
         context.monthlyNormals,

@@ -1,13 +1,15 @@
 import { EUROPE_LONDON_TIMEZONE } from '@/config/weather'
 import type { RecentObservation } from '@/types/weather'
 
-export type RangeHours = 1 | 3 | 6
+export type RangeHours = 1 | 3 | 6 | 12 | 24
 export type SortOrder = 'newest-first' | 'oldest-first'
 
 export const RANGE_OPTIONS: { label: string; value: RangeHours }[] = [
   { label: '1 hour', value: 1 },
   { label: '3 hours', value: 3 },
   { label: '6 hours', value: 6 },
+  { label: '12 hours', value: 12 },
+  { label: '24 hours', value: 24 },
 ]
 
 export type MeasurementKey =

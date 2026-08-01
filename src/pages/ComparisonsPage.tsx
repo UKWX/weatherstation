@@ -1059,7 +1059,7 @@ function TwoPeriodCharts({
             B &nbsp; (solid = max, dashed = min)
           </span>
         </h3>
-        <div className="responsive-chart-container">
+        <div className="responsive-chart-container responsive-chart-container--page">
           <OverlayLineChart
             leftMax={leftMax}
             leftMin={leftMin}
@@ -1071,7 +1071,7 @@ function TwoPeriodCharts({
 
       <div className="comparison-chart-block">
         <h3 className="chart-title">Temperature range — Period A</h3>
-        <div className="responsive-chart-container">
+        <div className="responsive-chart-container responsive-chart-container--page">
           <RangeChart
             maxPts={leftMax}
             minPts={leftMin}
@@ -1098,7 +1098,7 @@ function TwoPeriodCharts({
               B
             </span>
           </h3>
-          <div className="responsive-chart-container">
+          <div className="responsive-chart-container responsive-chart-container--page">
             <RainfallChart leftPts={leftRain} rightPts={rightRain} />
           </div>
         </div>

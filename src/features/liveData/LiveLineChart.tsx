@@ -1,10 +1,10 @@
 import { useCallback, useRef, useState } from 'react'
 import { EUROPE_LONDON_TIMEZONE } from '@/config/weather'
-import { chartTokens } from '@/components/ui'
+import { ResponsiveChartContainer, chartTokens } from '@/components/ui'
 
 // ---------- SVG layout constants ----------
 const SVG_W = 600
-const SVG_H = 200
+const SVG_H = 260
 const M = { t: 18, r: 20, b: 40, l: 54 } as const
 const PLOT_W = SVG_W - M.l - M.r // 526
 const PLOT_H = SVG_H - M.t - M.b // 142
@@ -151,10 +151,20 @@ function buildDots(
 
 function computeXTicks(tMin: number, tMax: number, rangeMs: number): number[] {
   const oneHour = 3_600_000
+  const twoHours = 7_200_000
+  const fourHours = 14_400_000
   const thirtyMin = 1_800_000
   const fifteenMin = 900_000
   const intervalMs =
-    rangeMs <= 1.5 * oneHour ? fifteenMin : rangeMs <= 3.5 * oneHour ? thirtyMin : oneHour
+    rangeMs <= 1.5 * oneHour
+      ? fifteenMin
+      : rangeMs <= 3.5 * oneHour
+        ? thirtyMin
+        : rangeMs <= 8 * oneHour
+          ? oneHour
+          : rangeMs <= 16 * oneHour
+            ? twoHours
+            : fourHours
   const firstTick = Math.ceil(tMin / intervalMs) * intervalMs
   const ticks: number[] = []
   for (let t = firstTick; t <= tMax; t += intervalMs) {
@@ -298,7 +308,7 @@ export function LiveLineChart({
       </div>
 
       {/* SVG chart */}
-      <div className="live-chart-svg-wrapper">
+      <ResponsiveChartContainer size="compact" minWidth={280} className="live-chart-svg-wrapper">
         <svg
           ref={svgRef}
           viewBox={`0 0 ${SVG_W} ${SVG_H}`}
@@ -428,7 +438,7 @@ export function LiveLineChart({
             aria-hidden="true"
           />
         </svg>
-      </div>
+      </ResponsiveChartContainer>
 
       {/* Data panel – rendered below chart, never clips on mobile */}
       <div className="live-chart-data-panel" aria-live="polite" aria-atomic="true">

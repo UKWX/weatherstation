@@ -20,6 +20,7 @@ import {
 import { chartTokens } from '@/components/ui/chartTokens'
 import { MONTHLY_NORMAL_BASELINE, RAINFALL_START_DATE, WEATHER_UNITS } from '@/config/weather'
 import {
+  useAnnualClimateQueries,
   useAnnualClimateQuery,
   useClimateArchiveIndexQuery,
   useDailyNormalsQuery,
@@ -29,6 +30,11 @@ import {
   formatEuropeLondonDisplay,
   formatNullableMeasurement,
 } from '@/lib/climate'
+import { DateSeriesChart } from '@/components/charts/DateSeriesChart'
+import {
+  buildAnnualTrendData,
+  formatAnnualChartTick,
+} from '@/features/annualCharts/calculations'
 import {
   buildAnnualSummary,
   buildMonthlySummary,
@@ -542,6 +548,86 @@ function CoverageSummary({
   )
 }
 
+function AnnualTrendCharts({
+  trendData,
+}: {
+  readonly trendData: ReturnType<typeof buildAnnualTrendData>
+}) {
+  if (trendData.points.length === 0) {
+    return <p className="archive-obs-note">No annual trend data available.</p>
+  }
+
+  const charts = [
+    {
+      title: 'Mean maximum temperature by year',
+      unit: WEATHER_UNITS.temperature,
+      observedKey: 'meanMaxTempC',
+      observedLabel: 'Observed mean max',
+      referenceValue: trendData.references.meanMaxTempC,
+      referenceLabel: 'Complete-year average',
+    },
+    {
+      title: 'Mean minimum temperature by year',
+      unit: WEATHER_UNITS.temperature,
+      observedKey: 'meanMinTempC',
+      observedLabel: 'Observed mean min',
+      referenceValue: trendData.references.meanMinTempC,
+      referenceLabel: 'Complete-year average',
+    },
+    {
+      title: 'Mean temperature by year',
+      unit: WEATHER_UNITS.temperature,
+      observedKey: 'meanTempC',
+      observedLabel: 'Observed mean temperature',
+      referenceValue: trendData.references.meanTempC,
+      referenceLabel: 'Complete-year average',
+    },
+    {
+      title: 'Annual rainfall total by year',
+      unit: WEATHER_UNITS.rainfall,
+      observedKey: 'rainfallTotalMm',
+      observedLabel: 'Annual rainfall total',
+      referenceValue: trendData.references.rainfallTotalMm,
+      referenceLabel: 'Complete-year average annual rainfall',
+    },
+  ] as const
+
+  return (
+    <div className="card-grid">
+      {charts.map((chart) => {
+        const rows = trendData.points.map((point) => ({
+          timestamp: point.timestamp,
+          label: `${point.label}${point.provisional ? ' (provisional)' : ''}`,
+          provisional: point.provisional,
+          values: {
+            observed: point[chart.observedKey],
+            reference: chart.referenceValue,
+          },
+        }))
+
+        return (
+          <div key={chart.title}>
+            <h3>{chart.title}</h3>
+            <ResponsiveChartContainer size="page">
+              <DateSeriesChart
+                rows={rows}
+                unit={chart.unit}
+                ariaLabel={chart.title}
+                gapThresholdMs={Number.POSITIVE_INFINITY}
+                xTickFormatter={formatAnnualChartTick}
+                series={[
+                  { key: 'observed', label: chart.observedLabel, color: chartTokens.series.observed },
+                  { key: 'reference', label: chart.referenceLabel, color: chartTokens.series.reference, dashed: true },
+                ]}
+              />
+            </ResponsiveChartContainer>
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
 // ── Day details drawer ────────────────────────────────────────────────────────
 
 function DayDetailsDrawer({
@@ -776,12 +862,14 @@ function AnnualView({
   payload,
   monthlyNormals,
   onSelectMonth,
+  trendData,
 }: {
   readonly summary: AnnualSummaryType
   readonly year: number
   readonly payload: { complete: boolean; through: ClimateDateString | null; observationCount: number | null }
   readonly monthlyNormals: readonly { month: number; meanTempC: number | null; meanMaxTempC: number | null; meanMinTempC: number | null }[]
   readonly onSelectMonth: (month: number) => void
+  readonly trendData: ReturnType<typeof buildAnnualTrendData>
 }) {
   const rainfallYearAvailable = isRainfallAvailableForYear(year)
   const rainfallYearComplete = rainfallYearAvailable && summary.coverage.rainfall.complete
@@ -831,7 +919,10 @@ function AnnualView({
           </div>
           <div>
             <dt>Annual mean temperature</dt>
-            <dd>{fmtTemp(summary.meanTempC)}</dd>
+            <dd>
+              {fmtTemp(summary.meanTempC)}
+              {summary.meanTempAnomalyC != null ? ` (${fmtAnomaly(summary.meanTempAnomalyC)})` : ''}
+            </dd>
           </div>
           <div>
             <dt>Highest maximum</dt>
@@ -853,6 +944,9 @@ function AnnualView({
               {rainfallYearAvailable ? (
                 <>
                   {fmtRainfall(summary.rainfallTotalMm)}
+                  {summary.rainfallPercentageOfNormal != null
+                    ? ` (${fmtPercent(summary.rainfallPercentageOfNormal)} of normal)`
+                    : ''}
                   {!rainfallYearComplete && (
                     <Badge variant="warning">&nbsp;Partial year</Badge>
                   )}
@@ -877,6 +971,31 @@ function AnnualView({
               ) : (
                 '—'
               )}
+            </dd>
+          </div>
+          <div>
+            <dt>Temperature coverage</dt>
+            <dd>
+              {summary.coverage.maxTemperature.valid}/{summary.coverage.expectedDays} valid
+              {' '}({summary.coverage.maxTemperature.missing} missing)
+            </dd>
+          </div>
+          <div>
+            <dt>Rainfall coverage</dt>
+            <dd>
+              {rainfallYearAvailable
+                ? `${summary.coverage.rainfall.valid}/${summary.coverage.rainfall.availableDays} valid (${summary.coverage.rainfall.missing} missing)`
+                : 'Unavailable'}
+            </dd>
+          </div>
+          <div>
+            <dt>Status</dt>
+            <dd>
+              {summary.coverage.provisional
+                ? 'Provisional'
+                : payload.complete && (!rainfallYearAvailable || rainfallYearComplete)
+                  ? 'Complete'
+                  : 'Incomplete'}
             </dd>
           </div>
         </dl>
@@ -927,7 +1046,7 @@ function AnnualView({
           <span style={{ marginLeft: '0.8rem' }} />
           <span className="legend-swatch legend-dashed" style={{ background: 'var(--chart-series-reference)' }} /> Normals
         </p>
-        <ResponsiveChartContainer>
+        <ResponsiveChartContainer size="page">
           <AnnualTempChart
             summaries={summary.monthlySummaries}
             monthlyNormals={monthlyNormals}
@@ -938,11 +1057,19 @@ function AnnualView({
       {rainfallYearAvailable && (
         <section className="card" aria-labelledby="annual-rain-chart-title">
           <h2 id="annual-rain-chart-title">Monthly rainfall</h2>
-          <ResponsiveChartContainer>
+          <ResponsiveChartContainer size="page">
             <MonthlyRainfallChart summaries={summary.monthlySummaries} />
           </ResponsiveChartContainer>
         </section>
       )}
+
+      <section className="card" aria-labelledby="annual-trends-title">
+        <h2 id="annual-trends-title">Annual trend charts</h2>
+        <p className="archive-obs-note">
+          Reference lines use complete years only. Incomplete or provisional years remain visible but are excluded from long-term averages and complete-year comparisons.
+        </p>
+        <AnnualTrendCharts trendData={trendData} />
+      </section>
 
       <section className="card" aria-labelledby="archive-links-title">
         <h2 id="archive-links-title">Related</h2>
@@ -1194,7 +1321,7 @@ function MonthlyView({
           <span style={{ marginLeft: '0.8rem' }} />
           <span className="legend-swatch legend-dashed" style={{ background: 'var(--chart-series-reference)' }} /> Normals (1995–2024)
         </p>
-        <ResponsiveChartContainer>
+        <ResponsiveChartContainer size="page">
           <DailyTempChart records={monthRecords} normals={dailyNormals} />
         </ResponsiveChartContainer>
       </section>
@@ -1212,7 +1339,7 @@ function MonthlyView({
               <span> Show cumulative</span>
             </label>
           </div>
-          <ResponsiveChartContainer>
+          <ResponsiveChartContainer size="page">
             <DailyRainfallChart records={monthRecords} showCumulative={showCumulative} />
           </ResponsiveChartContainer>
         </section>
@@ -1449,6 +1576,9 @@ export default function ClimateArchivePage() {
   const { year, month, view, setYear, setMonth } = useArchiveSelection(availableYears)
 
   const annualQuery = useAnnualClimateQuery(year)
+  const annualTrendQueries = useAnnualClimateQueries(availableYears, {
+    enabled: view === 'annual' && availableYears.length > 0,
+  })
 
   const [searchParams] = useSearchParams()
   const navigate = useNavigate()
@@ -1474,6 +1604,17 @@ export default function ClimateArchivePage() {
   const monthlyNormals = monthlyNormalsQuery.data?.months ?? []
   const dailyNormals = dailyNormalsQuery.data?.records ?? []
   const records = annualQuery.data?.records ?? []
+  const annualTrendPayloads = useMemo(
+    () =>
+      annualTrendQueries
+        .map((query) => query.data)
+        .filter((payload): payload is NonNullable<typeof payload> => payload != null),
+    [annualTrendQueries],
+  )
+  const annualTrendData = useMemo(
+    () => buildAnnualTrendData(annualTrendPayloads, monthlyNormals),
+    [annualTrendPayloads, monthlyNormals],
+  )
 
   const annualSummary = useMemo(() => {
     if (records.length === 0) return null
@@ -1592,6 +1733,7 @@ export default function ClimateArchivePage() {
           }}
           monthlyNormals={monthlyNormals}
           onSelectMonth={setMonth}
+          trendData={annualTrendData}
         />
       ) : (
         month != null && monthlySummary != null ? (

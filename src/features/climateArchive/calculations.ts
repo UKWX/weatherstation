@@ -155,6 +155,15 @@ export function buildAnnualSummary(
   const normalRainfallMm = calculateSafeTotal(monthlyNormals.map((n) => n.rainfallMm))
 
   const coverage: PeriodCoverage = calculateAnnualCompleteness(year, records, options)
+  const temperatureAnomalyValid =
+    !coverage.provisional &&
+    coverage.maxTemperature.complete &&
+    coverage.minTemperature.complete &&
+    coverage.meanTemperature.complete
+  const rainfallAnomalyValid =
+    !coverage.provisional &&
+    isRainfallAvailableForYear(year) &&
+    coverage.rainfall.complete
 
   return {
     year,
@@ -163,18 +172,22 @@ export function buildAnnualSummary(
     meanMaxTempC,
     meanMinTempC,
     meanTempC,
-    meanMaxTempAnomalyC: calculateTemperatureAnomaly(meanMaxTempC, normalMaxC),
-    meanMinTempAnomalyC: calculateTemperatureAnomaly(meanMinTempC, normalMinC),
-    meanTempAnomalyC: calculateTemperatureAnomaly(meanTempC, normalMeanC),
+    meanMaxTempAnomalyC: temperatureAnomalyValid
+      ? calculateTemperatureAnomaly(meanMaxTempC, normalMaxC)
+      : null,
+    meanMinTempAnomalyC: temperatureAnomalyValid
+      ? calculateTemperatureAnomaly(meanMinTempC, normalMinC)
+      : null,
+    meanTempAnomalyC: temperatureAnomalyValid
+      ? calculateTemperatureAnomaly(meanTempC, normalMeanC)
+      : null,
     rainfallTotalMm,
-    rainfallPercentageOfNormal: calculateRainfallPercentageOfNormal(
-      rainfallTotalMm,
-      normalRainfallMm,
-    ),
-    rainfallDifferenceFromNormalMm: calculateRainfallDifferenceFromNormal(
-      rainfallTotalMm,
-      normalRainfallMm,
-    ),
+    rainfallPercentageOfNormal: rainfallAnomalyValid
+      ? calculateRainfallPercentageOfNormal(rainfallTotalMm, normalRainfallMm)
+      : null,
+    rainfallDifferenceFromNormalMm: rainfallAnomalyValid
+      ? calculateRainfallDifferenceFromNormal(rainfallTotalMm, normalRainfallMm)
+      : null,
     rainDays,
     wettestDay,
     coverage,

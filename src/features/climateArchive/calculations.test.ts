@@ -302,6 +302,7 @@ describe('buildAnnualSummary', () => {
 
     expect(summary.coverage.provisional).toBe(true)
     expect(summary.monthlySummaries[0]?.year).toBe(2026)
+    expect(summary.meanTempAnomalyC).toBeNull()
   })
 
   it('returns null for empty records', () => {
@@ -336,5 +337,27 @@ describe('buildAnnualSummary', () => {
     const juneSummary = summary.monthlySummaries.find((m) => m.month === 6)
     expect(juneSummary?.coverage.maxTemperature.missing).toBe(1)
     expect(juneSummary?.coverage.maxTemperature.valid).toBe(29)
+  })
+
+  it('does not calculate annual rainfall percentage of normal for incomplete rainfall years', () => {
+    const records: ClimateDay[] = []
+    for (let month = 1; month <= 12; month++) {
+      records.push(
+        ...daysForMonth(2020, month, () => ({
+          rainfallMm: month >= 5 ? 2 : null,
+        })),
+      )
+    }
+
+    const summary = buildAnnualSummary(2020, records, Array.from({ length: 12 }, (_, index) => ({
+      month: index + 1,
+      meanMaxTempC: 15,
+      meanMinTempC: 5,
+      meanTempC: 10,
+      rainfallMm: 50,
+    })))
+
+    expect(summary.rainfallPercentageOfNormal).toBeNull()
+    expect(summary.rainfallDifferenceFromNormalMm).toBeNull()
   })
 })

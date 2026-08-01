@@ -59,6 +59,29 @@ const state = {
 vi.mock('@/hooks/usePublicWeatherQueries', () => ({
   useClimateArchiveIndexQuery: () => toResult(state.archiveIndex),
   useAnnualClimateQuery: () => toResult(state.annual),
+  useAnnualClimateQueries: () =>
+    ((state.archiveIndex.data?.years ?? []) as Array<{ year: number }>).map((entry) =>
+      toResult({
+        data:
+          state.annual.data == null
+            ? null
+            : {
+                ...state.annual.data,
+                year: entry.year,
+                records: (state.annual.data.records ?? [])
+                  .filter(
+                    (record: ClimateDay) =>
+                      record.date.slice(5) !== '02-29' ||
+                      entry.year % 400 === 0 ||
+                      (entry.year % 4 === 0 && entry.year % 100 !== 0),
+                  )
+                  .map((record: ClimateDay) => ({
+                    ...record,
+                    date: `${entry.year}${record.date.slice(4)}` as ClimateDateString,
+                  })),
+              },
+      }),
+    ),
   useMonthlyNormalsQuery: () => toResult(state.monthlyNormals),
   useDailyNormalsQuery: () => toResult(state.dailyNormals),
 }))

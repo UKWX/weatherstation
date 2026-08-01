@@ -442,9 +442,15 @@ export function useAnnualClimateQuery(year: number) {
   return useQuery(annualClimateQueryOptions(year))
 }
 
-export function useAnnualClimateQueries(years: readonly number[]) {
+export function useAnnualClimateQueries(
+  years: readonly number[],
+  options: { enabled?: boolean } = {},
+) {
   return useQueries({
-    queries: years.map((year) => annualClimateQueryOptions(year)),
+    queries: years.map((year) => ({
+      ...annualClimateQueryOptions(year),
+      enabled: options.enabled ?? true,
+    })),
   })
 }
 

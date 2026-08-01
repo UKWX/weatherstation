@@ -1,3 +1,11 @@
+import { PlaceholderPage } from '@/pages/PlaceholderPage'
+
 export default function ReportsPage() {
-  return <h1>Reports</h1>
+  return (
+    <PlaceholderPage
+      title="Reports"
+      message="Export-ready monthly and annual reports will be completed in Prompt 12."
+      showTable
+    />
+  )
 }

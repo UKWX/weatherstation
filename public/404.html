@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Wakefield Weather Station</title>
+    <script>
+      // Single-page app GitHub Pages fallback.
+      // Encodes the missing path into the query string so index.html can
+      // restore it with history.replaceState before the router mounts.
+      // pathSegmentsToKeep = 1 preserves the /weatherstation segment.
+      // Based on the spa-github-pages technique by rafgraph (MIT licence).
+      var pathSegmentsToKeep = 1;
+      var l = window.location;
+      l.replace(
+        l.protocol +
+          '//' +
+          l.hostname +
+          (l.port ? ':' + l.port : '') +
+          l.pathname
+            .split('/')
+            .slice(0, 1 + pathSegmentsToKeep)
+            .join('/') +
+          '/?/' +
+          l.pathname
+            .slice(1)
+            .split('/')
+            .slice(pathSegmentsToKeep)
+            .join('/')
+            .replace(/&/g, '~and~') +
+          (l.search
+            ? '&' + l.search.slice(1).replace(/&/g, '~and~')
+            : '') +
+          l.hash,
+      );
+    </script>
+  </head>
+  <body></body>
+</html>

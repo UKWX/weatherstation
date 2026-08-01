@@ -443,3 +443,130 @@ th {
     scroll-behavior: auto !important;
   }
 }
+
+.overview-layout {
+  display: grid;
+  gap: 1rem;
+}
+
+.overview-status-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 0.8rem;
+  flex-wrap: wrap;
+}
+
+.overview-status-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+
+.overview-metadata-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 0.7rem;
+  margin: 0.8rem 0 0;
+}
+
+.overview-metadata-grid dt,
+.overview-key-value-list dt,
+.overview-key-value-grid dt {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.overview-metadata-grid dd,
+.overview-key-value-list dd,
+.overview-key-value-grid dd {
+  margin: 0.25rem 0 0;
+  font-weight: 700;
+}
+
+.overview-metric-card h3 {
+  margin-top: 0;
+  margin-bottom: 0.35rem;
+}
+
+.overview-metric-value {
+  margin: 0;
+  font-size: 1.3rem;
+  font-weight: 700;
+}
+
+.overview-climate-grid,
+.overview-chart-grid {
+  display: grid;
+  gap: 0.8rem;
+  grid-template-columns: repeat(auto-fit, minmax(270px, 1fr));
+}
+
+.overview-card-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+
+.overview-key-value-list,
+.overview-key-value-grid {
+  display: grid;
+  gap: 0.6rem;
+  margin: 0.7rem 0;
+}
+
+.overview-key-value-grid {
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+}
+
+.overview-note {
+  margin-bottom: 0;
+  color: var(--text-muted);
+}
+
+.overview-chart-card h3 {
+  margin-top: 0;
+  margin-bottom: 0.55rem;
+}
+
+.overview-sparkline {
+  width: 100%;
+  height: auto;
+  min-height: 110px;
+}
+
+.overview-chart-axis {
+  stroke: var(--chart-grid-lines);
+  stroke-width: 1;
+}
+
+.overview-chart-line {
+  fill: none;
+  stroke: var(--chart-series-observed);
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.overview-chart-summary {
+  margin: 0.55rem 0 0;
+  color: var(--text-muted);
+}
+
+.overview-quick-links {
+  margin: 0;
+  padding-left: 1.1rem;
+  display: grid;
+  gap: 0.35rem;
+}
+
+@media (max-width: 700px) {
+  .overview-key-value-grid,
+  .overview-key-value-list,
+  .overview-metadata-grid {
+    grid-template-columns: 1fr;
+  }
+}

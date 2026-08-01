@@ -176,7 +176,6 @@ export interface DailyNormal {
   normalMeanTempC: NullableMeasurement
   maxSampleCount: number
   minSampleCount: number
-  baseline: string
 }
 
 export interface MonthlyNormal {

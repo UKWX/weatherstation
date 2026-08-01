@@ -1,71 +1,82 @@
-# WakefieldStation
+# Wakefield Weather Station
 
-Professional personal weather station climatology archive platform with long-term storage, automated processing, climate analytics, records, anomalies, reports, and exports.
+React + TypeScript + Vite frontend for the UKWX personal weather station climatology dashboard.
 
-## Project Structure
+**Live site:** <https://ukwx.github.io/weatherstation/>
 
-- `/` — React + TypeScript premium meteorological interface
-- `/backend` — Express + TypeScript API, ingestion pipeline, scheduler, and climate processing engine
-- `/backend/src/db/schema.sql` — relational schema for raw, historical, and derived climate layers
+## Project structure
 
-## Architecture Layers
-
-1. **Raw Observation Database**
-   - Immutable `raw_observations` table
-   - UTC + local timestamps
-   - Strict duplicate prevention (`UNIQUE(station_id, timestamp_utc)`)
-
-2. **Historical Climate Database**
-   - `temperature_history`
-   - `precipitation_history`
-
-3. **Derived Climate Database**
-   - `daily_summary`, `monthly_summary`, `annual_summary`
-   - `climate_normals`, `records`, `anomalies`, `rankings`
-
-## Quick Start
-
-### 1) Install dependencies
-
-```bash
-cd /home/runner/work/WakefieldStation/WakefieldStation && npm install
-cd /home/runner/work/WakefieldStation/WakefieldStation/backend && npm install
+```
+src/
+  app/        BrowserRouter, route definitions
+  pages/      One component per tab (12 tabs)
+  components/ Shared UI components
+  features/   Domain-specific feature modules
+  api/        API client functions
+  hooks/      Custom React hooks
+  lib/        Pure utility and calculation modules
+  types/      TypeScript interfaces and types
+  config/     Central constants (URLs, timezones, baselines)
+  workers/    Web Workers (e.g. JSONL parser)
+  test/       Test setup and shared test utilities
+public/
+  404.html    GitHub Pages SPA fallback (preserves deep paths)
 ```
 
-### 2) Configure environment
+## Quick start
 
 ```bash
-cp /home/runner/work/WakefieldStation/WakefieldStation/backend/.env.example /home/runner/work/WakefieldStation/WakefieldStation/backend/.env
+npm install
+npm run dev          # development server at http://localhost:5173/weatherstation/
 ```
-
-Set `WEATHER_API_KEY` and `WEATHER_STATION_ID` in `/home/runner/work/WakefieldStation/WakefieldStation/backend/.env` for Weather Underground ingestion.
-`WEATHER_FETCH_CRON` defaults to `* * * * *` (every minute).
-
-### 3) Run migrations
-
-```bash
-cd /home/runner/work/WakefieldStation/WakefieldStation/backend && npm run migrate
-```
-
-### 4) Start backend and frontend
-
-```bash
-cd /home/runner/work/WakefieldStation/WakefieldStation/backend && npm run dev
-cd /home/runner/work/WakefieldStation/WakefieldStation && npm run dev:frontend
-```
-
-## Core API Domains
-
-- Ingestion: `/api/import/raw`, `/api/import/raw/wunderground`, `/api/import/historical/*`
-- Processing: `/api/process/daily`, `/api/process/rebuild`
-- Archives: `/api/archive/daily|monthly|annual`
-- Climate analytics: `/api/climate/*`
-- Reports: `/api/reports/daily|monthly|annual`
-- Exports: `/api/exports/:dataset?format=json|csv|excel|xlsx|pdf`
 
 ## Quality checks
 
 ```bash
-cd /home/runner/work/WakefieldStation/WakefieldStation/backend && npm run lint && npm run test && npm run build
-cd /home/runner/work/WakefieldStation/WakefieldStation && npm run lint:frontend && npm run build:frontend
+npm run type-check       # TypeScript type checking
+npm run lint:frontend    # oxlint
+npm run format:check     # Prettier check
+npm run test:frontend    # Vitest unit tests
+npm run build:frontend   # production build
 ```
+
+## Deployment
+
+### URL
+
+```
+https://ukwx.github.io/weatherstation/
+```
+
+The Vite `base` is hardcoded to `/weatherstation/` so all built assets use that prefix.
+
+### GitHub Pages SPA routing
+
+GitHub Pages serves static files and returns a 404 for unknown paths. For a React single-page application this means direct navigation to deep routes (e.g. `/weatherstation/climate-archive`) would normally fail.
+
+The `public/404.html` fallback encodes the requested path into the query string and redirects to the app root. A small inline script in `index.html` reads that query string and calls `history.replaceState` to restore the original path before React Router mounts. No hash routes are used.
+
+Example: a direct refresh of `/weatherstation/climate-archive` is transparently restored.
+
+### Automatic deployment
+
+The `.github/workflows/deploy.yml` workflow runs on every push to `main` or `UKWX`. It:
+
+1. Installs dependencies with `npm ci`.
+2. Runs type-checking, lint, and unit tests.
+3. Runs `npm run build:frontend` (Vite build with base `/weatherstation/`).
+4. Uploads `dist/` and deploys to GitHub Pages.
+
+The deployed site is separate from `UKWX.github.io`. No source code in this repository references the `UKWX.github.io` repository.
+
+### React Router
+
+```tsx
+<BrowserRouter basename="/weatherstation">
+```
+
+All internal links are relative to the basename and work correctly both locally (dev server) and on GitHub Pages.
+
+### Backend
+
+Data is served by a separate DigitalOcean backend. Public endpoints are under `https://ukwx.duckdns.org/station-data`. See `docs/weather-dashboard-spec.md` §3 for the full contract.

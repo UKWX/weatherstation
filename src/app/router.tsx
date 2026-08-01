@@ -15,6 +15,9 @@ const StationInformationPage = lazy(
   () => import('@/pages/StationInformationPage'),
 )
 const DataCorrectionsPage = lazy(() => import('@/pages/DataCorrectionsPage'))
+const ApiDiagnosticsPage = import.meta.env.DEV
+  ? lazy(() => import('@/pages/ApiDiagnosticsPage'))
+  : null
 
 const NAV_LINKS = [
   { to: '/', label: 'Overview', end: true },
@@ -93,6 +96,12 @@ export function AppRouter() {
               path="/data-corrections"
               element={<DataCorrectionsPage />}
             />
+            {ApiDiagnosticsPage != null ? (
+              <Route
+                path="/dev/api-diagnostics"
+                element={<ApiDiagnosticsPage />}
+              />
+            ) : null}
           </Routes>
         </Suspense>
       </main>

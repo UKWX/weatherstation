@@ -22,6 +22,25 @@ const NORMALS_STALE_TIME_MS = 24 * 60 * 60_000
 const CLIMATE_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/
 
 type RawRecord = Record<string, unknown>
+type RawRecentEnvelope = {
+  metadata: RawRecord
+  observations: readonly unknown[]
+}
+
+export const PUBLIC_API_DIAGNOSTIC_ENDPOINTS = [
+  '/current.json',
+  '/status.json',
+  '/recent.json',
+  '/today.json',
+  '/climate/index.json',
+  '/climate/archive/index.json',
+  '/climate/archive/2026.json',
+  '/climate/normals/daily.json',
+  '/climate/normals/monthly.json',
+] as const
+
+export type PublicApiDiagnosticEndpoint =
+  (typeof PUBLIC_API_DIAGNOSTIC_ENDPOINTS)[number]
 
 export type PublicApiErrorCode =
   | 'HTTP_ERROR'
@@ -80,6 +99,19 @@ export interface FetchJsonOptions<T> {
   timeoutMs?: number
   notFoundValue?: T
   validate: (value: unknown) => T
+}
+
+export interface PublicEndpointDiagnosticsEvaluation {
+  validationSucceeded: boolean
+  validationErrors: readonly string[]
+  adapterSucceeded: boolean
+  adapterErrors: readonly string[]
+  adaptedSample: unknown
+  counts: {
+    topLevelKeys: number
+    arrayLength: number | null
+    recordCount: number | null
+  }
 }
 
 export const weatherQueryKeys = {
@@ -444,6 +476,124 @@ export function derivePublicDataState<T>(
   }
 }
 
+type DiagnosticPipeline<TValidated, TAdapted> = {
+  validate: (value: unknown) => TValidated
+  adapt: (value: TValidated) => TAdapted
+}
+
+const publicEndpointDiagnosticPipelines: {
+  [TPath in PublicApiDiagnosticEndpoint]: DiagnosticPipeline<unknown, unknown>
+} = {
+  '/current.json': {
+    validate: (value) => validateRecord(value, '/current.json'),
+    adapt: (value) => adaptCurrentConditions(value as RawRecord),
+  },
+  '/status.json': {
+    validate: (value) => validateRecord(value, '/status.json'),
+    adapt: (value) => adaptStationStatus(value as RawRecord),
+  },
+  '/recent.json': {
+    validate: (value) => validateRecentEnvelope(value),
+    adapt: (value) =>
+      (value as RawRecentEnvelope).observations.map((entry, index) =>
+        adaptRecentObservation(
+          validateRecord(entry, `/recent.json.observations[${index}]`),
+        ),
+      ),
+  },
+  '/today.json': {
+    validate: (value) =>
+      value == null ? null : validateRecord(value, '/today.json'),
+    adapt: (value) =>
+      value == null ? null : adaptTodaySummary(value as RawRecord),
+  },
+  '/climate/index.json': {
+    validate: (value) => validateRecord(value, '/climate/index.json'),
+    adapt: (value) => adaptClimateIndex(value as RawRecord),
+  },
+  '/climate/archive/index.json': {
+    validate: (value) => validateRecord(value, '/climate/archive/index.json'),
+    adapt: (value) => adaptClimateArchiveIndex(value as RawRecord),
+  },
+  '/climate/archive/2026.json': {
+    validate: (value) => validateRecord(value, '/climate/archive/2026.json'),
+    adapt: (value) => adaptAnnualClimate(value as RawRecord),
+  },
+  '/climate/normals/daily.json': {
+    validate: (value) =>
+      validateArray(value, '/climate/normals/daily.json'),
+    adapt: (value) =>
+      (value as readonly unknown[]).map((entry, index) =>
+        adaptDailyNormal(
+          validateRecord(
+            entry,
+            `/climate/normals/daily.json[${index}]`,
+          ),
+        ),
+      ),
+  },
+  '/climate/normals/monthly.json': {
+    validate: (value) =>
+      validateArray(value, '/climate/normals/monthly.json'),
+    adapt: (value) =>
+      (value as readonly unknown[]).map((entry, index) =>
+        adaptMonthlyNormal(
+          validateRecord(
+            entry,
+            `/climate/normals/monthly.json[${index}]`,
+          ),
+        ),
+      ),
+  },
+}
+
+export function evaluatePublicEndpointDiagnostics(
+  endpoint: PublicApiDiagnosticEndpoint,
+  payload: unknown,
+): PublicEndpointDiagnosticsEvaluation {
+  const pipeline = publicEndpointDiagnosticPipelines[endpoint]
+  let validated: unknown = null
+  let validationErrors: readonly string[] = []
+
+  try {
+    validated = pipeline.validate(payload)
+  } catch (error) {
+    validationErrors = [toDiagnosticError(error)]
+  }
+
+  if (validationErrors.length > 0) {
+    return {
+      validationSucceeded: false,
+      validationErrors,
+      adapterSucceeded: false,
+      adapterErrors: [],
+      adaptedSample: null,
+      counts: derivePayloadCounts(payload),
+    }
+  }
+
+  try {
+    const adapted = pipeline.adapt(validated)
+    return {
+      validationSucceeded: true,
+      validationErrors: [],
+      adapterSucceeded: true,
+      adapterErrors: [],
+      adaptedSample: adapted,
+      counts: derivePayloadCounts(payload),
+    }
+  } catch (error) {
+    return {
+      validationSucceeded: true,
+      validationErrors: [],
+      adapterSucceeded: false,
+      adapterErrors: [toDiagnosticError(error)],
+      adaptedSample: null,
+      counts: derivePayloadCounts(payload),
+    }
+  }
+}
+
 function mergeAbortSignals(
   signals: readonly (AbortSignal | undefined)[],
   controller: AbortController,
@@ -454,6 +604,56 @@ function mergeAbortSignals(
     if (signal.aborted) {
       controller.abort()
       return controller.signal
+    }
+
+    function validateRecentEnvelope(value: unknown): RawRecentEnvelope {
+      const root = validateRecord(value, '/recent.json')
+      return {
+        metadata: validateRecord(root.metadata, '/recent.json.metadata'),
+        observations: validateArray(root.observations, '/recent.json.observations'),
+      }
+    }
+
+    function derivePayloadCounts(payload: unknown): PublicEndpointDiagnosticsEvaluation['counts'] {
+      if (Array.isArray(payload)) {
+        return {
+          topLevelKeys: 0,
+          arrayLength: payload.length,
+          recordCount: payload.filter(
+            (entry) => entry != null && typeof entry === 'object' && !Array.isArray(entry),
+          ).length,
+        }
+      }
+
+      if (payload != null && typeof payload === 'object') {
+        const keys = Object.keys(payload)
+        return {
+          topLevelKeys: keys.length,
+          arrayLength: null,
+          recordCount: 1,
+        }
+      }
+
+      return {
+        topLevelKeys: 0,
+        arrayLength: null,
+        recordCount: null,
+      }
+    }
+
+    function toDiagnosticError(error: unknown): string {
+      if (error instanceof PublicApiError) {
+        const path =
+          typeof error.details?.path === 'string'
+            ? error.details.path
+            : typeof error.details?.key === 'string'
+              ? error.details.key
+              : null
+
+        return path == null ? error.message : `${path}: ${error.message}`
+      }
+
+      return error instanceof Error ? error.message : 'Unknown diagnostics error'
     }
   }
 
@@ -524,7 +724,7 @@ function adaptRecentObservation(raw: RawRecord): RecentObservation {
 }
 
 function adaptTodaySummary(raw: RawRecord): ProvisionalTodaySummary {
-  const officialWindows = validateRecord(raw.official_windows, '/today.json official_windows')
+  const officialWindows = validateRecord(raw.official_windows, '/today.json.official_windows')
 
   return {
     climateDate: requiredClimateDateString(raw, 'date'),
@@ -542,11 +742,11 @@ function adaptTodaySummary(raw: RawRecord): ProvisionalTodaySummary {
 function adaptClimateIndex(raw: RawRecord): ClimateIndex {
   const temperatureCoverage = validateRecord(
     raw.temperature_coverage,
-    '/climate/index.json temperature_coverage',
+    '/climate/index.json.temperature_coverage',
   )
   const rainfallCoverage = validateRecord(
     raw.rainfall_coverage,
-    '/climate/index.json rainfall_coverage',
+    '/climate/index.json.rainfall_coverage',
   )
 
   return {
@@ -568,8 +768,8 @@ function adaptClimateIndex(raw: RawRecord): ClimateIndex {
 }
 
 function adaptClimateArchiveIndex(raw: RawRecord): ArchiveIndex {
-  const years = validateArray(raw.years, '/climate/archive/index.json years').map((entry) => {
-    const record = validateRecord(entry, '/climate/archive/index.json years[]')
+  const years = validateArray(raw.years, '/climate/archive/index.json.years').map((entry, index) => {
+    const record = validateRecord(entry, `/climate/archive/index.json.years[${index}]`)
     return {
       year: requiredNumber(record, 'year'),
       startDate: optionalClimateDateString(record, 'start_date'),
@@ -588,10 +788,13 @@ function adaptClimateArchiveIndex(raw: RawRecord): ArchiveIndex {
 }
 
 function adaptAnnualClimate(raw: RawRecord): AnnualClimatePayload {
-  const records = validateArray(raw.records, '/climate/archive/{year}.json records').map(
-    (entry) => adaptAnnualRecord(validateRecord(entry, '/climate/archive/{year}.json records[]')),
+  const records = validateArray(raw.records, '/climate/archive/{year}.json.records').map(
+    (entry, index) =>
+      adaptAnnualRecord(
+        validateRecord(entry, `/climate/archive/{year}.json.records[${index}]`),
+      ),
   )
-  const units = validateRecord(raw.units, '/climate/archive/{year}.json units')
+  const units = validateRecord(raw.units, '/climate/archive/{year}.json.units')
 
   return {
     station: requiredString(raw, 'station'),
@@ -662,12 +865,21 @@ function validateClimateStatus(value: string): ClimateValueStatus {
 
 function validateRecord(value: unknown, context: string): RawRecord {
   if (value != null && typeof value === 'object' && !Array.isArray(value)) {
-    return value as RawRecord
+    const record = value as RawRecord
+    if (typeof record[RECORD_PATH_SYMBOL] !== 'string') {
+      Object.defineProperty(record, RECORD_PATH_SYMBOL, {
+        value: context,
+        enumerable: false,
+        configurable: true,
+      })
+    }
+    return record
   }
 
   throw new PublicApiError({
     code: 'MALFORMED_DATA',
     message: `Expected object payload for ${context}`,
+    details: { path: context },
     retryable: false,
   })
 }
@@ -680,6 +892,7 @@ function validateArray(value: unknown, context: string): readonly unknown[] {
   throw new PublicApiError({
     code: 'MALFORMED_DATA',
     message: `Expected array payload for ${context}`,
+    details: { path: context },
     retryable: false,
   })
 }
@@ -693,7 +906,7 @@ function requiredString(record: RawRecord, key: string): string {
   throw new PublicApiError({
     code: 'MALFORMED_DATA',
     message: `Expected string for "${key}"`,
-    details: { key },
+    details: { key, path: `${deriveRecordPath(record)}.${key}` },
     retryable: false,
   })
 }
@@ -710,7 +923,7 @@ function requiredClimateDateString(
   throw new PublicApiError({
     code: 'MALFORMED_DATA',
     message: `Expected climate date for "${key}"`,
-    details: { key },
+    details: { key, path: `${deriveRecordPath(record)}.${key}` },
     retryable: false,
   })
 }
@@ -728,7 +941,7 @@ function optionalString(record: RawRecord, key: string): string | null {
   throw new PublicApiError({
     code: 'MALFORMED_DATA',
     message: `Expected string or null for "${key}"`,
-    details: { key },
+    details: { key, path: `${deriveRecordPath(record)}.${key}` },
     retryable: false,
   })
 }
@@ -749,7 +962,7 @@ function optionalClimateDateString(
   throw new PublicApiError({
     code: 'MALFORMED_DATA',
     message: `Expected climate date or null for "${key}"`,
-    details: { key },
+    details: { key, path: `${deriveRecordPath(record)}.${key}` },
     retryable: false,
   })
 }
@@ -763,7 +976,7 @@ function requiredNumber(record: RawRecord, key: string): number {
   throw new PublicApiError({
     code: 'MALFORMED_DATA',
     message: `Expected number for "${key}"`,
-    details: { key },
+    details: { key, path: `${deriveRecordPath(record)}.${key}` },
     retryable: false,
   })
 }
@@ -781,7 +994,7 @@ function optionalNullableNumber(record: RawRecord, key: string): number | null {
   throw new PublicApiError({
     code: 'MALFORMED_DATA',
     message: `Expected number or null for "${key}"`,
-    details: { key },
+    details: { key, path: `${deriveRecordPath(record)}.${key}` },
     retryable: false,
   })
 }
@@ -795,7 +1008,7 @@ function requiredBoolean(record: RawRecord, key: string): boolean {
   throw new PublicApiError({
     code: 'MALFORMED_DATA',
     message: `Expected boolean for "${key}"`,
-    details: { key },
+    details: { key, path: `${deriveRecordPath(record)}.${key}` },
     retryable: false,
   })
 }
@@ -813,9 +1026,16 @@ function requiredLiteral<T extends string>(
   throw new PublicApiError({
     code: 'MALFORMED_DATA',
     message: `Expected "${literal}" for "${key}"`,
-    details: { key },
+    details: { key, path: `${deriveRecordPath(record)}.${key}` },
     retryable: false,
   })
+}
+
+const RECORD_PATH_SYMBOL = Symbol('recordPath')
+
+function deriveRecordPath(record: RawRecord): string {
+  const path = record[RECORD_PATH_SYMBOL]
+  return typeof path === 'string' ? path : '<unknown>'
 }
 
 function isOnline(): boolean {

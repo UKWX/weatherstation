@@ -20,8 +20,11 @@ const LIVE_STALE_TIME_MS = 45_000
 const ARCHIVE_INDEX_STALE_TIME_MS = 30 * 60_000
 const NORMALS_STALE_TIME_MS = 24 * 60 * 60_000
 const CLIMATE_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/
+const RECORD_PATH_SYMBOL: unique symbol = Symbol('recordPath')
 
-type RawRecord = Record<string, unknown>
+type RawRecord = Record<string, unknown> & {
+  [RECORD_PATH_SYMBOL]?: string
+}
 type RawRecentEnvelope = {
   metadata: RawRecord
   observations: readonly unknown[]
@@ -594,6 +597,56 @@ export function evaluatePublicEndpointDiagnostics(
   }
 }
 
+function validateRecentEnvelope(value: unknown): RawRecentEnvelope {
+  const root = validateRecord(value, '/recent.json')
+  return {
+    metadata: validateRecord(root.metadata, '/recent.json.metadata'),
+    observations: validateArray(root.observations, '/recent.json.observations'),
+  }
+}
+
+function derivePayloadCounts(payload: unknown): PublicEndpointDiagnosticsEvaluation['counts'] {
+  if (Array.isArray(payload)) {
+    return {
+      topLevelKeys: 0,
+      arrayLength: payload.length,
+      recordCount: payload.filter(
+        (entry) => entry != null && typeof entry === 'object' && !Array.isArray(entry),
+      ).length,
+    }
+  }
+
+  if (payload != null && typeof payload === 'object') {
+    const keys = Object.keys(payload)
+    return {
+      topLevelKeys: keys.length,
+      arrayLength: null,
+      recordCount: 1,
+    }
+  }
+
+  return {
+    topLevelKeys: 0,
+    arrayLength: null,
+    recordCount: null,
+  }
+}
+
+function toDiagnosticError(error: unknown): string {
+  if (error instanceof PublicApiError) {
+    const path =
+      typeof error.details?.path === 'string'
+        ? error.details.path
+        : typeof error.details?.key === 'string'
+          ? error.details.key
+          : null
+
+    return path == null ? error.message : `${path}: ${error.message}`
+  }
+
+  return error instanceof Error ? error.message : 'Unknown diagnostics error'
+}
+
 function mergeAbortSignals(
   signals: readonly (AbortSignal | undefined)[],
   controller: AbortController,
@@ -604,56 +657,6 @@ function mergeAbortSignals(
     if (signal.aborted) {
       controller.abort()
       return controller.signal
-    }
-
-    function validateRecentEnvelope(value: unknown): RawRecentEnvelope {
-      const root = validateRecord(value, '/recent.json')
-      return {
-        metadata: validateRecord(root.metadata, '/recent.json.metadata'),
-        observations: validateArray(root.observations, '/recent.json.observations'),
-      }
-    }
-
-    function derivePayloadCounts(payload: unknown): PublicEndpointDiagnosticsEvaluation['counts'] {
-      if (Array.isArray(payload)) {
-        return {
-          topLevelKeys: 0,
-          arrayLength: payload.length,
-          recordCount: payload.filter(
-            (entry) => entry != null && typeof entry === 'object' && !Array.isArray(entry),
-          ).length,
-        }
-      }
-
-      if (payload != null && typeof payload === 'object') {
-        const keys = Object.keys(payload)
-        return {
-          topLevelKeys: keys.length,
-          arrayLength: null,
-          recordCount: 1,
-        }
-      }
-
-      return {
-        topLevelKeys: 0,
-        arrayLength: null,
-        recordCount: null,
-      }
-    }
-
-    function toDiagnosticError(error: unknown): string {
-      if (error instanceof PublicApiError) {
-        const path =
-          typeof error.details?.path === 'string'
-            ? error.details.path
-            : typeof error.details?.key === 'string'
-              ? error.details.key
-              : null
-
-        return path == null ? error.message : `${path}: ${error.message}`
-      }
-
-      return error instanceof Error ? error.message : 'Unknown diagnostics error'
     }
   }
 
@@ -1030,8 +1033,6 @@ function requiredLiteral<T extends string>(
     retryable: false,
   })
 }
-
-const RECORD_PATH_SYMBOL = Symbol('recordPath')
 
 function deriveRecordPath(record: RawRecord): string {
   const path = record[RECORD_PATH_SYMBOL]

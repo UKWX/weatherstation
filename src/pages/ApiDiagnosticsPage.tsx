@@ -57,6 +57,7 @@ export default function ApiDiagnosticsPage() {
             const contentType = response.headers.get('content-type') ?? 'unknown'
             const rawText = await response.text()
             const parsed = parsePossiblyJson(rawText)
+            const parsedValue = parsed.ok ? parsed.value : rawText
 
             if (!response.ok) {
               return {
@@ -65,15 +66,15 @@ export default function ApiDiagnosticsPage() {
                 httpSuccess: false,
                 status: response.status,
                 contentType,
-                topLevelKeys: deriveTopLevelKeys(parsed.value),
+                topLevelKeys: deriveTopLevelKeys(parsedValue),
                 validationSucceeded: false,
                 validationErrors: [],
                 adapterSucceeded: false,
                 adapterErrors: [],
-                sample: compactSample(parsed.value),
+                sample: compactSample(parsedValue),
                 adaptedSample: null,
-                arrayLength: Array.isArray(parsed.value) ? parsed.value.length : null,
-                recordCount: isRecord(parsed.value) ? 1 : null,
+                arrayLength: Array.isArray(parsedValue) ? parsedValue.length : null,
+                recordCount: isRecord(parsedValue) ? 1 : null,
               } satisfies EndpointDiagnosticsRow
             }
 

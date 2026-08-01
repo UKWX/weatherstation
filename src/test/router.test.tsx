@@ -7,9 +7,116 @@ import { AppRouter } from '@/app/router'
 import { ThemeProvider } from '@/app/theme'
 
 vi.mock('@/hooks/usePublicWeatherQueries', () => ({
-  useStationStatusQuery: () => ({
-    data: { online: true },
+  useCurrentConditionsQuery: () => ({
+    data: {
+      observationTimeUtc: '2026-08-01T08:00:00Z',
+      fetchedAtUtc: '2026-08-01T08:00:30Z',
+      temperatureC: 21.3,
+      feelsLikeC: 22.1,
+      dewpointC: 14.4,
+      humidityPercent: 64,
+      pressureHpa: 1009.1,
+      windSpeedMph: 8.1,
+      windGustMph: 12.5,
+      windDirectionDegrees: 245,
+      rainRateMmPerHour: 0.2,
+      rainTodayMm: 0.6,
+    },
+    isLoading: false,
     error: null,
+    isPlaceholderData: false,
+    refetch: vi.fn(),
+  }),
+  useStationStatusQuery: () => ({
+    data: {
+      online: true,
+      live: true,
+      observationTimeUtc: '2026-08-01T08:00:00Z',
+      observationAgeSeconds: 12,
+      checkedAtUtc: '2026-08-01T08:00:40Z',
+    },
+    isLoading: false,
+    error: null,
+    isPlaceholderData: false,
+    refetch: vi.fn(),
+  }),
+  useRecentObservationsQuery: () => ({
+    data: {
+      observations: [
+        {
+          observationTimeUtc: '2026-08-01T07:50:00Z',
+          temperatureC: 20.8,
+          pressureHpa: 1008.8,
+          rainRateMmPerHour: 0,
+          rainTodayMm: 0.4,
+        },
+        {
+          observationTimeUtc: '2026-08-01T08:00:00Z',
+          temperatureC: 21.3,
+          pressureHpa: 1009.1,
+          rainRateMmPerHour: 0.2,
+          rainTodayMm: 0.6,
+        },
+      ],
+    },
+    isLoading: false,
+    error: null,
+    isPlaceholderData: false,
+    refetch: vi.fn(),
+  }),
+  useTodaySummaryQuery: () => ({
+    data: {
+      maximumTemperature: { value: 21.3 },
+      minimumTemperature: { value: 14.1 },
+      rainfall: { totalMm: 0.6 },
+    },
+    isLoading: false,
+    error: null,
+    isPlaceholderData: false,
+    refetch: vi.fn(),
+  }),
+  useClimateArchiveIndexQuery: () => ({
+    data: { years: [{ year: 2026 }] },
+    isLoading: false,
+    error: null,
+    isPlaceholderData: false,
+    refetch: vi.fn(),
+  }),
+  useAnnualClimateQuery: () => ({
+    data: {
+      records: [
+        {
+          date: '2026-07-31',
+          maxTempC: 24.1,
+          minTempC: 13.6,
+          meanTempC: 18.9,
+          rainfallMm: 0,
+        },
+        {
+          date: '2026-08-01',
+          maxTempC: 26,
+          minTempC: 15,
+          meanTempC: 20.5,
+          rainfallMm: 1.2,
+        },
+      ],
+    },
+    isLoading: false,
+    error: null,
+    isPlaceholderData: false,
+    refetch: vi.fn(),
+  }),
+  useMonthlyNormalsQuery: () => ({
+    data: {
+      latitude: 53.6833,
+      longitude: -1.5,
+      generatedAtUtc: '2026-08-01T08:00:00Z',
+      generatedForMonthUtc: '2026-08-01T00:00:00Z',
+      records: [],
+    },
+    isLoading: false,
+    error: null,
+    isPlaceholderData: false,
     refetch: vi.fn(),
   }),
 }))

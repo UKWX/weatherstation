@@ -1,5 +1,5 @@
 import { queryOptions, useQuery, type UseQueryResult } from '@tanstack/react-query'
-import { PUBLIC_STATION_DATA_BASE_URL, WEATHER_UNITS } from '@/config/weather'
+import { PUBLIC_STATION_DATA_BASE_URL } from '@/config/weather'
 import type {
   AnnualClimatePayload,
   ArchiveIndex,
@@ -7,9 +7,14 @@ import type {
   ClimateValueStatus,
   CurrentConditions,
   DailyNormal,
+  DailyNormalsPayload,
+  JsonObject,
+  JsonValue,
   MonthlyNormal,
+  MonthlyNormalsPayload,
   ProvisionalTodaySummary,
   RecentObservation,
+  RecentObservationsPayload,
   StationStatus,
   StructuredApiError,
 } from '@/types/weather'
@@ -110,6 +115,7 @@ export interface PublicEndpointDiagnosticsEvaluation {
   adapterSucceeded: boolean
   adapterErrors: readonly string[]
   adaptedSample: unknown
+  inspection: unknown
   counts: {
     topLevelKeys: number
     arrayLength: number | null
@@ -262,12 +268,9 @@ export async function getStationStatus(): Promise<StationStatus> {
   })
 }
 
-export async function getRecentObservations(): Promise<readonly RecentObservation[]> {
+export async function getRecentObservations(): Promise<RecentObservationsPayload> {
   return fetchTypedJson('/recent.json', {
-    validate: (value) =>
-      validateArray(value, '/recent.json').map((entry) =>
-        adaptRecentObservation(validateRecord(entry, '/recent.json')),
-      ),
+    validate: (value) => adaptRecentObservations(validateRecentEnvelope(value)),
   })
 }
 
@@ -312,21 +315,16 @@ export async function getAnnualClimate(
   })
 }
 
-export async function getDailyNormals(): Promise<readonly DailyNormal[]> {
+export async function getDailyNormals(): Promise<DailyNormalsPayload> {
   return fetchTypedJson('/climate/normals/daily.json', {
-    validate: (value) =>
-      validateArray(value, '/climate/normals/daily.json').map((entry) =>
-        adaptDailyNormal(validateRecord(entry, '/climate/normals/daily.json')),
-      ),
+    validate: (value) => adaptDailyNormalsPayload(validateRecord(value, '/climate/normals/daily.json')),
   })
 }
 
-export async function getMonthlyNormals(): Promise<readonly MonthlyNormal[]> {
+export async function getMonthlyNormals(): Promise<MonthlyNormalsPayload> {
   return fetchTypedJson('/climate/normals/monthly.json', {
     validate: (value) =>
-      validateArray(value, '/climate/normals/monthly.json').map((entry) =>
-        adaptMonthlyNormal(validateRecord(entry, '/climate/normals/monthly.json')),
-      ),
+      adaptMonthlyNormalsPayload(validateRecord(value, '/climate/normals/monthly.json')),
   })
 }
 
@@ -497,12 +495,7 @@ const publicEndpointDiagnosticPipelines: {
   },
   '/recent.json': {
     validate: (value) => validateRecentEnvelope(value),
-    adapt: (value) =>
-      (value as RawRecentEnvelope).observations.map((entry, index) =>
-        adaptRecentObservation(
-          validateRecord(entry, `/recent.json.observations[${index}]`),
-        ),
-      ),
+    adapt: (value) => adaptRecentObservations(value as RawRecentEnvelope),
   },
   '/today.json': {
     validate: (value) =>
@@ -523,30 +516,12 @@ const publicEndpointDiagnosticPipelines: {
     adapt: (value) => adaptAnnualClimate(value as RawRecord),
   },
   '/climate/normals/daily.json': {
-    validate: (value) =>
-      validateArray(value, '/climate/normals/daily.json'),
-    adapt: (value) =>
-      (value as readonly unknown[]).map((entry, index) =>
-        adaptDailyNormal(
-          validateRecord(
-            entry,
-            `/climate/normals/daily.json[${index}]`,
-          ),
-        ),
-      ),
+    validate: (value) => validateRecord(value, '/climate/normals/daily.json'),
+    adapt: (value) => adaptDailyNormalsPayload(value as RawRecord),
   },
   '/climate/normals/monthly.json': {
-    validate: (value) =>
-      validateArray(value, '/climate/normals/monthly.json'),
-    adapt: (value) =>
-      (value as readonly unknown[]).map((entry, index) =>
-        adaptMonthlyNormal(
-          validateRecord(
-            entry,
-            `/climate/normals/monthly.json[${index}]`,
-          ),
-        ),
-      ),
+    validate: (value) => validateRecord(value, '/climate/normals/monthly.json'),
+    adapt: (value) => adaptMonthlyNormalsPayload(value as RawRecord),
   },
 }
 
@@ -571,6 +546,7 @@ export function evaluatePublicEndpointDiagnostics(
       adapterSucceeded: false,
       adapterErrors: [],
       adaptedSample: null,
+      inspection: deriveDiagnosticInspection(endpoint, payload),
       counts: derivePayloadCounts(payload),
     }
   }
@@ -583,6 +559,7 @@ export function evaluatePublicEndpointDiagnostics(
       adapterSucceeded: true,
       adapterErrors: [],
       adaptedSample: adapted,
+      inspection: deriveDiagnosticInspection(endpoint, payload),
       counts: derivePayloadCounts(payload),
     }
   } catch (error) {
@@ -592,6 +569,7 @@ export function evaluatePublicEndpointDiagnostics(
       adapterSucceeded: false,
       adapterErrors: [toDiagnosticError(error)],
       adaptedSample: null,
+      inspection: deriveDiagnosticInspection(endpoint, payload),
       counts: derivePayloadCounts(payload),
     }
   }
@@ -603,6 +581,75 @@ function validateRecentEnvelope(value: unknown): RawRecentEnvelope {
     metadata: validateRecord(root.metadata, '/recent.json.metadata'),
     observations: validateArray(root.observations, '/recent.json.observations'),
   }
+}
+
+function deriveDiagnosticInspection(
+  endpoint: PublicApiDiagnosticEndpoint,
+  payload: unknown,
+): unknown {
+  if (endpoint === '/recent.json') {
+    const root = safeRecord(payload)
+    const firstObservation = Array.isArray(root?.observations) ? root.observations[0] : null
+    return {
+      firstObservationKeys: deriveTopLevelKeys(firstObservation),
+    }
+  }
+
+  if (endpoint === '/today.json') {
+    const root = safeRecord(payload)
+    const maximumTemperature = safeRecord(root?.maximum_temperature)
+    const minimumTemperature = safeRecord(root?.minimum_temperature)
+    const rainfall = safeRecord(root?.rainfall)
+    const calendarDayExtremes = safeRecord(root?.calendar_day_extremes)
+
+    return {
+      maximumTemperatureCoverageKeys: deriveTopLevelKeys(maximumTemperature?.coverage),
+      minimumTemperatureCoverageKeys: deriveTopLevelKeys(minimumTemperature?.coverage),
+      rainfallCoverageKeys: deriveTopLevelKeys(rainfall?.coverage),
+      calendarDayExtremeKeys: deriveTopLevelKeys(calendarDayExtremes),
+      calendarDayExtremeValueKeys:
+        calendarDayExtremes == null
+          ? {}
+          : Object.fromEntries(
+              Object.entries(calendarDayExtremes).map(([key, value]) => [
+                key,
+                deriveTopLevelKeys(value),
+              ]),
+            ),
+    }
+  }
+
+  if (endpoint === '/climate/archive/index.json') {
+    const root = safeRecord(payload)
+    const years = Array.isArray(root?.years) ? root.years : []
+    const firstYear = safeRecord(years[0])
+    const latestYear = safeRecord(years.at(-1))
+
+    return {
+      firstYearKeys: deriveTopLevelKeys(firstYear),
+      firstYearSample: compactDiagnosticValue(firstYear),
+      latestYearKeys: deriveTopLevelKeys(latestYear),
+      latestYearSample: compactDiagnosticValue(latestYear),
+    }
+  }
+
+  if (endpoint === '/climate/normals/daily.json') {
+    const root = safeRecord(payload)
+    const records = Array.isArray(root?.records) ? root.records : []
+    return {
+      firstRecordKeys: deriveTopLevelKeys(records[0]),
+    }
+  }
+
+  if (endpoint === '/climate/normals/monthly.json') {
+    const root = safeRecord(payload)
+    const months = Array.isArray(root?.months) ? root.months : []
+    return {
+      firstMonthKeys: deriveTopLevelKeys(months[0]),
+    }
+  }
+
+  return null
 }
 
 function derivePayloadCounts(payload: unknown): PublicEndpointDiagnosticsEvaluation['counts'] {
@@ -690,83 +737,128 @@ function parseJsonSafely(rawText: string, path: string): unknown {
   }
 }
 
-function adaptCurrentConditions(raw: RawRecord): CurrentConditions {
+function adaptRecentObservations(raw: RawRecentEnvelope): RecentObservationsPayload {
   return {
-    observedAtUtc: optionalString(raw, 'observed_at_utc'),
+    metadata: validateJsonObject(raw.metadata, '/recent.json.metadata'),
+    observations: raw.observations.map((entry, index) =>
+      adaptRecentObservation(
+        validateRecord(entry, `/recent.json.observations[${index}]`),
+      ),
+    ),
+  }
+}
+
+function adaptCurrentConditions(raw: RawRecord): CurrentConditions {
+  const heatIndexC = optionalNullableNumber(raw, 'heat_index_c')
+  const windChillC = optionalNullableNumber(raw, 'wind_chill_c')
+
+  return {
+    observationTimeUtc: optionalString(raw, 'observation_time_utc'),
+    observationTimeLocal: optionalString(raw, 'observation_time_local'),
+    fetchedAtUtc: optionalString(raw, 'fetched_at_utc'),
     temperatureC: optionalNullableNumber(raw, 'temperature_c'),
-    feelsLikeC: optionalNullableNumber(raw, 'feels_like_c'),
-    dewPointC: optionalNullableNumber(raw, 'dew_point_c'),
-    humidityPct: optionalNullableNumber(raw, 'humidity_pct'),
+    heatIndexC,
+    windChillC,
+    feelsLikeC: deriveFeelsLikeC(heatIndexC, windChillC),
+    dewpointC: optionalNullableNumber(raw, 'dewpoint_c'),
+    humidityPercent: optionalNullableNumber(raw, 'humidity_percent'),
     pressureHpa: optionalNullableNumber(raw, 'pressure_hpa'),
+    windSpeedKmh: optionalNullableNumber(raw, 'wind_speed_kmh'),
     windSpeedMph: optionalNullableNumber(raw, 'wind_speed_mph'),
+    windGustKmh: optionalNullableNumber(raw, 'wind_gust_kmh'),
     windGustMph: optionalNullableNumber(raw, 'wind_gust_mph'),
     windDirectionDegrees: optionalNullableNumber(raw, 'wind_direction_degrees'),
     rainRateMmPerHour: optionalNullableNumber(raw, 'rain_rate_mm_per_hour'),
-    rainfallTodayMm: optionalNullableNumber(raw, 'rainfall_today_mm'),
+    rainTodayMm: optionalNullableNumber(raw, 'rain_today_mm'),
+    solarRadiationWm2: optionalNullableNumber(raw, 'solar_radiation_wm2'),
+    uvIndex: optionalNullableNumber(raw, 'uv_index'),
   }
 }
 
 function adaptStationStatus(raw: RawRecord): StationStatus {
+  const status = requiredString(raw, 'status')
+  const collectorStatus = optionalString(raw, 'collector_status')
+  const derivedState = deriveStationLiveState(status, collectorStatus)
+
   return {
-    online: requiredBoolean(raw, 'online'),
-    observedAtUtc: optionalString(raw, 'observed_at_utc'),
+    status,
+    collectorStatus,
+    message: optionalString(raw, 'message'),
+    checkedAtUtc: optionalString(raw, 'checked_at_utc'),
+    observationTimeUtc: optionalString(raw, 'observation_time_utc'),
+    live: derivedState.live,
+    online: derivedState.online,
     observationAgeSeconds: optionalNullableNumber(raw, 'observation_age_seconds'),
-    lastSuccessfulUpdateUtc: optionalString(raw, 'last_successful_update_utc'),
-    isStale: requiredBoolean(raw, 'is_stale'),
   }
 }
 
 function adaptRecentObservation(raw: RawRecord): RecentObservation {
+  const heatIndexC = optionalNullableNumber(raw, 'heat_index_c')
+  const windChillC = optionalNullableNumber(raw, 'wind_chill_c')
+
   return {
-    observedAtUtc: requiredString(raw, 'observed_at_utc'),
+    observationTimeUtc: requiredString(raw, 'observation_time_utc'),
+    observationTimeLocal: optionalString(raw, 'observation_time_local'),
     temperatureC: optionalNullableNumber(raw, 'temperature_c'),
+    dewpointC: optionalNullableNumber(raw, 'dewpoint_c'),
+    heatIndexC,
+    windChillC,
+    humidityPercent: optionalNullableNumber(raw, 'humidity_percent'),
     pressureHpa: optionalNullableNumber(raw, 'pressure_hpa'),
+    windSpeedKmh: optionalNullableNumber(raw, 'wind_speed_kmh'),
+    windSpeedMph: optionalNullableNumber(raw, 'wind_speed_mph'),
+    windGustKmh: optionalNullableNumber(raw, 'wind_gust_kmh'),
+    windGustMph: optionalNullableNumber(raw, 'wind_gust_mph'),
+    windDirectionDegrees: optionalNullableNumber(raw, 'wind_direction_degrees'),
     rainRateMmPerHour: optionalNullableNumber(raw, 'rain_rate_mm_per_hour'),
-    rainfallTodayMm: optionalNullableNumber(raw, 'rainfall_today_mm'),
+    rainTodayMm: optionalNullableNumber(raw, 'rain_today_mm'),
+    solarRadiationWm2: optionalNullableNumber(raw, 'solar_radiation_wm2'),
+    uvIndex: optionalNullableNumber(raw, 'uv_index'),
   }
 }
 
 function adaptTodaySummary(raw: RawRecord): ProvisionalTodaySummary {
-  const officialWindows = validateRecord(raw.official_windows, '/today.json.official_windows')
-
   return {
-    climateDate: requiredClimateDateString(raw, 'date'),
-    maxTempC: optionalNullableNumber(raw, 'max_temp_c'),
-    minTempC: optionalNullableNumber(raw, 'min_temp_c'),
-    rainfallMm: optionalNullableNumber(raw, 'rainfall_mm'),
-    officialWindows: {
-      maxTemperature: requiredString(officialWindows, 'max_temperature'),
-      minTemperature: requiredString(officialWindows, 'min_temperature'),
-      rainfall: requiredString(officialWindows, 'rainfall'),
-    },
+    metadata: validateJsonObject(
+      validateRecord(raw.metadata, '/today.json.metadata'),
+      '/today.json.metadata',
+    ),
+    currentObservation:
+      raw.current_observation == null
+        ? null
+        : adaptCurrentConditions(
+            validateRecord(raw.current_observation, '/today.json.current_observation'),
+          ),
+    maximumTemperature: adaptTodayTemperatureSummary(
+      raw.maximum_temperature,
+      '/today.json.maximum_temperature',
+    ),
+    minimumTemperature: adaptTodayTemperatureSummary(
+      raw.minimum_temperature,
+      '/today.json.minimum_temperature',
+    ),
+    rainfall: adaptTodayRainfallSummary(raw.rainfall, '/today.json.rainfall'),
+    calendarDayExtremes: adaptCalendarDayExtremes(raw.calendar_day_extremes),
   }
 }
 
 function adaptClimateIndex(raw: RawRecord): ClimateIndex {
-  const temperatureCoverage = validateRecord(
-    raw.temperature_coverage,
-    '/climate/index.json.temperature_coverage',
-  )
-  const rainfallCoverage = validateRecord(
-    raw.rainfall_coverage,
-    '/climate/index.json.rainfall_coverage',
-  )
+  const history = validateRecord(raw.history, '/climate/index.json.history')
 
   return {
+    status: optionalString(raw, 'status'),
     station: requiredString(raw, 'station'),
     generatedAtUtc: optionalString(raw, 'generated_at_utc'),
-    latestAvailableDate: optionalClimateDateString(raw, 'latest_available_date'),
-    latestAvailableYear: optionalNullableNumber(raw, 'latest_available_year'),
-    temperatureCoverage: {
-      startDate: requiredClimateDateString(temperatureCoverage, 'start_date'),
-      endDate: optionalClimateDateString(temperatureCoverage, 'end_date'),
-      latestCompleteYear: optionalNullableNumber(temperatureCoverage, 'latest_complete_year'),
+    history: {
+      firstDate: optionalClimateDateString(history, 'first_date'),
+      lastDate: optionalClimateDateString(history, 'last_date'),
+      firstYear: optionalNullableNumber(history, 'first_year'),
+      lastYear: optionalNullableNumber(history, 'last_year'),
+      yearCount: optionalNullableNumber(history, 'year_count'),
     },
-    rainfallCoverage: {
-      startDate: requiredClimateDateString(rainfallCoverage, 'start_date'),
-      endDate: optionalClimateDateString(rainfallCoverage, 'end_date'),
-      latestCompleteYear: optionalNullableNumber(rainfallCoverage, 'latest_complete_year'),
-    },
+    normals: validateJsonObject(raw.normals, '/climate/index.json.normals'),
+    dataQuality: validateJsonObject(raw.data_quality, '/climate/index.json.data_quality'),
+    endpoints: validateJsonObject(raw.endpoints, '/climate/index.json.endpoints'),
   }
 }
 
@@ -778,8 +870,7 @@ function adaptClimateArchiveIndex(raw: RawRecord): ArchiveIndex {
       startDate: optionalClimateDateString(record, 'start_date'),
       endDate: optionalClimateDateString(record, 'end_date'),
       observationCount: optionalNullableNumber(record, 'observation_count'),
-      complete: requiredBoolean(record, 'complete'),
-      rainfallComplete: requiredBoolean(record, 'rainfall_complete'),
+      complete: optionalNullableBoolean(record, 'complete'),
     }
   })
 
@@ -807,10 +898,10 @@ function adaptAnnualClimate(raw: RawRecord): AnnualClimatePayload {
     observationCount: optionalNullableNumber(raw, 'observation_count'),
     generatedAtUtc: optionalString(raw, 'generated_at_utc'),
     units: {
-      temperature: requiredLiteral(units, 'temperature', WEATHER_UNITS.temperature),
-      rainfall: requiredLiteral(units, 'rainfall', WEATHER_UNITS.rainfall),
-      pressure: requiredLiteral(units, 'pressure', WEATHER_UNITS.pressure),
-      wind: requiredLiteral(units, 'wind', WEATHER_UNITS.wind),
+      temperature: requiredString(units, 'temperature'),
+      rainfall: requiredString(units, 'rainfall'),
+      pressure: optionalString(units, 'pressure'),
+      wind: optionalString(units, 'wind'),
     },
     records,
   }
@@ -839,6 +930,25 @@ function adaptDailyNormal(raw: RawRecord): DailyNormal {
   }
 }
 
+function adaptDailyNormalsPayload(raw: RawRecord): DailyNormalsPayload {
+  const units = validateRecord(raw.units, '/climate/normals/daily.json.units')
+  const records = validateArray(raw.records, '/climate/normals/daily.json.records').map(
+    (entry, index) =>
+      adaptDailyNormal(validateRecord(entry, `/climate/normals/daily.json.records[${index}]`)),
+  )
+
+  return {
+    station: requiredString(raw, 'station'),
+    generatedAtUtc: optionalString(raw, 'generated_at_utc'),
+    baseline: requiredString(raw, 'baseline'),
+    units: {
+      temperature: requiredString(units, 'temperature'),
+    },
+    recordCount: requiredNumber(raw, 'record_count'),
+    records,
+  }
+}
+
 function adaptMonthlyNormal(raw: RawRecord): MonthlyNormal {
   return {
     month: requiredNumber(raw, 'month'),
@@ -846,6 +956,28 @@ function adaptMonthlyNormal(raw: RawRecord): MonthlyNormal {
     meanMinTempC: optionalNullableNumber(raw, 'mean_min_temp_c'),
     meanTempC: optionalNullableNumber(raw, 'mean_temp_c'),
     rainfallMm: optionalNullableNumber(raw, 'rainfall_mm'),
+  }
+}
+
+function adaptMonthlyNormalsPayload(raw: RawRecord): MonthlyNormalsPayload {
+  const units = validateRecord(raw.units, '/climate/normals/monthly.json.units')
+  const months = validateArray(raw.months, '/climate/normals/monthly.json.months').map(
+    (entry, index) =>
+      adaptMonthlyNormal(
+        validateRecord(entry, `/climate/normals/monthly.json.months[${index}]`),
+      ),
+  )
+
+  return {
+    station: requiredString(raw, 'station'),
+    generatedAtUtc: optionalString(raw, 'generated_at_utc'),
+    baseline: requiredString(raw, 'baseline'),
+    units: {
+      temperature: requiredString(units, 'temperature'),
+      rainfall: requiredString(units, 'rainfall'),
+    },
+    monthCount: requiredNumber(raw, 'month_count'),
+    months,
   }
 }
 
@@ -898,6 +1030,198 @@ function validateArray(value: unknown, context: string): readonly unknown[] {
     details: { path: context },
     retryable: false,
   })
+}
+
+function validateJsonObject(value: unknown, context: string): JsonObject {
+  const record = validateRecord(value, context)
+  return Object.fromEntries(
+    Object.entries(record)
+      .filter(([key]) => key !== RECORD_PATH_SYMBOL.description)
+      .map(([key, entryValue]) => [key, validateJsonValue(entryValue, `${context}.${key}`)]),
+  )
+}
+
+function validateJsonValue(value: unknown, context: string): JsonValue {
+  if (
+    value == null ||
+    typeof value === 'string' ||
+    typeof value === 'boolean' ||
+    (typeof value === 'number' && Number.isFinite(value))
+  ) {
+    return value
+  }
+
+  if (Array.isArray(value)) {
+    return value.map((entry, index) => validateJsonValue(entry, `${context}[${index}]`))
+  }
+
+  if (typeof value === 'object') {
+    return validateJsonObject(value, context)
+  }
+
+  throw new PublicApiError({
+    code: 'MALFORMED_DATA',
+    message: `Expected JSON-compatible value for ${context}`,
+    details: { path: context },
+    retryable: false,
+  })
+}
+
+function deriveFeelsLikeC(
+  heatIndexC: number | null,
+  windChillC: number | null,
+): number | null {
+  return heatIndexC ?? windChillC ?? null
+}
+
+function deriveStationLiveState(
+  status: string,
+  collectorStatus: string | null,
+): Pick<StationStatus, 'online' | 'live'> {
+  const normalizedStatus = normalizeStatusValue(status)
+  const normalizedCollectorStatus = normalizeStatusValue(collectorStatus)
+  const onlineStatusValues = new Set(['online', 'live', 'healthy', 'ok'])
+  const liveCollectorStatusValues = new Set(['online', 'live', 'healthy', 'ok', 'running', 'collecting'])
+  const offlineStatusValues = new Set(['offline', 'down', 'error', 'failed', 'stale'])
+
+  if (
+    offlineStatusValues.has(normalizedStatus) ||
+    (normalizedCollectorStatus != null && offlineStatusValues.has(normalizedCollectorStatus))
+  ) {
+    return { online: false, live: false }
+  }
+
+  const online = onlineStatusValues.has(normalizedStatus)
+  const live =
+    online &&
+    (normalizedCollectorStatus == null ||
+      liveCollectorStatusValues.has(normalizedCollectorStatus))
+
+  return {
+    online: live || online,
+    live,
+  }
+}
+
+function normalizeStatusValue(value: string | null): string | null {
+  return value == null ? null : value.trim().toLowerCase()
+}
+
+function adaptTodayTemperatureSummary(
+  value: unknown,
+  context: string,
+): ProvisionalTodaySummary['maximumTemperature'] {
+  if (value == null) {
+    return null
+  }
+
+  const record = validateRecord(value, context)
+  return {
+    windowStartLocal: optionalString(record, 'window_start_local'),
+    windowEndLocal: optionalString(record, 'window_end_local'),
+    provisional: optionalNullableBoolean(record, 'provisional'),
+    value: optionalNullableNumber(record, 'value'),
+    timeLocal: optionalString(record, 'time_local'),
+    coverage:
+      record.coverage == null ? null : validateJsonObject(record.coverage, `${context}.coverage`),
+  }
+}
+
+function adaptTodayRainfallSummary(
+  value: unknown,
+  context: string,
+): ProvisionalTodaySummary['rainfall'] {
+  if (value == null) {
+    return null
+  }
+
+  const record = validateRecord(value, context)
+  return {
+    windowStartLocal: optionalString(record, 'window_start_local'),
+    windowEndLocal: optionalString(record, 'window_end_local'),
+    provisional: optionalNullableBoolean(record, 'provisional'),
+    totalMm: optionalNullableNumber(record, 'total_mm'),
+    timeLocal: optionalString(record, 'time_local'),
+    coverage:
+      record.coverage == null ? null : validateJsonObject(record.coverage, `${context}.coverage`),
+  }
+}
+
+function adaptCalendarDayExtremes(
+  value: unknown,
+): ProvisionalTodaySummary['calendarDayExtremes'] {
+  if (value == null) {
+    return {}
+  }
+
+  const root = validateRecord(value, '/today.json.calendar_day_extremes')
+
+  return Object.fromEntries(
+    Object.entries(root).map(([key, entryValue]) => {
+      const context = `/today.json.calendar_day_extremes.${key}`
+      const record = validateRecord(entryValue, context)
+      return [
+        key,
+        {
+          value: validateJsonValue(record.value, `${context}.value`),
+          timeLocal: optionalString(record, 'time_local'),
+          provisional: optionalNullableBoolean(record, 'provisional'),
+          coverage:
+            record.coverage == null
+              ? null
+              : validateJsonObject(record.coverage, `${context}.coverage`),
+          details: validateJsonObject(record, context),
+        },
+      ]
+    }),
+  )
+}
+
+function safeRecord(value: unknown): Record<string, unknown> | null {
+  return value != null && typeof value === 'object' && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : null
+}
+
+function deriveTopLevelKeys(value: unknown): readonly string[] {
+  return safeRecord(value) == null ? [] : Object.keys(value)
+}
+
+function compactDiagnosticValue(value: unknown, depth = 0): unknown {
+  if (
+    value == null ||
+    typeof value === 'string' ||
+    typeof value === 'number' ||
+    typeof value === 'boolean'
+  ) {
+    return value
+  }
+
+  if (depth >= 2) {
+    if (Array.isArray(value)) {
+      return `[Array(${value.length})]`
+    }
+
+    return '[Object]'
+  }
+
+  if (Array.isArray(value)) {
+    return {
+      length: value.length,
+      sample: value.slice(0, 2).map((entry) => compactDiagnosticValue(entry, depth + 1)),
+    }
+  }
+
+  const record = safeRecord(value)
+  if (record == null) {
+    return String(value)
+  }
+
+  return Object.fromEntries(
+    Object.entries(record)
+      .slice(0, 8)
+      .map(([key, entryValue]) => [key, compactDiagnosticValue(entryValue, depth + 1)]),
+  )
 }
 
 function requiredString(record: RawRecord, key: string): string {
@@ -1002,6 +1326,24 @@ function optionalNullableNumber(record: RawRecord, key: string): number | null {
   })
 }
 
+function optionalNullableBoolean(record: RawRecord, key: string): boolean | null {
+  const value = record[key]
+  if (value == null) {
+    return null
+  }
+
+  if (typeof value === 'boolean') {
+    return value
+  }
+
+  throw new PublicApiError({
+    code: 'MALFORMED_DATA',
+    message: `Expected boolean or null for "${key}"`,
+    details: { key, path: `${deriveRecordPath(record)}.${key}` },
+    retryable: false,
+  })
+}
+
 function requiredBoolean(record: RawRecord, key: string): boolean {
   const value = record[key]
   if (typeof value === 'boolean') {
@@ -1011,24 +1353,6 @@ function requiredBoolean(record: RawRecord, key: string): boolean {
   throw new PublicApiError({
     code: 'MALFORMED_DATA',
     message: `Expected boolean for "${key}"`,
-    details: { key, path: `${deriveRecordPath(record)}.${key}` },
-    retryable: false,
-  })
-}
-
-function requiredLiteral<T extends string>(
-  record: RawRecord,
-  key: string,
-  literal: T,
-): T {
-  const value = record[key]
-  if (value === literal) {
-    return literal
-  }
-
-  throw new PublicApiError({
-    code: 'MALFORMED_DATA',
-    message: `Expected "${literal}" for "${key}"`,
     details: { key, path: `${deriveRecordPath(record)}.${key}` },
     retryable: false,
   })

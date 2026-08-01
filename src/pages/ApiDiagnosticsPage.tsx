@@ -17,6 +17,7 @@ type EndpointDiagnosticsRow = {
   validationErrors: readonly string[]
   adapterSucceeded: boolean
   adapterErrors: readonly string[]
+  inspection: unknown
   sample: unknown
   adaptedSample: unknown
   arrayLength: number | null
@@ -71,6 +72,7 @@ export default function ApiDiagnosticsPage() {
                 validationErrors: [],
                 adapterSucceeded: false,
                 adapterErrors: [],
+                inspection: null,
                 sample: compactSample(parsedValue),
                 adaptedSample: null,
                 arrayLength: Array.isArray(parsedValue) ? parsedValue.length : null,
@@ -90,6 +92,7 @@ export default function ApiDiagnosticsPage() {
                 validationErrors: [parsed.error],
                 adapterSucceeded: false,
                 adapterErrors: [],
+                inspection: null,
                 sample: compactSample(rawText),
                 adaptedSample: null,
                 arrayLength: null,
@@ -109,6 +112,7 @@ export default function ApiDiagnosticsPage() {
               validationErrors: evaluated.validationErrors,
               adapterSucceeded: evaluated.adapterSucceeded,
               adapterErrors: evaluated.adapterErrors,
+              inspection: compactSample(evaluated.inspection),
               sample: compactSample(parsed.value),
               adaptedSample: compactSample(evaluated.adaptedSample),
               arrayLength: evaluated.counts.arrayLength,
@@ -126,6 +130,7 @@ export default function ApiDiagnosticsPage() {
               validationErrors: [],
               adapterSucceeded: false,
               adapterErrors: [error instanceof Error ? error.message : 'Unknown request error'],
+              inspection: null,
               sample: null,
               adaptedSample: null,
               arrayLength: null,
@@ -167,6 +172,7 @@ export default function ApiDiagnosticsPage() {
           validationErrors: row.validationErrors,
           adapterSucceeded: row.adapterSucceeded,
           adapterErrors: row.adapterErrors,
+          inspection: row.inspection,
           arrayLength: row.arrayLength,
           recordCount: row.recordCount,
           sample: row.sample,
@@ -237,6 +243,8 @@ export default function ApiDiagnosticsPage() {
               Array length: {row.arrayLength == null ? 'n/a' : row.arrayLength} | Record count:{' '}
               {row.recordCount == null ? 'n/a' : row.recordCount}
             </p>
+            <p>Inspection details:</p>
+            <pre style={{ whiteSpace: 'pre-wrap' }}>{JSON.stringify(row.inspection, null, 2)}</pre>
             <p>Representative sample:</p>
             <pre style={{ whiteSpace: 'pre-wrap' }}>{JSON.stringify(row.sample, null, 2)}</pre>
             <p>Adapter sample:</p>

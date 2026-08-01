@@ -2310,3 +2310,138 @@ th {
   font-size: 0.9rem;
   color: var(--text-muted);
 }
+
+.audit-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.audit-panel-header {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 0.6rem;
+  align-items: baseline;
+}
+
+.audit-panel-header h2 {
+  margin: 0;
+}
+
+.audit-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  align-items: end;
+}
+
+.audit-control {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  min-width: 10rem;
+}
+
+.audit-control span {
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+.audit-control input[type='date'],
+.audit-control select {
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  border-radius: 0.5rem;
+  padding: 0.4rem 0.6rem;
+  font-size: 0.95rem;
+}
+
+.audit-control-actions {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.audit-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+}
+
+.audit-entry {
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+}
+
+.audit-entry-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.audit-entry-header h3 {
+  margin: 0;
+}
+
+.audit-entry-meta {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 0.6rem;
+  margin: 0;
+}
+
+.audit-entry-meta dt {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.audit-entry-meta dd {
+  margin: 0.25rem 0 0;
+}
+
+.audit-entry-status {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.6rem;
+  font-size: 0.9rem;
+}
+
+.audit-entry-actions {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+}
+
+.audit-diff-table th,
+.audit-diff-table td {
+  vertical-align: top;
+}
+
+.audit-changed-row th,
+.audit-changed-row td {
+  background: color-mix(in srgb, var(--success) 16%, var(--surface));
+}
+
+@media (max-width: 768px) {
+  .audit-control,
+  .audit-control-actions,
+  .audit-control-actions .button {
+    width: 100%;
+  }
+
+  .audit-entry-actions {
+    justify-content: stretch;
+  }
+
+  .audit-entry-actions .button {
+    width: 100%;
+  }
+}

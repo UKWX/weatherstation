@@ -28,6 +28,7 @@ type DiagnosticsState = {
   loading: boolean
   rows: readonly EndpointDiagnosticsRow[]
   copied: boolean
+  nestedCopied: boolean
   error: string | null
 }
 
@@ -35,6 +36,7 @@ const INITIAL_STATE: DiagnosticsState = {
   loading: false,
   rows: [],
   copied: false,
+  nestedCopied: false,
   error: null,
 }
 
@@ -45,6 +47,7 @@ export default function ApiDiagnosticsPage() {
     setState((previous) => ({
       ...previous,
       copied: false,
+      nestedCopied: false,
       loading: true,
       error: null,
     }))
@@ -144,6 +147,7 @@ export default function ApiDiagnosticsPage() {
         loading: false,
         rows,
         copied: false,
+        nestedCopied: false,
         error: null,
       })
     } catch (error) {
@@ -187,15 +191,45 @@ export default function ApiDiagnosticsPage() {
   const copySummary = useCallback(async () => {
     try {
       await navigator.clipboard.writeText(summary)
-      setState((previous) => ({ ...previous, copied: true }))
+      setState((previous) => ({ ...previous, copied: true, nestedCopied: false }))
     } catch (error) {
       setState((previous) => ({
         ...previous,
         copied: false,
+        nestedCopied: false,
         error: error instanceof Error ? error.message : 'Unable to copy diagnostics summary',
       }))
     }
   }, [summary])
+
+  const nestedSchemaSummary = useMemo(
+    () =>
+      JSON.stringify(
+        state.rows
+          .filter((row) => row.inspection != null)
+          .map((row) => ({
+            endpoint: row.endpoint,
+            inspection: row.inspection,
+          })),
+        null,
+        2,
+      ),
+    [state.rows],
+  )
+
+  const copyNestedSchemaSummary = useCallback(async () => {
+    try {
+      await navigator.clipboard.writeText(nestedSchemaSummary)
+      setState((previous) => ({ ...previous, copied: false, nestedCopied: true }))
+    } catch (error) {
+      setState((previous) => ({
+        ...previous,
+        copied: false,
+        nestedCopied: false,
+        error: error instanceof Error ? error.message : 'Unable to copy nested schema summary',
+      }))
+    }
+  }, [nestedSchemaSummary])
 
   return (
     <section>
@@ -210,8 +244,16 @@ export default function ApiDiagnosticsPage() {
         <button type="button" onClick={() => void copySummary()} disabled={state.rows.length === 0}>
           Copy diagnostics summary
         </button>
+        <button
+          type="button"
+          onClick={() => void copyNestedSchemaSummary()}
+          disabled={state.rows.length === 0}
+        >
+          Copy nested schema summary
+        </button>
       </div>
       {state.copied ? <p>Diagnostics summary copied.</p> : null}
+      {state.nestedCopied ? <p>Nested schema summary copied.</p> : null}
       {state.error ? <p role="alert">{state.error}</p> : null}
       <div style={{ display: 'grid', gap: '1rem' }}>
         {state.rows.map((row) => (

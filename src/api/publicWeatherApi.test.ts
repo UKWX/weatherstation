@@ -77,6 +77,25 @@ const recentFixture = {
       solar_radiation_wm2: 488,
       uv_index: 3.8,
     },
+    {
+      observation_time_utc: '2026-08-01T07:50:00Z',
+      observation_time_local: '2026-08-01 08:50:00 BST',
+      temperature_c: 21.3,
+      dewpoint_c: 14.1,
+      heat_index_c: 22.1,
+      wind_chill_c: null,
+      humidity_percent: 64,
+      pressure_hpa: 1009.1,
+      wind_speed_kmh: 13.1,
+      wind_speed_mph: 8.1,
+      wind_gust_kmh: 20.1,
+      wind_gust_mph: 12.5,
+      wind_direction_degrees: 245,
+      rain_rate_mm_per_hour: 0.2,
+      rain_today_mm: 0.6,
+      solar_radiation_wm2: 512,
+      uv_index: 4.3,
+    },
   ],
 }
 
@@ -165,15 +184,25 @@ const climateIndexFixture = {
     year_count: 32,
   },
   normals: {
+    daily: {
+      baseline: '1995-2024',
+      endpoint: '/climate/normals/daily.json',
+    },
+    monthly: {
+      baseline: '1991-2020',
+      endpoint: '/climate/normals/monthly.json',
+    },
     daily_baseline: '1995-2024',
     monthly_baseline: '1991-2020',
   },
   data_quality: {
     provisional_years: [2026],
+    notes: null,
   },
   endpoints: {
     archive_index: '/climate/archive/index.json',
     daily_normals: '/climate/normals/daily.json',
+    monthly_normals: '/climate/normals/monthly.json',
   },
 }
 
@@ -188,6 +217,13 @@ const archiveIndexFixture = {
       start_date: '1995-01-01',
       end_date: '1995-12-31',
       observation_count: 365,
+      complete: true,
+    },
+    {
+      year: 2010,
+      start_date: '2010-01-01',
+      end_date: '2010-12-31',
+      observation_count: null,
       complete: true,
     },
     {
@@ -239,6 +275,14 @@ const dailyNormalsFixture = {
       min_temp_c: 2.3,
       mean_temp_c: 5.1,
     },
+    {
+      date: '2000-02-29',
+      month: 2,
+      day: 29,
+      max_temp_c: 7.2,
+      min_temp_c: 1.8,
+      mean_temp_c: 4.5,
+    },
   ],
 }
 
@@ -258,6 +302,13 @@ const monthlyNormalsFixture = {
       mean_min_temp_c: 1.5,
       mean_temp_c: 4.2,
       rainfall_mm: 63.4,
+    },
+    {
+      month: 7,
+      mean_max_temp_c: 22.1,
+      mean_min_temp_c: 12.8,
+      mean_temp_c: 17.4,
+      rainfall_mm: 58.2,
     },
   ],
 }
@@ -488,6 +539,10 @@ describe('publicWeatherApi', () => {
   it('surfaces the requested diagnostics inspection keys', () => {
     const recentResult = evaluatePublicEndpointDiagnostics('/recent.json', recentFixture)
     const todayResult = evaluatePublicEndpointDiagnostics('/today.json', todayFixture)
+    const climateIndexResult = evaluatePublicEndpointDiagnostics(
+      '/climate/index.json',
+      climateIndexFixture,
+    )
     const archiveIndexResult = evaluatePublicEndpointDiagnostics(
       '/climate/archive/index.json',
       archiveIndexFixture,
@@ -502,21 +557,96 @@ describe('publicWeatherApi', () => {
     )
 
     expect(recentResult.inspection).toMatchObject({
-      firstObservationKeys: expect.arrayContaining(['observation_time_utc', 'temperature_c']),
+      observationsCount: 2,
+      firstObservation: {
+        index: 0,
+        keys: expect.arrayContaining(['observation_time_utc', 'temperature_c']),
+      },
+      lastObservation: {
+        index: 1,
+      },
+      mostCompleteObservation: {
+        index: 1,
+      },
     })
     expect(todayResult.inspection).toMatchObject({
-      rainfallCoverageKeys: expect.arrayContaining(['observed_count', 'expected_count']),
-      calendarDayExtremeKeys: expect.arrayContaining(['maximum_wind_gust', 'maximum_pressure']),
+      maximumTemperatureCoverage: {
+        keys: expect.arrayContaining(['observed_count', 'expected_count', 'complete']),
+      },
+      minimumTemperatureCoverage: {
+        keys: expect.arrayContaining(['observed_count', 'expected_count', 'complete']),
+      },
+      rainfallCoverage: {
+        keys: expect.arrayContaining(['observed_count', 'expected_count', 'complete']),
+      },
+      calendarDayExtremesTopLevelKeys: expect.arrayContaining([
+        'maximum_wind_gust',
+        'maximum_pressure',
+      ]),
+      calendarDayExtremesChildren: {
+        maximum_wind_gust: {
+          keys: expect.arrayContaining(['value', 'time_local', 'provisional', 'coverage']),
+        },
+      },
+    })
+    expect(climateIndexResult.inspection).toMatchObject({
+      normals: {
+        keys: expect.arrayContaining(['daily', 'monthly']),
+      },
+      normalsDaily: {
+        keys: expect.arrayContaining(['baseline', 'endpoint']),
+      },
+      normalsMonthly: {
+        keys: expect.arrayContaining(['baseline', 'endpoint']),
+      },
+      dataQuality: {
+        keys: expect.arrayContaining(['provisional_years', 'notes']),
+      },
+      endpoints: {
+        keys: expect.arrayContaining(['archive_index', 'daily_normals', 'monthly_normals']),
+      },
     })
     expect(archiveIndexResult.inspection).toMatchObject({
-      firstYearKeys: expect.arrayContaining(['year', 'start_date']),
-      latestYearKeys: expect.arrayContaining(['year', 'end_date']),
+      firstYearEntry: {
+        keys: expect.arrayContaining(['year', 'start_date', 'end_date', 'observation_count', 'complete']),
+      },
+      lastYearEntry: {
+        keys: expect.arrayContaining(['year', 'start_date', 'end_date', 'observation_count', 'complete']),
+      },
+      completeHistoricalYearEntry: {
+        keys: expect.arrayContaining(['year', 'start_date', 'end_date', 'observation_count', 'complete']),
+      },
+      currentYearEntry: {
+        keys: expect.arrayContaining(['year', 'start_date', 'end_date', 'observation_count', 'complete']),
+      },
     })
     expect(dailyNormalsResult.inspection).toMatchObject({
-      firstRecordKeys: expect.arrayContaining(['date', 'month', 'day']),
+      firstRecord: {
+        keys: expect.arrayContaining(['date', 'month', 'day', 'max_temp_c', 'min_temp_c', 'mean_temp_c']),
+      },
+      february29Record: {
+        keys: expect.arrayContaining(['date', 'month', 'day', 'max_temp_c', 'min_temp_c', 'mean_temp_c']),
+      },
     })
     expect(monthlyNormalsResult.inspection).toMatchObject({
-      firstMonthKeys: expect.arrayContaining(['month', 'mean_max_temp_c']),
+      firstMonth: {
+        keys: expect.arrayContaining([
+          'month',
+          'mean_max_temp_c',
+          'mean_min_temp_c',
+          'mean_temp_c',
+          'rainfall_mm',
+        ]),
+      },
+      summerMonth: {
+        keys: expect.arrayContaining([
+          'month',
+          'mean_max_temp_c',
+          'mean_min_temp_c',
+          'mean_temp_c',
+          'rainfall_mm',
+        ]),
+      },
     })
   })
 

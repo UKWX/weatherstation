@@ -589,9 +589,38 @@ function deriveDiagnosticInspection(
 ): unknown {
   if (endpoint === '/recent.json') {
     const root = safeRecord(payload)
-    const firstObservation = Array.isArray(root?.observations) ? root.observations[0] : null
+    const observations = Array.isArray(root?.observations) ? root.observations : []
+    const firstIndex = observations.length > 0 ? 0 : null
+    const lastIndex = observations.length > 0 ? observations.length - 1 : null
+    const bestIndex = findMostCompleteRecordIndex(observations)
+    const firstObservation = firstIndex == null ? null : safeRecord(observations[firstIndex])
+    const lastObservation = lastIndex == null ? null : safeRecord(observations[lastIndex])
+    const mostCompleteObservation = bestIndex == null ? null : safeRecord(observations[bestIndex])
+    const nullabilitySources = [firstObservation, lastObservation, mostCompleteObservation]
     return {
-      firstObservationKeys: deriveTopLevelKeys(firstObservation),
+      observationsCount: observations.length,
+      firstObservation:
+        firstIndex == null
+          ? null
+          : {
+              index: firstIndex,
+              ...summariseObject(firstObservation, nullabilitySources),
+            },
+      lastObservation:
+        lastIndex == null
+          ? null
+          : {
+              index: lastIndex,
+              ...summariseObject(lastObservation, nullabilitySources),
+            },
+      mostCompleteObservation:
+        bestIndex == null
+          ? null
+          : {
+              index: bestIndex,
+              nonNullValueCount: countNonNullValues(observations[bestIndex]),
+              ...summariseObject(mostCompleteObservation, nullabilitySources),
+            },
     }
   }
 
@@ -603,19 +632,34 @@ function deriveDiagnosticInspection(
     const calendarDayExtremes = safeRecord(root?.calendar_day_extremes)
 
     return {
-      maximumTemperatureCoverageKeys: deriveTopLevelKeys(maximumTemperature?.coverage),
-      minimumTemperatureCoverageKeys: deriveTopLevelKeys(minimumTemperature?.coverage),
-      rainfallCoverageKeys: deriveTopLevelKeys(rainfall?.coverage),
-      calendarDayExtremeKeys: deriveTopLevelKeys(calendarDayExtremes),
-      calendarDayExtremeValueKeys:
+      maximumTemperatureCoverage: summariseObject(safeRecord(maximumTemperature?.coverage)),
+      minimumTemperatureCoverage: summariseObject(safeRecord(minimumTemperature?.coverage)),
+      rainfallCoverage: summariseObject(safeRecord(rainfall?.coverage)),
+      calendarDayExtremesTopLevelKeys: deriveTopLevelKeys(calendarDayExtremes),
+      calendarDayExtremesChildren:
         calendarDayExtremes == null
           ? {}
           : Object.fromEntries(
               Object.entries(calendarDayExtremes).map(([key, value]) => [
                 key,
-                deriveTopLevelKeys(value),
+                summariseObject(safeRecord(value)),
               ]),
             ),
+    }
+  }
+
+  if (endpoint === '/climate/index.json') {
+    const root = safeRecord(payload)
+    const normals = safeRecord(root?.normals)
+    const normalDaily = safeRecord(normals?.daily)
+    const normalMonthly = safeRecord(normals?.monthly)
+
+    return {
+      normals: summariseObject(normals),
+      normalsDaily: summariseObject(normalDaily),
+      normalsMonthly: summariseObject(normalMonthly),
+      dataQuality: summariseObject(safeRecord(root?.data_quality)),
+      endpoints: summariseObject(safeRecord(root?.endpoints)),
     }
   }
 
@@ -624,28 +668,100 @@ function deriveDiagnosticInspection(
     const years = Array.isArray(root?.years) ? root.years : []
     const firstYear = safeRecord(years[0])
     const latestYear = safeRecord(years.at(-1))
+    const currentYear = new Date().getUTCFullYear()
+    const completeHistoricalYear =
+      years.find((entry) => {
+        const record = safeRecord(entry)
+        return (
+          record != null &&
+          typeof record.year === 'number' &&
+          record.year < currentYear &&
+          record.complete === true
+        )
+      }) ?? null
+    const currentYearEntry =
+      years.find((entry) => {
+        const record = safeRecord(entry)
+        return record != null && record.year === currentYear
+      }) ?? null
 
     return {
-      firstYearKeys: deriveTopLevelKeys(firstYear),
-      firstYearSample: compactDiagnosticValue(firstYear),
-      latestYearKeys: deriveTopLevelKeys(latestYear),
-      latestYearSample: compactDiagnosticValue(latestYear),
+      yearsCount: years.length,
+      firstYearEntry: summariseObject(firstYear),
+      lastYearEntry: summariseObject(latestYear),
+      completeHistoricalYearEntry:
+        completeHistoricalYear == null
+          ? null
+          : {
+              ...summariseObject(safeRecord(completeHistoricalYear)),
+              sample: compactDiagnosticValue(completeHistoricalYear),
+            },
+      currentYear,
+      currentYearEntry:
+        currentYearEntry == null
+          ? null
+          : {
+              ...summariseObject(safeRecord(currentYearEntry)),
+              sample: compactDiagnosticValue(currentYearEntry),
+            },
     }
   }
 
   if (endpoint === '/climate/normals/daily.json') {
     const root = safeRecord(payload)
     const records = Array.isArray(root?.records) ? root.records : []
+    const feb29Index = records.findIndex((entry) => {
+      const record = safeRecord(entry)
+      return record?.month === 2 && record?.day === 29
+    })
+
     return {
-      firstRecordKeys: deriveTopLevelKeys(records[0]),
+      recordsCount: records.length,
+      firstRecord:
+        records.length === 0
+          ? null
+          : {
+              index: 0,
+              ...summariseObject(safeRecord(records[0])),
+            },
+      february29Record:
+        feb29Index === -1
+          ? null
+          : {
+              index: feb29Index,
+              ...summariseObject(safeRecord(records[feb29Index])),
+            },
     }
   }
 
   if (endpoint === '/climate/normals/monthly.json') {
     const root = safeRecord(payload)
     const months = Array.isArray(root?.months) ? root.months : []
+    const summerMonthIndex = months.findIndex((entry) => {
+      const record = safeRecord(entry)
+      return (
+        record != null &&
+        typeof record.month === 'number' &&
+        [6, 7, 8].includes(record.month)
+      )
+    })
+
     return {
-      firstMonthKeys: deriveTopLevelKeys(months[0]),
+      monthsCount: months.length,
+      firstMonth:
+        months.length === 0
+          ? null
+          : {
+              index: 0,
+              ...summariseObject(safeRecord(months[0])),
+            },
+      summerMonth:
+        summerMonthIndex === -1
+          ? null
+          : {
+              index: summerMonthIndex,
+              ...summariseObject(safeRecord(months[summerMonthIndex])),
+            },
     }
   }
 
@@ -1196,6 +1312,82 @@ function compactDiagnosticValue(value: unknown, depth = 0): unknown {
     typeof value === 'boolean'
   ) {
     return value
+  }
+
+  function summariseObject(
+    record: Record<string, unknown> | null,
+    nullabilitySources: readonly (Record<string, unknown> | null)[] = [record],
+  ): {
+    keys: readonly string[]
+    fields: Record<
+      string,
+      {
+        type: string
+        mayBeNull: boolean
+        sample: unknown
+        arrayLength: number | null
+      }
+    >
+  } {
+    if (record == null) {
+      return {
+        keys: [],
+        fields: {},
+      }
+    }
+
+    const keys = Object.keys(record)
+    return {
+      keys,
+      fields: Object.fromEntries(
+        keys.map((key) => {
+          const value = record[key]
+          const mayBeNull = nullabilitySources.some((source) => source?.[key] === null)
+          return [
+            key,
+            {
+              type: deriveDiagnosticValueType(value),
+              mayBeNull,
+              sample: compactDiagnosticValue(value, 1),
+              arrayLength: Array.isArray(value) ? value.length : null,
+            },
+          ]
+        }),
+      ),
+    }
+  }
+
+  function deriveDiagnosticValueType(value: unknown): string {
+    if (value === null) {
+      return 'null'
+    }
+    if (Array.isArray(value)) {
+      return 'array'
+    }
+    return typeof value
+  }
+
+  function countNonNullValues(value: unknown): number {
+    const record = safeRecord(value)
+    if (record == null) {
+      return 0
+    }
+    return Object.values(record).filter((entry) => entry !== null).length
+  }
+
+  function findMostCompleteRecordIndex(values: readonly unknown[]): number | null {
+    let bestIndex: number | null = null
+    let bestScore = -1
+
+    values.forEach((entry, index) => {
+      const score = countNonNullValues(entry)
+      if (score > bestScore) {
+        bestScore = score
+        bestIndex = index
+      }
+    })
+
+    return bestIndex
   }
 
   if (depth >= 2) {

@@ -52,9 +52,12 @@ function daysForMonth(year: number, month: number): ClimateDay[] {
   const count = new Date(Date.UTC(year, month, 0)).getUTCDate()
   return Array.from({ length: count }, (_, index) => {
     const day = index + 1
-    return makeDay(
-      `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}` as ClimateDateString,
-    )
+    return makeDay(`${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}` as ClimateDateString, {
+      maxTempC: 10 + day / 2,
+      minTempC: 2 + day / 4,
+      meanTempC: 6 + day / 3,
+      rainfallMm: day % 4 === 0 ? 0 : Number((day / 10).toFixed(1)),
+    })
   })
 }
 
@@ -122,13 +125,13 @@ describe('ReportsPage', () => {
 
   it('renders annual report snapshot', () => {
     const { container } = renderPage('/reports?year=2024&mode=annual')
-    expect(screen.getByText(/2024 annual report/i)).toBeDefined()
+    expect(screen.getByRole('heading', { name: /2024 annual report/i })).toBeDefined()
     expect(container.querySelector('.reports-card')).toMatchSnapshot()
   })
 
   it('renders monthly report snapshot and compact output', () => {
     const { container } = renderPage('/reports?year=2024&month=6&mode=monthly')
-    expect(screen.getByText(/June 2024 monthly report/i)).toBeDefined()
+    expect(screen.getByRole('heading', { name: /June 2024 monthly report/i })).toBeDefined()
     expect(screen.getByText(/Compact copyable text/i)).toBeDefined()
     expect(container.querySelector('.reports-card')).toMatchSnapshot()
   })

@@ -48,7 +48,7 @@ export const CALENDAR_MONTH_ABBR = [
 
 export const CALENDAR_WEEKDAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'] as const
 
-export type CalendarMetric = 'max' | 'min' | 'mean' | 'rainfall'
+export type CalendarMetric = 'max' | 'min' | 'mean' | 'rainfall' | 'max-anomaly' | 'min-anomaly' | 'mean-anomaly'
 export type CalendarMetricAvailability = 'value' | 'missing' | 'unavailable'
 
 export interface MetricLegendBucket {
@@ -163,6 +163,27 @@ const METRIC_DESCRIPTORS: Record<CalendarMetric, MetricDescriptor> = {
     getNormalValue: () => null,
     formatValue: (value) => formatNullableMeasurement(value, { unit: WEATHER_UNITS.rainfall }),
   },
+  'max-anomaly': {
+    label: 'Max temp anomaly',
+    unit: WEATHER_UNITS.temperature,
+    getValue: (record) => record.maxTempC,
+    getNormalValue: (normal) => normal?.normalMaxTempC ?? null,
+    formatValue: (value) => formatNullableMeasurement(value, { unit: WEATHER_UNITS.temperature }),
+  },
+  'min-anomaly': {
+    label: 'Min temp anomaly',
+    unit: WEATHER_UNITS.temperature,
+    getValue: (record) => record.minTempC,
+    getNormalValue: (normal) => normal?.normalMinTempC ?? null,
+    formatValue: (value) => formatNullableMeasurement(value, { unit: WEATHER_UNITS.temperature }),
+  },
+  'mean-anomaly': {
+    label: 'Mean temp anomaly',
+    unit: WEATHER_UNITS.temperature,
+    getValue: (record) => record.meanTempC,
+    getNormalValue: (normal) => normal?.normalMeanTempC ?? null,
+    formatValue: (value) => formatNullableMeasurement(value, { unit: WEATHER_UNITS.temperature }),
+  },
 }
 
 function getNormalMap(normals: readonly DailyNormal[]): Map<string, DailyNormal> {
@@ -237,9 +258,27 @@ function getRainfallLegend(): MetricLegend {
   }
 }
 
+function getAnomalyLegend(metric: CalendarMetric): MetricLegend {
+  return {
+    title: `${METRIC_DESCRIPTORS[metric].label} scale`,
+    scaleDescription: `${METRIC_DESCRIPTORS[metric].label} uses a fixed anomaly scale (departure from normal).`,
+    buckets: [
+      { key: 'anomaly-cold-2', shortLabel: '≤ −2°', label: '≤ −2.0 °C', className: 'calendar-tone-anomaly-cold-2' },
+      { key: 'anomaly-cold-1', shortLabel: '−1° to −2°', label: '−1.0 to −2.0 °C', className: 'calendar-tone-anomaly-cold-1' },
+      { key: 'anomaly-near', shortLabel: '±1°', label: '−1.0 to +1.0 °C', className: 'calendar-tone-anomaly-near' },
+      { key: 'anomaly-warm-1', shortLabel: '+1° to +2°', label: '+1.0 to +2.0 °C', className: 'calendar-tone-anomaly-warm-1' },
+      { key: 'anomaly-warm-2', shortLabel: '≥ +2°', label: '≥ +2.0 °C', className: 'calendar-tone-anomaly-warm-2' },
+    ],
+  }
+}
+
 export function getMetricLegend(metric: CalendarMetric, records: readonly ClimateDay[]): MetricLegend {
   if (metric === 'rainfall') {
     return getRainfallLegend()
+  }
+
+  if (metric === 'max-anomaly' || metric === 'min-anomaly' || metric === 'mean-anomaly') {
+    return getAnomalyLegend(metric)
   }
 
   const descriptor = METRIC_DESCRIPTORS[metric]
@@ -266,6 +305,14 @@ function getBucketKey(metric: CalendarMetric, value: number | null, legend: Metr
     if (value < RAINFALL_BUCKETS[2]!) return legend.buckets[3]?.key ?? null
     if (value < RAINFALL_BUCKETS[3]!) return legend.buckets[4]?.key ?? null
     return legend.buckets[5]?.key ?? null
+  }
+
+  if (metric === 'max-anomaly' || metric === 'min-anomaly' || metric === 'mean-anomaly') {
+    if (value <= -2) return legend.buckets[0]?.key ?? null
+    if (value < -1) return legend.buckets[1]?.key ?? null
+    if (value <= 1) return legend.buckets[2]?.key ?? null
+    if (value < 2) return legend.buckets[3]?.key ?? null
+    return legend.buckets[4]?.key ?? null
   }
 
   const ranges = legend.buckets.map((bucket) => {
@@ -301,6 +348,10 @@ function getShortValueLabel(metric: CalendarMetric, value: number | null, availa
   if (availability === 'missing') return 'Missing'
   if (value == null) return '—'
   if (metric === 'rainfall') return `${Math.round(value)}mm`
+  if (metric === 'max-anomaly' || metric === 'min-anomaly' || metric === 'mean-anomaly') {
+    const sign = value > 0 ? '+' : ''
+    return `${sign}${value.toFixed(1)}°`
+  }
   return `${Math.round(value)}°`
 }
 
@@ -330,10 +381,17 @@ export function buildCalendarMonthView(
     const normal = normalMap.get(getMonthDayKey(month, day)) ?? null
     const descriptor = METRIC_DESCRIPTORS[metric]
     const availability = getMetricAvailability(metric, record)
-    const value = availability === 'value' && record != null ? descriptor.getValue(record) : null
+    const rawValue = availability === 'value' && record != null ? descriptor.getValue(record) : null
     const normalValue = descriptor.getNormalValue(normal)
-    const anomaly = metric === 'rainfall' ? null : calculateTemperatureAnomaly(value, normalValue)
-    const label = descriptor.formatValue(value)
+    // For anomaly metrics, the displayed/bucketed value is the anomaly itself
+    const isAnomalyMetric = metric === 'max-anomaly' || metric === 'min-anomaly' || metric === 'mean-anomaly'
+    const anomaly = metric === 'rainfall' ? null : calculateTemperatureAnomaly(rawValue, normalValue)
+    const value = isAnomalyMetric ? anomaly : rawValue
+    const label = isAnomalyMetric
+      ? (anomaly != null
+          ? `${anomaly > 0 ? '+' : ''}${anomaly.toFixed(1)} ${WEATHER_UNITS.temperature}`
+          : '—')
+      : descriptor.formatValue(rawValue)
     const cell: CalendarDayCell = {
       date,
       year,

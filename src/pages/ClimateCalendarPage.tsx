@@ -45,6 +45,9 @@ const METRIC_OPTIONS: readonly { value: CalendarMetric; label: string }[] = [
   { value: 'min', label: 'Min temperature' },
   { value: 'mean', label: 'Mean temperature' },
   { value: 'rainfall', label: 'Rainfall' },
+  { value: 'max-anomaly', label: 'Max anomaly' },
+  { value: 'min-anomaly', label: 'Min anomaly' },
+  { value: 'mean-anomaly', label: 'Mean anomaly' },
 ]
 
 const DATE_FORMAT: Intl.DateTimeFormatOptions = {

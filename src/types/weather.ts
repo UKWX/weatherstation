@@ -4,6 +4,12 @@ export type IsoUtcTimestampString = string
 
 export type NullableMeasurement = number | null
 
+export type JsonScalar = string | number | boolean | null
+export type JsonValue = JsonScalar | JsonObject | readonly JsonValue[]
+export interface JsonObject {
+  readonly [key: string]: JsonValue
+}
+
 export type MeteorologicalSeason = 'winter' | 'spring' | 'summer' | 'autumn'
 
 export type ComparisonMode = 'season-vs-season' | 'same-period' | 'custom'
@@ -24,60 +30,112 @@ export interface MeasurementUnits {
 }
 
 export interface CurrentConditions {
-  observedAtUtc: IsoUtcTimestampString | null
+  observationTimeUtc: IsoUtcTimestampString | null
+  observationTimeLocal: string | null
+  fetchedAtUtc: IsoUtcTimestampString | null
   temperatureC: NullableMeasurement
+  heatIndexC: NullableMeasurement
+  windChillC: NullableMeasurement
   feelsLikeC: NullableMeasurement
-  dewPointC: NullableMeasurement
-  humidityPct: NullableMeasurement
+  dewpointC: NullableMeasurement
+  humidityPercent: NullableMeasurement
   pressureHpa: NullableMeasurement
+  windSpeedKmh: NullableMeasurement
   windSpeedMph: NullableMeasurement
+  windGustKmh: NullableMeasurement
   windGustMph: NullableMeasurement
   windDirectionDegrees: NullableMeasurement
   rainRateMmPerHour: NullableMeasurement
-  rainfallTodayMm: NullableMeasurement
+  rainTodayMm: NullableMeasurement
+  solarRadiationWm2: NullableMeasurement
+  uvIndex: NullableMeasurement
 }
 
 export interface StationStatus {
+  status: string
+  collectorStatus: string | null
+  message: string | null
+  checkedAtUtc: IsoUtcTimestampString | null
+  observationTimeUtc: IsoUtcTimestampString | null
+  live: boolean
   online: boolean
-  observedAtUtc: IsoUtcTimestampString | null
   observationAgeSeconds: number | null
-  lastSuccessfulUpdateUtc: IsoUtcTimestampString | null
-  isStale: boolean
 }
 
 export interface RecentObservation {
-  observedAtUtc: IsoUtcTimestampString
+  observationTimeUtc: IsoUtcTimestampString
+  observationTimeLocal: string | null
   temperatureC: NullableMeasurement
+  dewpointC: NullableMeasurement
+  heatIndexC: NullableMeasurement
+  windChillC: NullableMeasurement
+  humidityPercent: NullableMeasurement
   pressureHpa: NullableMeasurement
+  windSpeedKmh: NullableMeasurement
+  windSpeedMph: NullableMeasurement
+  windGustKmh: NullableMeasurement
+  windGustMph: NullableMeasurement
+  windDirectionDegrees: NullableMeasurement
   rainRateMmPerHour: NullableMeasurement
-  rainfallTodayMm: NullableMeasurement
+  rainTodayMm: NullableMeasurement
+  solarRadiationWm2: NullableMeasurement
+  uvIndex: NullableMeasurement
+}
+
+export interface RecentObservationsPayload {
+  metadata: JsonObject
+  observations: readonly RecentObservation[]
+}
+
+export interface TodayMeasurementWindow {
+  windowStartLocal: string | null
+  windowEndLocal: string | null
+  provisional: boolean | null
+  timeLocal: string | null
+  coverage: JsonObject | null
+}
+
+export interface TodayTemperatureSummary extends TodayMeasurementWindow {
+  value: NullableMeasurement
+}
+
+export interface TodayRainfallSummary extends TodayMeasurementWindow {
+  totalMm: NullableMeasurement
+}
+
+export interface CalendarDayExtreme {
+  value: JsonValue
+  timeLocal: string | null
+  provisional: boolean | null
+  coverage: JsonObject | null
+  details: JsonObject
 }
 
 export interface ProvisionalTodaySummary {
-  climateDate: ClimateDateString
-  maxTempC: NullableMeasurement
-  minTempC: NullableMeasurement
-  rainfallMm: NullableMeasurement
-  officialWindows: {
-    maxTemperature: string
-    minTemperature: string
-    rainfall: string
-  }
+  metadata: JsonObject
+  currentObservation: CurrentConditions | null
+  maximumTemperature: TodayTemperatureSummary | null
+  minimumTemperature: TodayTemperatureSummary | null
+  rainfall: TodayRainfallSummary | null
+  calendarDayExtremes: Record<string, CalendarDayExtreme>
 }
 
-export interface DataSeriesCoverage {
-  startDate: ClimateDateString
-  endDate: ClimateDateString | null
-  latestCompleteYear: number | null
+export interface ClimateIndexHistory {
+  firstDate: ClimateDateString | null
+  lastDate: ClimateDateString | null
+  firstYear: number | null
+  lastYear: number | null
+  yearCount: number | null
 }
 
 export interface ClimateIndex {
+  status: string | null
   station: string
   generatedAtUtc: IsoUtcTimestampString | null
-  latestAvailableDate: ClimateDateString | null
-  latestAvailableYear: number | null
-  temperatureCoverage: DataSeriesCoverage
-  rainfallCoverage: DataSeriesCoverage
+  history: ClimateIndexHistory
+  normals: JsonObject
+  dataQuality: JsonObject
+  endpoints: JsonObject
 }
 
 export interface ArchiveIndexYear {
@@ -85,8 +143,7 @@ export interface ArchiveIndexYear {
   startDate: ClimateDateString | null
   endDate: ClimateDateString | null
   observationCount: number | null
-  complete: boolean
-  rainfallComplete: boolean
+  complete: boolean | null
 }
 
 export interface ArchiveIndex {
@@ -119,6 +176,29 @@ export interface MonthlyNormal {
   meanMinTempC: NullableMeasurement
   meanTempC: NullableMeasurement
   rainfallMm: NullableMeasurement
+}
+
+export interface DailyNormalsPayload {
+  station: string
+  generatedAtUtc: IsoUtcTimestampString | null
+  baseline: string
+  units: {
+    temperature: string
+  }
+  recordCount: number
+  records: readonly DailyNormal[]
+}
+
+export interface MonthlyNormalsPayload {
+  station: string
+  generatedAtUtc: IsoUtcTimestampString | null
+  baseline: string
+  units: {
+    temperature: string
+    rainfall: string
+  }
+  monthCount: number
+  months: readonly MonthlyNormal[]
 }
 
 export interface ObservationCounts {
@@ -193,7 +273,12 @@ export interface AnnualClimatePayload {
   complete: boolean
   through: ClimateDateString | null
   observationCount: number | null
-  units: MeasurementUnits
+  units: {
+    temperature: string
+    rainfall: string
+    pressure: string | null
+    wind: string | null
+  }
   records: readonly ClimateDay[]
 }
 

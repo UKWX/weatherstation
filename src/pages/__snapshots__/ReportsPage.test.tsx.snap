@@ -1,0 +1,775 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`ReportsPage > renders annual report snapshot 1`] = `
+<section
+  aria-labelledby="annual-report-title"
+  class="card reports-card"
+>
+  <h2
+    id="annual-report-title"
+  >
+    2024
+     annual report 
+  </h2>
+  <div
+    class="reports-export-row"
+  >
+    <button
+      class="button button-ghost"
+      type="button"
+    >
+      Print
+    </button>
+    <button
+      class="button button-ghost"
+      type="button"
+    >
+      Social PNG
+    </button>
+    <button
+      class="button button-ghost"
+      type="button"
+    >
+      CSV
+    </button>
+    <button
+      class="button button-ghost"
+      type="button"
+    >
+      Copy text
+    </button>
+    <button
+      class="button button-ghost"
+      type="button"
+    >
+      JSON
+    </button>
+  </div>
+  <dl
+    class="reports-stat-grid"
+  >
+    <div>
+      <dt>
+        Annual mean max
+      </dt>
+      <dd>
+        17.9 °C
+         (
+        -0.1 °C
+         avg)
+      </dd>
+    </div>
+    <div>
+      <dt>
+        Annual mean min
+      </dt>
+      <dd>
+        5.9 °C
+         (
+        -3.1 °C
+         avg)
+      </dd>
+    </div>
+    <div>
+      <dt>
+        Annual mean temperature
+      </dt>
+      <dd>
+        11.3 °C
+         (
+        -2.2 °C
+         avg)
+      </dd>
+    </div>
+    <div>
+      <dt>
+        Highest max
+      </dt>
+      <dd>
+        25.5 °C
+         (
+        31 Jan, 31 Mar, 31 May, 31 Jul, 31 Aug, 31 Oct, 31 Dec
+        )
+      </dd>
+    </div>
+    <div>
+      <dt>
+        Lowest min
+      </dt>
+      <dd>
+        2.3 °C
+         (
+        1 Jan, 1 Feb, 1 Mar, 1 Apr, 1 May, 1 Jun, 1 Jul, 1 Aug, 1 Sept, 1 Oct, 1 Nov, 1 Dec
+        )
+      </dd>
+    </div>
+    <div>
+      <dt>
+        Annual rainfall
+      </dt>
+      <dd>
+        442.3 mm
+         (
+        73.7%
+         avg)
+      </dd>
+    </div>
+    <div>
+      <dt>
+        Rain days (&gt;0.1 mm)
+      </dt>
+      <dd>
+        270
+      </dd>
+    </div>
+    <div>
+      <dt>
+        Wettest day
+      </dt>
+      <dd>
+        3.1 mm
+         (
+        31 Jan, 31 Mar, 31 May, 31 Jul, 31 Aug, 31 Oct, 31 Dec
+        )
+      </dd>
+    </div>
+    <div>
+      <dt>
+        Annual temperature ranking
+      </dt>
+      <dd>
+        #1 of 2
+      </dd>
+    </div>
+    <div>
+      <dt>
+        Annual rainfall ranking
+      </dt>
+      <dd>
+        #1 of 2
+      </dd>
+    </div>
+  </dl>
+  <section
+    class="reports-subsection"
+  >
+    <h3>
+      Threshold counts
+    </h3>
+    <p>
+      ≥20°C: 
+      138
+      , ≥25°C: 
+      18
+      , ≥30°C: 
+      0
+      , Frost days: 
+      0
+      , Heavy rain days (≥10 mm): 
+      0
+    </p>
+  </section>
+  <section
+    class="reports-subsection"
+  >
+    <h3>
+      Longest spells
+    </h3>
+    <ul>
+      <li>
+        Longest dry spell
+        : 
+        1
+         day(s)
+         (1 Jan to 1 Jan)
+      </li>
+      <li>
+        Longest wet spell
+        : 
+        3
+         day(s)
+         (5 Jan to 7 Jan)
+      </li>
+      <li>
+        Longest warm spell (≥20°C)
+        : 
+        12
+         day(s)
+         (20 Jan to 31 Jan)
+      </li>
+      <li>
+        Longest frost spell (&lt;0°C min)
+        : 
+        0
+         day(s)
+      </li>
+    </ul>
+  </section>
+  <section
+    class="reports-subsection"
+  >
+    <h3>
+      Records set or tied
+    </h3>
+    <ul>
+      <li>
+        Annual highest maximum matched the station daily maximum record.
+      </li>
+      <li>
+        Annual lowest minimum matched the station daily minimum record.
+      </li>
+      <li>
+        Annual mean temperature set the warmest annual ranking.
+      </li>
+      <li>
+        Annual rainfall set the wettest annual ranking.
+      </li>
+    </ul>
+  </section>
+  <section
+    class="reports-subsection"
+  >
+    <h3>
+      Monthly breakdown
+    </h3>
+    <div
+      class="table-wrapper"
+    >
+      <table
+        aria-label="Annual report monthly breakdown"
+      >
+        <thead>
+          <tr>
+            <th>
+              Month
+            </th>
+            <th>
+              Mean max
+            </th>
+            <th>
+              Mean min
+            </th>
+            <th>
+              Mean temp
+            </th>
+            <th>
+              Rainfall
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>
+              January
+            </td>
+            <td>
+              18.0 °C
+            </td>
+            <td>
+              6.0 °C
+            </td>
+            <td>
+              11.3 °C
+            </td>
+            <td>
+              38.4 mm
+            </td>
+          </tr>
+          <tr>
+            <td>
+              February
+            </td>
+            <td>
+              17.5 °C
+            </td>
+            <td>
+              5.8 °C
+            </td>
+            <td>
+              11.0 °C
+            </td>
+            <td>
+              32.3 mm
+            </td>
+          </tr>
+          <tr>
+            <td>
+              March
+            </td>
+            <td>
+              18.0 °C
+            </td>
+            <td>
+              6.0 °C
+            </td>
+            <td>
+              11.3 °C
+            </td>
+            <td>
+              38.4 mm
+            </td>
+          </tr>
+          <tr>
+            <td>
+              April
+            </td>
+            <td>
+              17.8 °C
+            </td>
+            <td>
+              5.9 °C
+            </td>
+            <td>
+              11.2 °C
+            </td>
+            <td>
+              35.3 mm
+            </td>
+          </tr>
+          <tr>
+            <td>
+              May
+            </td>
+            <td>
+              18.0 °C
+            </td>
+            <td>
+              6.0 °C
+            </td>
+            <td>
+              11.3 °C
+            </td>
+            <td>
+              38.4 mm
+            </td>
+          </tr>
+          <tr>
+            <td>
+              June
+            </td>
+            <td>
+              17.8 °C
+            </td>
+            <td>
+              5.9 °C
+            </td>
+            <td>
+              11.2 °C
+            </td>
+            <td>
+              35.3 mm
+            </td>
+          </tr>
+          <tr>
+            <td>
+              July
+            </td>
+            <td>
+              18.0 °C
+            </td>
+            <td>
+              6.0 °C
+            </td>
+            <td>
+              11.3 °C
+            </td>
+            <td>
+              38.4 mm
+            </td>
+          </tr>
+          <tr>
+            <td>
+              August
+            </td>
+            <td>
+              18.0 °C
+            </td>
+            <td>
+              6.0 °C
+            </td>
+            <td>
+              11.3 °C
+            </td>
+            <td>
+              38.4 mm
+            </td>
+          </tr>
+          <tr>
+            <td>
+              September
+            </td>
+            <td>
+              17.8 °C
+            </td>
+            <td>
+              5.9 °C
+            </td>
+            <td>
+              11.2 °C
+            </td>
+            <td>
+              35.3 mm
+            </td>
+          </tr>
+          <tr>
+            <td>
+              October
+            </td>
+            <td>
+              18.0 °C
+            </td>
+            <td>
+              6.0 °C
+            </td>
+            <td>
+              11.3 °C
+            </td>
+            <td>
+              38.4 mm
+            </td>
+          </tr>
+          <tr>
+            <td>
+              November
+            </td>
+            <td>
+              17.8 °C
+            </td>
+            <td>
+              5.9 °C
+            </td>
+            <td>
+              11.2 °C
+            </td>
+            <td>
+              35.3 mm
+            </td>
+          </tr>
+          <tr>
+            <td>
+              December
+            </td>
+            <td>
+              18.0 °C
+            </td>
+            <td>
+              6.0 °C
+            </td>
+            <td>
+              11.3 °C
+            </td>
+            <td>
+              38.4 mm
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+  <section
+    class="reports-subsection"
+  >
+    <h3>
+      Completeness statement
+    </h3>
+    <p>
+      Closed year. Temperature coverage 366/366 valid days. Rainfall coverage 366/366 valid days (0 missing).
+    </p>
+  </section>
+  <section
+    class="reports-subsection"
+  >
+    <h3>
+      Deterministic written summary
+    </h3>
+    <p>
+      2024 annual report. Mean temperature +11.3 °C (-2.2°C vs 1991–2020). Rainfall 442.3 mm (73.7% of normal). Year is not provisional. Coverage is complete.
+    </p>
+  </section>
+  <section
+    class="reports-subsection"
+  >
+    <h3>
+      Compact copyable text
+    </h3>
+    <pre
+      class="reports-compact-block"
+    >
+      2024 annual report
+Mean max 17.9 °C (-0.1°C avg)
+Mean min 5.9 °C (-3.1°C avg)
+Mean temp 11.3 °C (-2.2°C avg)
+Highest max 25.5 °C (31 Jan, 31 Mar, 31 May, 31 Jul, 31 Aug, 31 Oct, 31 Dec)
+Lowest min 2.3 °C (1 Jan, 1 Feb, 1 Mar, 1 Apr, 1 May, 1 Jun, 1 Jul, 1 Aug, 1 Sept, 1 Oct, 1 Nov, 1 Dec)
+Rainfall 442.3 mm (73.7% avg)
+Rain days (&gt;0.1 mm) 270
+Wettest day 3.1 mm (31 Jan, 31 Mar, 31 May, 31 Jul, 31 Aug, 31 Oct, 31 Dec)
+Temperature ranking #1 of 2
+Rainfall ranking #1 of 2
+Days ≥20°C 138, ≥25°C 18, ≥30°C 0, Frost 0
+    </pre>
+  </section>
+</section>
+`;
+
+exports[`ReportsPage > renders monthly report snapshot and compact output 1`] = `
+<section
+  aria-labelledby="monthly-report-title"
+  class="card reports-card"
+>
+  <h2
+    id="monthly-report-title"
+  >
+    June
+     
+    2024
+     monthly report
+     
+  </h2>
+  <div
+    class="reports-export-row"
+  >
+    <button
+      class="button button-ghost"
+      type="button"
+    >
+      Print
+    </button>
+    <button
+      class="button button-ghost"
+      type="button"
+    >
+      Social PNG
+    </button>
+    <button
+      class="button button-ghost"
+      type="button"
+    >
+      CSV
+    </button>
+    <button
+      class="button button-ghost"
+      type="button"
+    >
+      Copy text
+    </button>
+    <button
+      class="button button-ghost"
+      type="button"
+    >
+      JSON
+    </button>
+  </div>
+  <dl
+    class="reports-stat-grid"
+  >
+    <div>
+      <dt>
+        TMax
+      </dt>
+      <dd>
+        25.0 °C
+         (
+        30 Jun
+        )
+      </dd>
+    </div>
+    <div>
+      <dt>
+        TMin
+      </dt>
+      <dd>
+        2.3 °C
+         (
+        1 Jun
+        )
+      </dd>
+    </div>
+    <div>
+      <dt>
+        TMean
+      </dt>
+      <dd>
+        11.2 °C
+         (
+        -2.3 °C
+         avg)
+      </dd>
+    </div>
+    <div>
+      <dt>
+        Mean max
+      </dt>
+      <dd>
+        17.8 °C
+         (
+        -0.3 °C
+         avg)
+      </dd>
+    </div>
+    <div>
+      <dt>
+        Mean min
+      </dt>
+      <dd>
+        5.9 °C
+         (
+        -3.1 °C
+         avg)
+      </dd>
+    </div>
+    <div>
+      <dt>
+        Rainfall total
+      </dt>
+      <dd>
+        35.3 mm
+      </dd>
+    </div>
+    <div>
+      <dt>
+        Rainfall normal (
+        1991–2020
+        )
+      </dt>
+      <dd>
+        50.0 mm
+      </dd>
+    </div>
+    <div>
+      <dt>
+        Rainfall percentage
+      </dt>
+      <dd>
+        70.6%
+      </dd>
+    </div>
+    <div>
+      <dt>
+        Rain days (&gt;0.1 mm)
+      </dt>
+      <dd>
+        22
+      </dd>
+    </div>
+    <div>
+      <dt>
+        Wettest day
+      </dt>
+      <dd>
+        3.0 mm
+         (
+        30 Jun
+        )
+      </dd>
+    </div>
+    <div>
+      <dt>
+        Year-to-date rainfall
+      </dt>
+      <dd>
+        218.1 mm
+      </dd>
+    </div>
+    <div>
+      <dt>
+        Expected YTD rainfall
+      </dt>
+      <dd>
+        300.0 mm
+      </dd>
+    </div>
+    <div>
+      <dt>
+        Monthly temperature ranking
+      </dt>
+      <dd>
+        #1 of 2 (2 tied)
+      </dd>
+    </div>
+    <div>
+      <dt>
+        Monthly rainfall ranking
+      </dt>
+      <dd>
+        #1 of 2 (2 tied)
+      </dd>
+    </div>
+    <div>
+      <dt>
+        Coverage
+      </dt>
+      <dd>
+        Temp 
+        30
+        /
+        30
+         valid, 
+        0
+         missing; Rain 
+        30
+         valid, 
+        0
+         missing
+      </dd>
+    </div>
+    <div>
+      <dt>
+        State
+      </dt>
+      <dd>
+        Complete
+      </dd>
+    </div>
+  </dl>
+  <section
+    class="reports-subsection"
+  >
+    <h3>
+      Records set or tied
+    </h3>
+    <ul>
+      <li>
+        TMin set or tied the station daily minimum record.
+      </li>
+      <li>
+        Monthly mean temperature tied the warmest rank for this calendar month.
+      </li>
+      <li>
+        Monthly rainfall tied the wettest rank for this calendar month.
+      </li>
+    </ul>
+  </section>
+  <section
+    class="reports-subsection"
+  >
+    <h3>
+      Deterministic written summary
+    </h3>
+    <p>
+      June 2024 monthly report. TMax 25.0 °C; TMin 2.3 °C. Mean temperature 11.2 °C (-2.3°C vs 1991–2020). Rainfall 35.3 mm (70.6% of normal); rain days above 0.1 mm: 22. Coverage 30/30 temperature days valid and 30 rainfall days valid. Report is not provisional. Coverage is complete.
+    </p>
+  </section>
+  <section
+    class="reports-subsection"
+  >
+    <h3>
+      Compact copyable text
+    </h3>
+    <pre
+      class="reports-compact-block"
+    >
+      June 2024
+TMax 25.0 °C (30 Jun)
+TMin 2.3 °C (1 Jun)
+TMean 11.2 °C (-2.3°C avg)
+Mean max 17.8 °C (-0.3°C avg)
+Mean min 5.9 °C (-3.1°C avg)
+Rainfall 35.3 mm (70.6% avg)
+Rain days (&gt;0.1 mm) 22
+Wettest day 3.0 mm (30 Jun)
+Annual rainfall 218.1 mm
+    </pre>
+  </section>
+</section>
+`;

@@ -1842,3 +1842,107 @@ th {
     grid-template-columns: 1fr;
   }
 }
+
+.reports-layout {
+  display: grid;
+  gap: 1rem;
+}
+
+.reports-controls-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.reports-controls-row label {
+  font-weight: 600;
+}
+
+.reports-controls-row select {
+  border: 1px solid var(--border);
+  border-radius: 0.5rem;
+  padding: 0.4rem 0.55rem;
+  background: var(--surface);
+  color: var(--text);
+}
+
+.reports-toggle-group {
+  display: inline-flex;
+  gap: 0.4rem;
+}
+
+.reports-toggle-active {
+  border-color: var(--primary);
+}
+
+.reports-export-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  margin: 0.75rem 0 1rem;
+}
+
+.reports-stat-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 0.8rem;
+}
+
+.reports-stat-grid dt {
+  color: var(--text-muted);
+  font-size: 0.86rem;
+}
+
+.reports-stat-grid dd {
+  margin: 0.2rem 0 0;
+}
+
+.reports-subsection {
+  margin-top: 1rem;
+}
+
+.reports-subsection h3 {
+  margin: 0 0 0.5rem;
+}
+
+.reports-compact-block {
+  white-space: pre-wrap;
+  margin: 0;
+  background: var(--surface-muted);
+  border: 1px solid var(--border);
+  border-radius: 0.6rem;
+  padding: 0.75rem;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+@media (max-width: 640px) {
+  .reports-controls-row {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}
+
+@media print {
+  .sidebar,
+  .top-header,
+  .page-header,
+  .reports-no-print,
+  .reports-export-row {
+    display: none !important;
+  }
+
+  .app-shell {
+    display: block;
+  }
+
+  .main-container {
+    padding: 0;
+  }
+
+  .card {
+    border: none;
+    box-shadow: none;
+    padding: 0;
+  }
+}

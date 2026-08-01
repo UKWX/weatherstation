@@ -1048,7 +1048,7 @@ function validateJsonValue(value: unknown, context: string): JsonValue {
     typeof value === 'boolean' ||
     (typeof value === 'number' && Number.isFinite(value))
   ) {
-    return value
+    return value ?? null
   }
 
   if (Array.isArray(value)) {
@@ -1078,7 +1078,7 @@ function deriveStationLiveState(
   status: string,
   collectorStatus: string | null,
 ): Pick<StationStatus, 'online' | 'live'> {
-  const normalizedStatus = normalizeStatusValue(status)
+  const normalizedStatus = status.trim().toLowerCase()
   const normalizedCollectorStatus = normalizeStatusValue(collectorStatus)
   const onlineStatusValues = new Set(['online', 'live', 'healthy', 'ok'])
   const liveCollectorStatusValues = new Set(['online', 'live', 'healthy', 'ok', 'running', 'collecting'])
@@ -1184,7 +1184,8 @@ function safeRecord(value: unknown): Record<string, unknown> | null {
 }
 
 function deriveTopLevelKeys(value: unknown): readonly string[] {
-  return safeRecord(value) == null ? [] : Object.keys(value)
+  const record = safeRecord(value)
+  return record == null ? [] : Object.keys(record)
 }
 
 function compactDiagnosticValue(value: unknown, depth = 0): unknown {

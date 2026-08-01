@@ -77,8 +77,8 @@ export const NAVIGATION_ITEMS: readonly NavigationItem[] = [
   {
     to: '/data-corrections',
     label: 'Data Corrections',
-    description: 'Correction workflow is unavailable until authentication is enabled.',
-    available: false,
+    description: 'Edit and audit daily climate records. Requires administrator login.',
+    available: true,
   },
 ]
 

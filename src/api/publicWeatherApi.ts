@@ -25,6 +25,7 @@ const LIVE_STALE_TIME_MS = 45_000
 const ARCHIVE_INDEX_STALE_TIME_MS = 30 * 60_000
 const NORMALS_STALE_TIME_MS = 24 * 60 * 60_000
 const CLIMATE_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/
+const CLIMATE_DAY_KEY_PATTERN = /^(\d{2})-(\d{2})$/
 const RECORD_PATH_SYMBOL: unique symbol = Symbol('recordPath')
 
 type RawRecord = Record<string, unknown> & {
@@ -960,10 +961,15 @@ function adaptTodaySummary(raw: RawRecord): ProvisionalTodaySummary {
 
 function adaptClimateIndex(raw: RawRecord): ClimateIndex {
   const history = validateRecord(raw.history, '/climate/index.json.history')
+  const station = validateRecord(raw.station, '/climate/index.json.station')
 
   return {
     status: optionalString(raw, 'status'),
-    station: requiredString(raw, 'station'),
+    station: {
+      id: requiredString(station, 'id'),
+      name: requiredString(station, 'name'),
+      country: requiredString(station, 'country'),
+    },
     generatedAtUtc: optionalString(raw, 'generated_at_utc'),
     history: {
       firstDate: optionalClimateDateString(history, 'first_date'),
@@ -1037,12 +1043,15 @@ function adaptAnnualRecord(raw: RawRecord): AnnualClimatePayload['records'][numb
 
 function adaptDailyNormal(raw: RawRecord): DailyNormal {
   return {
-    date: requiredClimateDateString(raw, 'date'),
+    dateKey: requiredClimateDayKey(raw, 'date_key'),
     month: requiredNumber(raw, 'month'),
     day: requiredNumber(raw, 'day'),
-    maxTempC: optionalNullableNumber(raw, 'max_temp_c'),
-    minTempC: optionalNullableNumber(raw, 'min_temp_c'),
-    meanTempC: optionalNullableNumber(raw, 'mean_temp_c'),
+    normalMaxTempC: optionalNullableNumber(raw, 'normal_max_temp_c'),
+    normalMinTempC: optionalNullableNumber(raw, 'normal_min_temp_c'),
+    normalMeanTempC: optionalNullableNumber(raw, 'normal_mean_temp_c'),
+    maxSampleCount: requiredInteger(raw, 'max_sample_count'),
+    minSampleCount: requiredInteger(raw, 'min_sample_count'),
+    baseline: requiredString(raw, 'baseline'),
   }
 }
 
@@ -1487,6 +1496,43 @@ function optionalClimateDateString(
   })
 }
 
+function requiredClimateDayKey(record: RawRecord, key: string): string {
+  const value = requiredString(record, key)
+  const match = CLIMATE_DAY_KEY_PATTERN.exec(value)
+  if (!match) {
+    throw new PublicApiError({
+      code: 'MALFORMED_DATA',
+      message: `Expected MM-DD climate day key for "${key}"`,
+      details: { key, path: `${deriveRecordPath(record)}.${key}` },
+      retryable: false,
+    })
+  }
+
+  const month = Number(match[1])
+  const day = Number(match[2])
+  const maxDayByMonth = [31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
+  const maxDay = maxDayByMonth[month - 1]
+  if (!Number.isInteger(month) || !Number.isInteger(day) || month < 1 || month > 12 || day < 1) {
+    throw new PublicApiError({
+      code: 'MALFORMED_DATA',
+      message: `Expected MM-DD climate day key for "${key}"`,
+      details: { key, path: `${deriveRecordPath(record)}.${key}` },
+      retryable: false,
+    })
+  }
+
+  if (maxDay == null || day > maxDay) {
+    throw new PublicApiError({
+      code: 'MALFORMED_DATA',
+      message: `Expected valid climate day key for "${key}"`,
+      details: { key, path: `${deriveRecordPath(record)}.${key}` },
+      retryable: false,
+    })
+  }
+
+  return value
+}
+
 function requiredNumber(record: RawRecord, key: string): number {
   const value = record[key]
   if (typeof value === 'number' && Number.isFinite(value)) {
@@ -1496,6 +1542,20 @@ function requiredNumber(record: RawRecord, key: string): number {
   throw new PublicApiError({
     code: 'MALFORMED_DATA',
     message: `Expected number for "${key}"`,
+    details: { key, path: `${deriveRecordPath(record)}.${key}` },
+    retryable: false,
+  })
+}
+
+function requiredInteger(record: RawRecord, key: string): number {
+  const value = requiredNumber(record, key)
+  if (Number.isInteger(value)) {
+    return value
+  }
+
+  throw new PublicApiError({
+    code: 'MALFORMED_DATA',
+    message: `Expected integer for "${key}"`,
     details: { key, path: `${deriveRecordPath(record)}.${key}` },
     retryable: false,
   })

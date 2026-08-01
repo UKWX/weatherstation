@@ -128,9 +128,15 @@ export interface ClimateIndexHistory {
   yearCount: number | null
 }
 
+export interface ClimateStationIdentity {
+  id: string
+  name: string
+  country: string
+}
+
 export interface ClimateIndex {
   status: string | null
-  station: string
+  station: ClimateStationIdentity
   generatedAtUtc: IsoUtcTimestampString | null
   history: ClimateIndexHistory
   normals: JsonObject
@@ -162,12 +168,15 @@ export interface ClimateDay {
 }
 
 export interface DailyNormal {
-  date: ClimateDateString
+  dateKey: string
   month: number
   day: number
-  maxTempC: NullableMeasurement
-  minTempC: NullableMeasurement
-  meanTempC: NullableMeasurement
+  normalMaxTempC: NullableMeasurement
+  normalMinTempC: NullableMeasurement
+  normalMeanTempC: NullableMeasurement
+  maxSampleCount: number
+  minSampleCount: number
+  baseline: string
 }
 
 export interface MonthlyNormal {

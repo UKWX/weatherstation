@@ -570,3 +570,376 @@ th {
     grid-template-columns: 1fr;
   }
 }
+
+/* ===== Live Data page ===== */
+
+.live-data-layout {
+  display: grid;
+  gap: 1rem;
+}
+
+.live-data-header {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  flex-wrap: wrap;
+}
+
+.live-data-header h1 {
+  margin: 0;
+}
+
+.live-status-badges {
+  display: flex;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+}
+
+/* refresh controls */
+.live-refresh-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+
+.live-control-btn {
+  min-height: 2.5rem;
+  min-width: 5rem;
+}
+
+.live-refresh-countdown {
+  font-size: 0.9rem;
+  color: var(--text-muted);
+}
+
+.live-refresh-paused {
+  color: var(--warning);
+  font-weight: 600;
+}
+
+/* range selector */
+.live-range-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  flex-wrap: wrap;
+}
+
+.live-range-label {
+  font-size: 0.9rem;
+  color: var(--text-muted);
+}
+
+.live-range-selector {
+  display: flex;
+  gap: 0.35rem;
+}
+
+.live-range-btn {
+  border: 1px solid var(--border);
+  background: var(--surface-muted);
+  color: var(--text);
+  border-radius: 0.45rem;
+  padding: 0.45rem 0.9rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  min-height: 2.5rem;
+  min-width: 5.5rem;
+  text-align: center;
+}
+
+.live-range-btn:hover {
+  background: var(--surface-strong);
+  border-color: var(--primary);
+}
+
+.live-range-btn--active {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: #fff;
+}
+
+.live-range-btn:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* panels grid */
+.live-panels-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 0.8rem;
+}
+
+/* current conditions */
+.live-conditions-panel h2 {
+  margin-top: 0;
+  margin-bottom: 0.4rem;
+}
+
+.live-conditions-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 0.6rem;
+  margin: 0.7rem 0;
+}
+
+.live-condition-item {
+  /* no extra style needed – uses dl/dt/dd directly */
+}
+
+.live-condition-label {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  margin: 0;
+}
+
+.live-condition-value {
+  margin: 0.2rem 0 0;
+  font-weight: 700;
+  font-size: 1rem;
+}
+
+.live-condition-value--large {
+  font-size: 1.5rem;
+}
+
+.live-obs-time {
+  display: flex;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  margin-top: 0.7rem;
+  align-items: center;
+}
+
+.live-obs-sep {
+  color: var(--border);
+}
+
+/* station health */
+.live-health-panel h2 {
+  margin-top: 0;
+  margin-bottom: 0.4rem;
+}
+
+.live-health-grid {
+  display: grid;
+  gap: 0.6rem;
+  margin: 0.7rem 0;
+}
+
+.live-health-grid dt {
+  font-size: 0.82rem;
+  color: var(--text-muted);
+}
+
+.live-health-grid dd {
+  margin: 0.2rem 0 0;
+  font-weight: 600;
+}
+
+.live-health-stale {
+  color: var(--warning);
+}
+
+.live-health-message dd {
+  font-size: 0.88rem;
+}
+
+.live-no-data-note {
+  color: var(--text-muted);
+  margin: 0.5rem 0;
+}
+
+/* charts grid */
+.live-charts-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 0.8rem;
+}
+
+.live-chart-card {
+  padding: 0.9rem;
+}
+
+.live-chart-title {
+  margin: 0 0 0.4rem;
+  font-size: 1rem;
+}
+
+.live-chart-no-data {
+  color: var(--text-muted);
+  padding: 1.5rem 0;
+  text-align: center;
+}
+
+.live-chart-legend {
+  display: flex;
+  gap: 0.6rem;
+  align-items: center;
+  flex-wrap: wrap;
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  margin-bottom: 0.5rem;
+}
+
+.live-chart-legend-dot {
+  display: inline-block;
+  width: 0.7rem;
+  height: 0.7rem;
+  border-radius: 50%;
+}
+
+.live-chart-legend-dot--dashed {
+  border-radius: 0;
+  height: 0;
+  width: 1.2rem;
+  border-top: 2px dashed;
+}
+
+.live-chart-svg-wrapper {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.live-chart-svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  min-width: 280px;
+  min-height: 130px;
+}
+
+.live-chart-data-panel {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: baseline;
+  font-size: 0.82rem;
+  min-height: 1.6rem;
+  margin-top: 0.4rem;
+  color: var(--text-muted);
+}
+
+.live-chart-data-time {
+  font-weight: 600;
+  color: var(--text);
+}
+
+.live-chart-data-value {
+  font-weight: 600;
+}
+
+/* observations table */
+.live-table-header {
+  display: grid;
+  gap: 0.7rem;
+  margin-bottom: 0.8rem;
+}
+
+.live-table-title-row {
+  display: flex;
+  align-items: baseline;
+  gap: 0.7rem;
+  flex-wrap: wrap;
+}
+
+.live-table-title-row h2 {
+  margin: 0;
+}
+
+.live-table-count {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.live-table-controls {
+  display: flex;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.live-measurement-selector {
+  display: flex;
+  gap: 0.35rem;
+  flex-wrap: wrap;
+}
+
+.live-measure-btn {
+  border: 1px solid var(--border);
+  background: var(--surface-muted);
+  color: var(--text-muted);
+  border-radius: 0.45rem;
+  padding: 0.35rem 0.65rem;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  min-height: 2.2rem;
+}
+
+.live-measure-btn:hover {
+  border-color: var(--primary);
+  color: var(--text);
+}
+
+.live-measure-btn--active {
+  background: color-mix(in srgb, var(--primary) 15%, var(--surface));
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
+.live-measure-btn:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.live-table-actions {
+  display: flex;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+  margin-left: auto;
+}
+
+.live-obs-table-wrapper {
+  /* uses .table-wrapper from base CSS */
+}
+
+.live-obs-table td,
+.live-obs-table th {
+  white-space: nowrap;
+}
+
+.live-no-observations {
+  color: var(--text-muted);
+  text-align: center;
+  padding: 1rem 0;
+  margin: 0;
+}
+
+@media (max-width: 700px) {
+  .live-panels-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .live-charts-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .live-conditions-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .live-table-controls {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .live-table-actions {
+    margin-left: 0;
+  }
+}

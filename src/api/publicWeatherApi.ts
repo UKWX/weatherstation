@@ -1314,82 +1314,6 @@ function compactDiagnosticValue(value: unknown, depth = 0): unknown {
     return value
   }
 
-  function summariseObject(
-    record: Record<string, unknown> | null,
-    nullabilitySources: readonly (Record<string, unknown> | null)[] = [record],
-  ): {
-    keys: readonly string[]
-    fields: Record<
-      string,
-      {
-        type: string
-        mayBeNull: boolean
-        sample: unknown
-        arrayLength: number | null
-      }
-    >
-  } {
-    if (record == null) {
-      return {
-        keys: [],
-        fields: {},
-      }
-    }
-
-    const keys = Object.keys(record)
-    return {
-      keys,
-      fields: Object.fromEntries(
-        keys.map((key) => {
-          const value = record[key]
-          const mayBeNull = nullabilitySources.some((source) => source?.[key] === null)
-          return [
-            key,
-            {
-              type: deriveDiagnosticValueType(value),
-              mayBeNull,
-              sample: compactDiagnosticValue(value, 1),
-              arrayLength: Array.isArray(value) ? value.length : null,
-            },
-          ]
-        }),
-      ),
-    }
-  }
-
-  function deriveDiagnosticValueType(value: unknown): string {
-    if (value === null) {
-      return 'null'
-    }
-    if (Array.isArray(value)) {
-      return 'array'
-    }
-    return typeof value
-  }
-
-  function countNonNullValues(value: unknown): number {
-    const record = safeRecord(value)
-    if (record == null) {
-      return 0
-    }
-    return Object.values(record).filter((entry) => entry !== null).length
-  }
-
-  function findMostCompleteRecordIndex(values: readonly unknown[]): number | null {
-    let bestIndex: number | null = null
-    let bestScore = -1
-
-    values.forEach((entry, index) => {
-      const score = countNonNullValues(entry)
-      if (score > bestScore) {
-        bestScore = score
-        bestIndex = index
-      }
-    })
-
-    return bestIndex
-  }
-
   if (depth >= 2) {
     if (Array.isArray(value)) {
       return `[Array(${value.length})]`
@@ -1415,6 +1339,82 @@ function compactDiagnosticValue(value: unknown, depth = 0): unknown {
       .slice(0, 8)
       .map(([key, entryValue]) => [key, compactDiagnosticValue(entryValue, depth + 1)]),
   )
+}
+
+function summariseObject(
+  record: Record<string, unknown> | null,
+  nullabilitySources: readonly (Record<string, unknown> | null)[] = [record],
+): {
+  keys: readonly string[]
+  fields: Record<
+    string,
+    {
+      type: string
+      mayBeNull: boolean
+      sample: unknown
+      arrayLength: number | null
+    }
+  >
+} {
+  if (record == null) {
+    return {
+      keys: [],
+      fields: {},
+    }
+  }
+
+  const keys = Object.keys(record)
+  return {
+    keys,
+    fields: Object.fromEntries(
+      keys.map((key) => {
+        const value = record[key]
+        const mayBeNull = nullabilitySources.some((source) => source?.[key] === null)
+        return [
+          key,
+          {
+            type: deriveDiagnosticValueType(value),
+            mayBeNull,
+            sample: compactDiagnosticValue(value, 1),
+            arrayLength: Array.isArray(value) ? value.length : null,
+          },
+        ]
+      }),
+    ),
+  }
+}
+
+function deriveDiagnosticValueType(value: unknown): string {
+  if (value === null) {
+    return 'null'
+  }
+  if (Array.isArray(value)) {
+    return 'array'
+  }
+  return typeof value
+}
+
+function countNonNullValues(value: unknown): number {
+  const record = safeRecord(value)
+  if (record == null) {
+    return 0
+  }
+  return Object.values(record).filter((entry) => entry != null).length
+}
+
+function findMostCompleteRecordIndex(values: readonly unknown[]): number | null {
+  let bestIndex: number | null = null
+  let bestScore = -1
+
+  values.forEach((entry, index) => {
+    const score = countNonNullValues(entry)
+    if (score > bestScore) {
+      bestScore = score
+      bestIndex = index
+    }
+  })
+
+  return bestIndex
 }
 
 function requiredString(record: RawRecord, key: string): string {

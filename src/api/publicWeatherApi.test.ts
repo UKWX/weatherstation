@@ -450,7 +450,7 @@ describe('publicWeatherApi', () => {
       year: 1995,
       complete: true,
     })
-    expect(data.years[1]).toMatchObject({
+    expect(data.years.at(-1)).toMatchObject({
       year: 2026,
       complete: false,
     })

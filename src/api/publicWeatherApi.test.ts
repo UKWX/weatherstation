@@ -174,7 +174,11 @@ const todayFixture = {
 
 const climateIndexFixture = {
   status: 'ok',
-  station: 'Wakefield',
+  station: {
+    id: 'IWAKEF50',
+    name: 'Wakefield',
+    country: 'GB',
+  },
   generated_at_utc: '2026-08-01T08:00:10Z',
   history: {
     first_date: '1995-01-01',
@@ -186,23 +190,26 @@ const climateIndexFixture = {
   normals: {
     daily: {
       baseline: '1995-2024',
-      endpoint: '/climate/normals/daily.json',
+      record_count: 366,
     },
     monthly: {
       baseline: '1991-2020',
-      endpoint: '/climate/normals/monthly.json',
+      month_count: 12,
     },
-    daily_baseline: '1995-2024',
-    monthly_baseline: '1991-2020',
   },
   data_quality: {
-    provisional_years: [2026],
-    notes: null,
+    missing_maximum_temperature: 6,
+    missing_minimum_temperature: 0,
   },
   endpoints: {
-    archive_index: '/climate/archive/index.json',
-    daily_normals: '/climate/normals/daily.json',
-    monthly_normals: '/climate/normals/monthly.json',
+    archive_index: 'archive/index.json',
+    year_template: 'archive/{year}.json',
+    daily_normals: 'normals/daily.json',
+    monthly_normals: 'normals/monthly.json',
+    live_current: './current.json',
+    live_recent: './recent.json',
+    live_today: './today.json',
+    feed_status: './status.json',
   },
 }
 
@@ -268,20 +275,26 @@ const dailyNormalsFixture = {
   record_count: 366,
   records: [
     {
-      date: '2000-01-01',
+      date_key: '01-01',
       month: 1,
       day: 1,
-      max_temp_c: 7.8,
-      min_temp_c: 2.3,
-      mean_temp_c: 5.1,
+      normal_max_temp_c: 7.8,
+      normal_min_temp_c: 2.3,
+      normal_mean_temp_c: 5.1,
+      max_sample_count: 30,
+      min_sample_count: 30,
+      baseline: '1995-2024',
     },
     {
-      date: '2000-02-29',
+      date_key: '02-29',
       month: 2,
       day: 29,
-      max_temp_c: 7.2,
-      min_temp_c: 1.8,
-      mean_temp_c: 4.5,
+      normal_max_temp_c: 7.2,
+      normal_min_temp_c: 1.8,
+      normal_mean_temp_c: 4.5,
+      max_sample_count: 8,
+      min_sample_count: 8,
+      baseline: '1995-2024',
     },
   ],
 }
@@ -432,12 +445,28 @@ describe('publicWeatherApi', () => {
 
     expect(data).toMatchObject({
       status: 'ok',
-      station: 'Wakefield',
+      station: {
+        id: 'IWAKEF50',
+        name: 'Wakefield',
+        country: 'GB',
+      },
       history: {
         firstDate: '1995-01-01',
         lastYear: 2026,
         yearCount: 32,
       },
+    })
+  })
+
+  it('preserves structured climate index station identity', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(mockJsonResponse(climateIndexFixture)))
+
+    const data = await getClimateIndex()
+
+    expect(data.station).toEqual({
+      id: 'IWAKEF50',
+      name: 'Wakefield',
+      country: 'GB',
     })
   })
 
@@ -525,6 +554,26 @@ describe('publicWeatherApi', () => {
     })
   })
 
+  it('maps daily normals date_key to dateKey without manufacturing a year', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(mockJsonResponse(dailyNormalsFixture)))
+
+    const daily = await getDailyNormals()
+
+    expect(daily.records[0]).toMatchObject({
+      dateKey: '01-01',
+      month: 1,
+      day: 1,
+      normalMaxTempC: 7.8,
+      normalMinTempC: 2.3,
+      normalMeanTempC: 5.1,
+      maxSampleCount: 30,
+      minSampleCount: 30,
+      baseline: '1995-2024',
+    })
+    expect(daily.records[1]?.dateKey).toBe('02-29')
+    expect('date' in daily.records[0]).toBe(false)
+  })
+
   it('passes diagnostics validation and adaptation for every endpoint fixture', () => {
     for (const [endpoint, payload] of Object.entries(endpointFixtures) as Array<
       [PublicApiDiagnosticEndpoint, unknown]
@@ -594,16 +643,28 @@ describe('publicWeatherApi', () => {
         keys: expect.arrayContaining(['daily', 'monthly']),
       },
       normalsDaily: {
-        keys: expect.arrayContaining(['baseline', 'endpoint']),
+        keys: expect.arrayContaining(['baseline', 'record_count']),
       },
       normalsMonthly: {
-        keys: expect.arrayContaining(['baseline', 'endpoint']),
+        keys: expect.arrayContaining(['baseline', 'month_count']),
       },
       dataQuality: {
-        keys: expect.arrayContaining(['provisional_years', 'notes']),
+        keys: expect.arrayContaining([
+          'missing_maximum_temperature',
+          'missing_minimum_temperature',
+        ]),
       },
       endpoints: {
-        keys: expect.arrayContaining(['archive_index', 'daily_normals', 'monthly_normals']),
+        keys: expect.arrayContaining([
+          'archive_index',
+          'year_template',
+          'daily_normals',
+          'monthly_normals',
+          'live_current',
+          'live_recent',
+          'live_today',
+          'feed_status',
+        ]),
       },
     })
     expect(archiveIndexResult.inspection).toMatchObject({
@@ -622,10 +683,27 @@ describe('publicWeatherApi', () => {
     })
     expect(dailyNormalsResult.inspection).toMatchObject({
       firstRecord: {
-        keys: expect.arrayContaining(['date', 'month', 'day', 'max_temp_c', 'min_temp_c', 'mean_temp_c']),
+        keys: expect.arrayContaining([
+          'date_key',
+          'month',
+          'day',
+          'normal_max_temp_c',
+          'normal_min_temp_c',
+          'normal_mean_temp_c',
+          'max_sample_count',
+          'min_sample_count',
+          'baseline',
+        ]),
       },
       february29Record: {
-        keys: expect.arrayContaining(['date', 'month', 'day', 'max_temp_c', 'min_temp_c', 'mean_temp_c']),
+        keys: expect.arrayContaining([
+          'date_key',
+          'month',
+          'day',
+          'normal_max_temp_c',
+          'normal_min_temp_c',
+          'normal_mean_temp_c',
+        ]),
       },
     })
     expect(monthlyNormalsResult.inspection).toMatchObject({

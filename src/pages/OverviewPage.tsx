@@ -1,3 +1,11 @@
+import { PlaceholderPage } from '@/pages/PlaceholderPage'
+
 export default function OverviewPage() {
-  return <h1>Overview</h1>
+  return (
+    <PlaceholderPage
+      title="Overview"
+      message="Overview dashboard widgets will be completed in Prompt 5."
+      showTable
+    />
+  )
 }

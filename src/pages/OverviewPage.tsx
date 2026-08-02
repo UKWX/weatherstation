@@ -1,9 +1,9 @@
-import { useMemo } from 'react'
+import { type ReactNode, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import {
   Badge,
-  CardGrid,
   ErrorState,
+  FullscreenChartModal,
   IncompleteDataWarning,
   ProvisionalBadge,
   Skeleton,
@@ -11,7 +11,7 @@ import {
   UnavailableDataDisplay,
   VisuallyHidden,
 } from '@/components/ui'
-import { WEATHER_UNITS } from '@/config/weather'
+import { MONTHLY_NORMAL_BASELINE, WEATHER_UNITS } from '@/config/weather'
 import {
   useAnnualClimateQuery,
   useClimateArchiveIndexQuery,
@@ -22,6 +22,7 @@ import {
   useTodaySummaryQuery,
 } from '@/hooks/usePublicWeatherQueries'
 import {
+  calculateDailyMeanTemperature,
   formatEuropeLondonDisplay,
   formatNullableMeasurement,
   parseIsoClimateDate,
@@ -34,6 +35,14 @@ import type {
   RecentObservation,
   StationStatus,
 } from '@/types/weather'
+import {
+  buildChartPoints,
+  computeSeriesRanges,
+  OVERVIEW_CHART_SERIES,
+  OverviewChart,
+  type OverviewChartType,
+} from '@/pages/overviewChart'
+import { MetricIcon } from '@/pages/overviewIcons'
 
 const STALE_OBSERVATION_SECONDS = 15 * 60
 
@@ -41,11 +50,6 @@ const DATE_TIME_FORMAT: Intl.DateTimeFormatOptions = {
   day: '2-digit',
   month: 'short',
   year: 'numeric',
-  hour: '2-digit',
-  minute: '2-digit',
-}
-
-const TIME_FORMAT: Intl.DateTimeFormatOptions = {
   hour: '2-digit',
   minute: '2-digit',
 }
@@ -62,19 +66,37 @@ const SHORT_DATE_FORMAT: Intl.DateTimeFormatOptions = {
   month: 'short',
 }
 
-type CurrentField = {
+const COMPASS_POINTS = [
+  'N', 'NNE', 'NE', 'ENE', 'E', 'ESE', 'SE', 'SSE',
+  'S', 'SSW', 'SW', 'WSW', 'W', 'WNW', 'NW', 'NNW',
+] as const
+
+type MetricField = {
   key: string
   label: string
   value: number | null
   unit: string
   minimumFractionDigits?: number
   maximumFractionDigits?: number
+  sub?: ReactNode
 }
 
-type ChartPoint = {
-  timeLabel: string
-  value: number | null
-}
+const RANGE_PRESETS = [
+  { id: '24h', label: '24-hour', ms: 24 * 60 * 60 * 1000 },
+  { id: '7d', label: '7-day', ms: 7 * 24 * 60 * 60 * 1000 },
+  { id: '30d', label: '30-day', ms: 30 * 24 * 60 * 60 * 1000 },
+  { id: 'ytd', label: 'Year to date', ms: null },
+  { id: 'custom', label: 'Custom', ms: null },
+] as const
+
+type RangePresetId = (typeof RANGE_PRESETS)[number]['id']
+
+const CHART_TYPES: ReadonlyArray<{ id: OverviewChartType; label: string }> = [
+  { id: 'line', label: 'Line' },
+  { id: 'area', label: 'Area' },
+  { id: 'bar', label: 'Bar' },
+  { id: 'scatter', label: 'Scatter' },
+]
 
 export default function OverviewPage() {
   const currentQuery = useCurrentConditionsQuery()
@@ -86,16 +108,24 @@ export default function OverviewPage() {
 
   const latestYear = useMemo(() => {
     const years = archiveIndexQuery.data?.years ?? []
-
     if (years.length === 0) {
       return new Date().getUTCFullYear()
     }
-
-    return years.reduce((highest, yearEntry) =>
-      yearEntry.year > highest ? yearEntry.year : highest, years[0]?.year ?? new Date().getUTCFullYear())
+    return years.reduce(
+      (highest, yearEntry) => (yearEntry.year > highest ? yearEntry.year : highest),
+      years[0]?.year ?? new Date().getUTCFullYear(),
+    )
   }, [archiveIndexQuery.data])
 
   const annualQuery = useAnnualClimateQuery(latestYear)
+
+  const [rangePreset, setRangePreset] = useState<RangePresetId>('24h')
+  const [chartType, setChartType] = useState<OverviewChartType>('line')
+  const [enabledSeriesIds, setEnabledSeriesIds] = useState<ReadonlySet<string>>(
+    () => new Set(OVERVIEW_CHART_SERIES.filter((series) => series.defaultOn).map((series) => series.id)),
+  )
+  const [showMoreSeries, setShowMoreSeries] = useState(false)
+  const [fullscreen, setFullscreen] = useState(false)
 
   const loading = [
     currentQuery,
@@ -146,11 +176,9 @@ export default function OverviewPage() {
   const monthlyNormal = resolveMonthlyNormal(monthlyNormalsQuery.data?.months)
 
   const now = new Date()
-  const observationTimeUtc =
-    current.observationTimeUtc ?? status.observationTimeUtc ?? null
+  const observationTimeUtc = current.observationTimeUtc ?? status.observationTimeUtc ?? null
   const observationAgeSeconds =
-    status.observationAgeSeconds ??
-    deriveObservationAgeSeconds(observationTimeUtc, now)
+    status.observationAgeSeconds ?? deriveObservationAgeSeconds(observationTimeUtc, now)
 
   const statusStale =
     !status.online ||
@@ -172,16 +200,24 @@ export default function OverviewPage() {
 
   const headerOffline = !status.online || queryHasRefreshIssue
 
-  const liveFields: CurrentField[] = [
+  const recentObservations = recent.observations
+  const sortedObservations = sortObservations(recentObservations)
+
+  const compass = degreesToCompass(current.windDirectionDegrees)
+  const temperatureTrend = deriveTrend(sortedObservations, (entry) => entry.temperatureC)
+  const pressureTrend = deriveTrend(sortedObservations, (entry) => entry.pressureHpa)
+
+  const liveFields: MetricField[] = [
     {
       key: 'temperature',
       label: 'Temperature',
       value: current.temperatureC,
       unit: WEATHER_UNITS.temperature,
+      sub: renderTrend(temperatureTrend, WEATHER_UNITS.temperature),
     },
     {
       key: 'feels-like',
-      label: 'Feels-like',
+      label: 'Feels like',
       value: current.feelsLikeC,
       unit: WEATHER_UNITS.temperature,
     },
@@ -204,129 +240,185 @@ export default function OverviewPage() {
       label: 'Pressure',
       value: current.pressureHpa,
       unit: WEATHER_UNITS.pressure,
+      sub: renderTrend(pressureTrend, WEATHER_UNITS.pressure),
     },
     {
       key: 'wind-speed',
-      label: 'Wind speed',
+      label: 'Wind',
       value: current.windSpeedMph,
       unit: WEATHER_UNITS.wind,
+      sub:
+        compass != null ? (
+          <span className="wind-direction-text">{compass}</span>
+        ) : undefined,
     },
     {
       key: 'wind-gust',
-      label: 'Wind gust',
+      label: 'Gust',
       value: current.windGustMph,
       unit: WEATHER_UNITS.wind,
-    },
-    {
-      key: 'wind-direction',
-      label: 'Wind direction',
-      value: current.windDirectionDegrees,
-      unit: '°',
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
     },
     {
       key: 'rain-rate',
       label: 'Rain rate',
       value: current.rainRateMmPerHour,
       unit: `${WEATHER_UNITS.rainfall}/hr`,
-      minimumFractionDigits: 1,
-      maximumFractionDigits: 1,
     },
     {
       key: 'rain-today',
-      label: `Today's live rainfall`,
+      label: `Today's rainfall`,
       value: current.rainTodayMm,
       unit: WEATHER_UNITS.rainfall,
-      minimumFractionDigits: 1,
-      maximumFractionDigits: 1,
     },
   ]
 
   const { todayDate, yesterdayDate } = getTodayAndYesterdayClimateDates(now)
   const yesterdayRecord = annual == null ? null : findClimateRecord(annual.records, yesterdayDate)
   const monthRecords = annual == null ? [] : recordsForMonth(annual.records, todayDate)
-
   const monthStats = deriveCurrentMonthStats(monthRecords, monthlyNormal)
 
-  const recentObservations = recent.observations
-  const temperaturePoints = toChartPoints(recentObservations, (entry) => entry.temperatureC)
-  const pressurePoints = toChartPoints(recentObservations, (entry) => entry.pressureHpa)
-  const rainfallMetric = chooseRainfallMetric(recentObservations)
-  const rainfallPoints = toChartPoints(recentObservations, rainfallMetric.selector)
+  const provisionalMax = todayQuery.data?.maximumTemperature?.value ?? null
+  const provisionalMin = todayQuery.data?.minimumTemperature?.value ?? null
+  const provisionalMean = calculateDailyMeanTemperature(provisionalMax, provisionalMin)
+
+  const enabledSeries = OVERVIEW_CHART_SERIES.filter((series) => enabledSeriesIds.has(series.id))
+  const visibleObservations = filterByRange(sortedObservations, rangePreset)
+  const chartPoints = buildChartPoints(visibleObservations)
+  const seriesRanges = computeSeriesRanges(chartPoints, enabledSeries)
+
+  const toggleSeries = (id: string) => {
+    setEnabledSeriesIds((previous) => {
+      const next = new Set(previous)
+      if (next.has(id)) {
+        next.delete(id)
+      } else {
+        next.add(id)
+      }
+      return next
+    })
+  }
+
+  const chartControls = (
+    <div className="graph-controls">
+      <div className="graph-control-group">
+        <span className="graph-control-label">Graph view</span>
+        {RANGE_PRESETS.map((preset) => (
+          <button
+            key={preset.id}
+            type="button"
+            className="graph-range-btn"
+            aria-pressed={rangePreset === preset.id}
+            onClick={() => setRangePreset(preset.id)}
+          >
+            {preset.label}
+          </button>
+        ))}
+      </div>
+      <div className="graph-control-group">
+        <span className="graph-control-label">Type</span>
+        {CHART_TYPES.map((type) => (
+          <button
+            key={type.id}
+            type="button"
+            className="graph-type-btn"
+            aria-pressed={chartType === type.id}
+            onClick={() => setChartType(type.id)}
+          >
+            {type.label}
+          </button>
+        ))}
+      </div>
+      <div className="graph-control-group">
+        <span className="graph-control-label">Data series</span>
+        {OVERVIEW_CHART_SERIES.filter((series) => !series.more || showMoreSeries).map((series) => (
+          <label key={series.id} className="graph-series-check">
+            <input
+              type="checkbox"
+              checked={enabledSeriesIds.has(series.id)}
+              onChange={() => toggleSeries(series.id)}
+            />
+            <span className="graph-series-dot" style={{ background: series.color }} />
+            {series.label}
+          </label>
+        ))}
+        <button
+          type="button"
+          className="graph-type-btn"
+          aria-pressed={showMoreSeries}
+          onClick={() => setShowMoreSeries((previous) => !previous)}
+        >
+          {showMoreSeries ? 'Less' : 'More'} ▾
+        </button>
+      </div>
+    </div>
+  )
+
+  const chartLegend = (
+    <div className="graph-legend" aria-hidden="true">
+      {enabledSeries.map((series) => (
+        <span key={series.id} className="graph-legend__item">
+          <span className="graph-legend__swatch" style={{ background: series.color }} />
+          {series.label} ({series.unit})
+        </span>
+      ))}
+    </div>
+  )
 
   return (
     <div className="overview-layout">
-      <section className="card overview-status" aria-labelledby="overview-status-title">
-        <div className="overview-status-header">
-          <h2 id="overview-status-title">Station status</h2>
-          <div className="overview-status-actions">
-            <Badge variant={headerOffline ? 'error' : 'success'}>
-              {headerOffline ? 'Offline' : 'Online'}
-            </Badge>
-            <button
-              type="button"
-              className="button"
-              onClick={() => {
-                void Promise.all([
-                  currentQuery.refetch(),
-                  statusQuery.refetch(),
-                  recentQuery.refetch(),
-                  todayQuery.refetch(),
-                ])
-              }}
-            >
-              Manual refresh
-            </button>
-          </div>
-        </div>
-
-        <dl className="overview-metadata-grid">
-          <div>
-            <dt>Observation timestamp</dt>
-            <dd>{formatDateTimeValue(observationTimeUtc)}</dd>
-          </div>
-          <div>
-            <dt>Observation age</dt>
-            <dd>{formatObservationAge(observationAgeSeconds)}</dd>
-          </div>
-          <div>
-            <dt>Last successful update</dt>
-            <dd>
-              {formatDateTimeValue(
-                current.fetchedAtUtc ?? status.checkedAtUtc ?? null,
-              )}
-            </dd>
-          </div>
-        </dl>
-
+      <section className="overview-status-bar" aria-label="Station status">
+        <Badge variant={headerOffline ? 'error' : 'success'}>
+          {headerOffline ? 'Station offline' : 'Station online'}
+        </Badge>
+        <span className="header-updated">
+          Last updated: {formatDateTimeValue(observationTimeUtc)}
+        </span>
         {showStaleWarning ? (
-          <StaleDataWarning message="Data may be delayed; the latest successful values remain visible." />
+          <StaleDataWarning message="Latest successful values remain visible." />
         ) : null}
+        <button
+          type="button"
+          className="button button-outline"
+          style={{ marginLeft: 'auto' }}
+          onClick={() => {
+            void Promise.all([
+              currentQuery.refetch(),
+              statusQuery.refetch(),
+              recentQuery.refetch(),
+              todayQuery.refetch(),
+            ])
+          }}
+        >
+          Manual refresh
+        </button>
       </section>
 
-      <section className="card" aria-labelledby="overview-current-title">
-        <h2 id="overview-current-title">Current conditions</h2>
-        <CardGrid>
+      <section className="card" aria-labelledby="cc-title">
+        <h2 id="cc-title" className="section-title">Current conditions</h2>
+        <div className="metric-cards-row">
           {liveFields.map((field) => (
-            <article key={field.key} className="card overview-metric-card">
-              <h3>{field.label}</h3>
-              <p className="overview-metric-value">
+            <div key={field.key} className="metric-card">
+              <span className="metric-card__icon">
+                <MetricIcon name={field.key} />
+              </span>
+              <span className="metric-card__label">{field.label}</span>
+              <span className="metric-card__value">
                 {formatNullableMeasurement(field.value, {
                   unit: field.unit,
                   minimumFractionDigits: field.minimumFractionDigits,
                   maximumFractionDigits: field.maximumFractionDigits,
                 })}
-              </p>
-            </article>
+              </span>
+              {field.sub != null ? <span className="metric-card__sub">{field.sub}</span> : null}
+            </div>
           ))}
-        </CardGrid>
+        </div>
       </section>
 
-      <div className="overview-climate-grid">
-        <section className="card" aria-labelledby="overview-today-title">
-          <div className="overview-card-heading">
-            <h2 id="overview-today-title">Today's provisional climate</h2>
+      <div className="climate-context-row">
+        <section className="card climate-row-card" aria-labelledby="today-climate-title">
+          <div className="climate-row-card__heading">
+            <h3 id="today-climate-title">Today's provisional climate</h3>
             <ProvisionalBadge />
           </div>
           {todayQuery.data == null ? (
@@ -335,41 +427,37 @@ export default function OverviewPage() {
               message="today.json is unavailable right now."
             />
           ) : (
-            <dl className="overview-key-value-list">
-              <div>
-                <dt>Provisional maximum</dt>
-                <dd>
-                  {formatNullableMeasurement(todayQuery.data.maximumTemperature?.value ?? null, {
-                    unit: WEATHER_UNITS.temperature,
-                  })}
-                </dd>
-              </div>
-              <div>
-                <dt>Provisional minimum</dt>
-                <dd>
-                  {formatNullableMeasurement(todayQuery.data.minimumTemperature?.value ?? null, {
-                    unit: WEATHER_UNITS.temperature,
-                  })}
-                </dd>
-              </div>
-              <div>
-                <dt>Provisional rainfall</dt>
-                <dd>
-                  {formatNullableMeasurement(todayQuery.data.rainfall?.totalMm ?? null, {
-                    unit: WEATHER_UNITS.rainfall,
-                  })}
-                </dd>
-              </div>
-            </dl>
+            <div className="climate-stats-row">
+              <ClimateStat
+                label="Max"
+                value={provisionalMax}
+                unit={WEATHER_UNITS.temperature}
+                sub={formatLocalTime(todayQuery.data.maximumTemperature?.timeLocal ?? null)}
+              />
+              <ClimateStat
+                label="Min"
+                value={provisionalMin}
+                unit={WEATHER_UNITS.temperature}
+                sub={formatLocalTime(todayQuery.data.minimumTemperature?.timeLocal ?? null)}
+              />
+              <ClimateStat label="Mean" value={provisionalMean} unit={WEATHER_UNITS.temperature} />
+              <ClimateStat
+                label="Rain"
+                value={todayQuery.data.rainfall?.totalMm ?? null}
+                unit={WEATHER_UNITS.rainfall}
+              />
+            </div>
           )}
-          <p className="overview-note">
-            Provisional values are live-day estimates; official daily extremes use
-            different finalised windows in the climate archive.
+          <p className="climate-row-card__note">
+            Provisional live-day estimates; official extremes use finalised windows.
           </p>
         </section>
 
-        <section className="card" aria-labelledby="overview-yesterday-title">
-          <h2 id="overview-yesterday-title">Yesterday's finalised climate</h2>
+        <section className="card climate-row-card" aria-labelledby="yesterday-climate-title">
+          <div className="climate-row-card__heading">
+            <h3 id="yesterday-climate-title">Yesterday's finalised climate</h3>
+            <Badge variant="default">Official 06:00–06:00</Badge>
+          </div>
           {yesterdayRecord == null ? (
             <UnavailableDataDisplay
               title="Yesterday's record unavailable"
@@ -377,259 +465,365 @@ export default function OverviewPage() {
             />
           ) : (
             <>
-              <dl className="overview-key-value-list">
-                <div>
-                  <dt>Maximum</dt>
-                  <dd>
-                    {formatNullableMeasurement(yesterdayRecord.maxTempC, {
-                      unit: WEATHER_UNITS.temperature,
-                    })}
-                  </dd>
-                </div>
-                <div>
-                  <dt>Minimum</dt>
-                  <dd>
-                    {formatNullableMeasurement(yesterdayRecord.minTempC, {
-                      unit: WEATHER_UNITS.temperature,
-                    })}
-                  </dd>
-                </div>
-                <div>
-                  <dt>Mean</dt>
-                  <dd>
-                    {formatNullableMeasurement(yesterdayRecord.meanTempC, {
-                      unit: WEATHER_UNITS.temperature,
-                    })}
-                  </dd>
-                </div>
-                <div>
-                  <dt>Rainfall</dt>
-                  <dd>
-                    {formatNullableMeasurement(yesterdayRecord.rainfallMm, {
-                      unit: WEATHER_UNITS.rainfall,
-                    })}
-                  </dd>
-                </div>
-              </dl>
-              <p>
+              <div className="climate-stats-row">
+                <ClimateStat label="Max" value={yesterdayRecord.maxTempC} unit={WEATHER_UNITS.temperature} />
+                <ClimateStat label="Min" value={yesterdayRecord.minTempC} unit={WEATHER_UNITS.temperature} />
+                <ClimateStat label="Mean" value={yesterdayRecord.meanTempC} unit={WEATHER_UNITS.temperature} />
+                <ClimateStat label="Rain" value={yesterdayRecord.rainfallMm} unit={WEATHER_UNITS.rainfall} />
+              </div>
+              <p className="climate-row-card__note">
                 <Link to={`/climate-archive?date=${yesterdayRecord.date}`} className="link-focus">
-                  View {formatEuropeLondonDisplay(yesterdayRecord.date, SHORT_DATE_FORMAT)} in Climate Archive
+                  View {formatEuropeLondonDisplay(yesterdayRecord.date, SHORT_DATE_FORMAT)} in Climate
+                  Archive
                 </Link>
               </p>
             </>
           )}
         </section>
+
+        <section className="card climate-row-card" aria-labelledby="month-climate-title">
+          <div className="climate-row-card__heading">
+            <h3 id="month-climate-title">Current month context</h3>
+            <Badge variant={monthStats.complete ? 'success' : 'warning'}>
+              {monthStats.complete ? 'Complete to date' : 'Provisional / incomplete'}
+            </Badge>
+          </div>
+          {!monthStats.complete ? (
+            <IncompleteDataWarning message="Current-month coverage is still provisional and may be incomplete." />
+          ) : null}
+          <div className="climate-stats-row">
+            <ClimateStat label="Highest max" value={monthStats.highestMax} unit={WEATHER_UNITS.temperature} />
+            <ClimateStat label="Lowest min" value={monthStats.lowestMin} unit={WEATHER_UNITS.temperature} />
+            <ClimateStat label="Mean max" value={monthStats.meanMax} unit={WEATHER_UNITS.temperature} />
+            <ClimateStat label="Mean min" value={monthStats.meanMin} unit={WEATHER_UNITS.temperature} />
+            <ClimateStat label="Mean temp" value={monthStats.meanTemp} unit={WEATHER_UNITS.temperature} />
+            <ClimateStat label="Rain total" value={monthStats.rainfallTotal} unit={WEATHER_UNITS.rainfall} />
+            <ClimateStat label="Rain days" value={monthStats.rainDays} unit="" plain />
+            <ClimateStat label="Wettest day" value={monthStats.wettestDay} unit={WEATHER_UNITS.rainfall} />
+          </div>
+          <div className="coverage-bar">
+            <div className="coverage-bar__label">
+              Coverage: {monthStats.coverageDays}/{monthStats.expectedDays} days (provisional)
+            </div>
+            <div className="coverage-bar__track">
+              <div
+                className="coverage-bar__fill"
+                style={{ ['--coverage-pct' as string]: `${monthStats.coveragePct}%` }}
+              />
+            </div>
+          </div>
+        </section>
       </div>
 
-      <section className="card" aria-labelledby="overview-month-title">
-        <div className="overview-card-heading">
-          <h2 id="overview-month-title">Current month context</h2>
-          <Badge variant={monthStats.complete ? 'success' : 'warning'}>
-            {monthStats.complete ? 'Complete to date' : 'Provisional / incomplete'}
-          </Badge>
+      <section className="card graph-section" aria-labelledby="graph-title">
+        <div className="graph-section__header">
+          <h2 id="graph-title" className="section-title">Graph view</h2>
+          <button
+            type="button"
+            className="fullscreen-btn"
+            aria-label="Open chart in fullscreen"
+            onClick={() => setFullscreen(true)}
+          >
+            ⤢
+          </button>
         </div>
-
-        {!monthStats.complete ? (
-          <IncompleteDataWarning message="Current-month coverage is still provisional and may be incomplete." />
-        ) : null}
-
-        <dl className="overview-key-value-grid">
-          <div>
-            <dt>Highest max</dt>
-            <dd>{formatNullableMeasurement(monthStats.highestMax, { unit: WEATHER_UNITS.temperature })}</dd>
-          </div>
-          <div>
-            <dt>Lowest min</dt>
-            <dd>{formatNullableMeasurement(monthStats.lowestMin, { unit: WEATHER_UNITS.temperature })}</dd>
-          </div>
-          <div>
-            <dt>Mean max</dt>
-            <dd>{formatNullableMeasurement(monthStats.meanMax, { unit: WEATHER_UNITS.temperature })}</dd>
-          </div>
-          <div>
-            <dt>Mean min</dt>
-            <dd>{formatNullableMeasurement(monthStats.meanMin, { unit: WEATHER_UNITS.temperature })}</dd>
-          </div>
-          <div>
-            <dt>Mean temperature</dt>
-            <dd>{formatNullableMeasurement(monthStats.meanTemp, { unit: WEATHER_UNITS.temperature })}</dd>
-          </div>
-          <div>
-            <dt>Rainfall total</dt>
-            <dd>{formatNullableMeasurement(monthStats.rainfallTotal, { unit: WEATHER_UNITS.rainfall })}</dd>
-          </div>
-          <div>
-            <dt>Rain days</dt>
-            <dd>{monthStats.rainDays}</dd>
-          </div>
-          <div>
-            <dt>Wettest day</dt>
-            <dd>{formatNullableMeasurement(monthStats.wettestDay, { unit: WEATHER_UNITS.rainfall })}</dd>
-          </div>
-          <div>
-            <dt>Coverage</dt>
-            <dd>{monthStats.coverageText}</dd>
-          </div>
-          <div>
-            <dt>Temperature anomaly</dt>
-            <dd>
-              {formatNullableMeasurement(monthStats.temperatureAnomaly, {
-                unit: WEATHER_UNITS.temperature,
-              })}
-            </dd>
-          </div>
-          <div>
-            <dt>Rainfall normal %</dt>
-            <dd>
-              {formatNullableMeasurement(monthStats.rainfallPercentageOfNormal, {
-                unit: '%',
-                minimumFractionDigits: 0,
-                maximumFractionDigits: 0,
-              })}
-            </dd>
-          </div>
-        </dl>
-      </section>
-
-      <section className="card" aria-labelledby="overview-charts-title">
-        <h2 id="overview-charts-title">Recent trend charts</h2>
-        <div className="overview-chart-grid">
-          <RecentLineChart
-            title="Temperature"
-            unit={WEATHER_UNITS.temperature}
-            points={temperaturePoints}
-          />
-          <RecentLineChart
-            title="Pressure"
-            unit={WEATHER_UNITS.pressure}
-            points={pressurePoints}
-          />
-          <RecentLineChart
-            title={rainfallMetric.label}
-            unit={rainfallMetric.unit}
-            points={rainfallPoints}
-          />
+        {chartControls}
+        {chartLegend}
+        <div className="overview-chart-wrap">
+          <OverviewChart points={chartPoints} enabledSeries={enabledSeries} chartType={chartType} />
+        </div>
+        <div className="range-summary-row">
+          <span className="range-summary-row__label">Range (visible period)</span>
+          {seriesRanges.map((range) => (
+            <span key={range.id} className="range-chip">
+              <span className="range-chip__dot" style={{ background: range.color }} />
+              {range.label}: {formatNullableMeasurement(range.min, { unit: range.unit })} –{' '}
+              {formatNullableMeasurement(range.max, { unit: range.unit })}
+            </span>
+          ))}
         </div>
       </section>
 
-      <section className="card" aria-labelledby="overview-links-title">
-        <h2 id="overview-links-title">Quick links</h2>
-        <ul className="overview-quick-links">
-          <li>
-            <Link to="/live-data" className="link-focus">Live Data</Link>
-          </li>
-          <li>
-            <Link to="/climate-archive" className="link-focus">Climate Archive</Link>
-          </li>
-          <li>
-            <Link to="/records" className="link-focus">Records</Link>
-          </li>
-          <li>
-            <Link to="/reports" className="link-focus">Reports</Link>
-          </li>
-        </ul>
-      </section>
+      <div className="info-cards-row">
+        <RecentExtremesCard observations={sortedObservations} />
+        <RainfallSummaryCard
+          todayRainfall={current.rainTodayMm}
+          rainDays={monthStats.rainDays}
+          wettestDay={monthStats.wettestDay}
+        />
+        <section className="card info-card" aria-labelledby="sun-day-title">
+          <h3 id="sun-day-title">Sun &amp; day</h3>
+          <UnavailableDataDisplay
+            title="Sunrise/sunset unavailable"
+            message="Sunrise and sunset data are not published by the station feed."
+          />
+        </section>
+        <section className="card info-card" aria-labelledby="station-info-title">
+          <h3 id="station-info-title">Station info</h3>
+          <dl className="info-card__list">
+            <div className="info-card__row">
+              <dt>Station</dt>
+              <dd>{typeof archiveIndexQuery.data?.station === 'string' ? archiveIndexQuery.data.station : 'Wakefield'}</dd>
+            </div>
+            <div className="info-card__row">
+              <dt>Baseline</dt>
+              <dd>{MONTHLY_NORMAL_BASELINE}</dd>
+            </div>
+            <div className="info-card__row">
+              <dt>Updated</dt>
+              <dd>{formatDateTimeValue(current.fetchedAtUtc ?? status.checkedAtUtc ?? observationTimeUtc)}</dd>
+            </div>
+          </dl>
+        </section>
+      </div>
+
+      <FullscreenChartModal
+        title="Graph view"
+        isOpen={fullscreen}
+        onClose={() => setFullscreen(false)}
+      >
+        {chartControls}
+        {chartLegend}
+        <div className="overview-chart-wrap" style={{ flex: 1, minHeight: 0 }}>
+          <OverviewChart
+            points={chartPoints}
+            enabledSeries={enabledSeries}
+            chartType={chartType}
+            height={520}
+          />
+        </div>
+      </FullscreenChartModal>
     </div>
   )
 }
 
-function RecentLineChart({
-  title,
+function ClimateStat({
+  label,
+  value,
   unit,
-  points,
+  sub,
+  plain,
 }: {
-  readonly title: string
+  readonly label: string
+  readonly value: number | null
   readonly unit: string
-  readonly points: readonly ChartPoint[]
+  readonly sub?: string | null
+  readonly plain?: boolean
 }) {
-  const summary = describeChart(points, unit)
-
-  if (points.length === 0) {
-    return (
-      <article className="card overview-chart-card">
-        <h3>{title}</h3>
-        <UnavailableDataDisplay
-          title="Recent series unavailable"
-          message="No recent observations are available for this chart."
-        />
-      </article>
-    )
-  }
-
-  const validValues = points.filter((point) => point.value != null)
-
-  if (validValues.length === 0) {
-    return (
-      <article className="card overview-chart-card">
-        <h3>{title}</h3>
-        <p className="overview-note">No valid values in the recent observation window.</p>
-        <p className="overview-chart-summary">{summary}</p>
-      </article>
-    )
-  }
-
-  const minValue = Math.min(...validValues.map((point) => point.value as number))
-  const maxValue = Math.max(...validValues.map((point) => point.value as number))
-  const range = maxValue - minValue || 1
-  const width = 320
-  const height = 120
-  const xStep = points.length > 1 ? width / (points.length - 1) : width
-
-  const segments: string[] = []
-  let activeSegment: string[] = []
-
-  points.forEach((point, index) => {
-    if (point.value == null) {
-      if (activeSegment.length > 1) {
-        segments.push(activeSegment.join(' '))
-      }
-      activeSegment = []
-      return
-    }
-
-    const x = index * xStep
-    const y = height - ((point.value - minValue) / range) * height
-    activeSegment.push(`${activeSegment.length === 0 ? 'M' : 'L'} ${x.toFixed(2)} ${y.toFixed(2)}`)
-  })
-
-  if (activeSegment.length > 1) {
-    segments.push(activeSegment.join(' '))
-  }
-
-  const firstLabel = points[0]?.timeLabel ?? 'n/a'
-  const lastLabel = points.at(-1)?.timeLabel ?? 'n/a'
-
   return (
-    <article className="card overview-chart-card">
-      <h3>{title}</h3>
-      <svg
-        viewBox={`0 0 ${width} ${height}`}
-        className="overview-sparkline"
-        role="img"
-        aria-label={`${title} from ${firstLabel} to ${lastLabel}`}
-      >
-        <line x1="0" y1={height} x2={width} y2={height} className="overview-chart-axis" />
-        {segments.map((segment) => (
-          <path key={segment} d={segment} className="overview-chart-line" />
-        ))}
-      </svg>
-      <p className="overview-chart-summary">{summary}</p>
-    </article>
+    <div className="climate-stat">
+      <span className="cs-label">{label}</span>
+      <span className="cs-value">
+        {plain
+          ? value == null
+            ? '—'
+            : String(value)
+          : formatNullableMeasurement(value, { unit })}
+      </span>
+      {sub != null && sub !== '' ? <span className="cs-sub">{sub}</span> : null}
+    </div>
   )
 }
 
-function describeChart(points: readonly ChartPoint[], unit: string): string {
-  const values = points.filter((point) => point.value != null).map((point) => point.value as number)
+function RecentExtremesCard({
+  observations,
+}: {
+  readonly observations: readonly RecentObservation[]
+}) {
+  const highestTemp = extremeBy(observations, (entry) => entry.temperatureC, 'max')
+  const lowestTemp = extremeBy(observations, (entry) => entry.temperatureC, 'min')
+  const highestGust = extremeBy(observations, (entry) => entry.windGustMph, 'max')
 
-  if (values.length === 0) {
-    return 'No valid observations in this range.'
+  return (
+    <section className="card info-card" aria-labelledby="recent-extremes-title">
+      <h3 id="recent-extremes-title">
+        Recent extremes <span className="info-card__period">(Today)</span>
+      </h3>
+      <dl className="info-card__list">
+        <ExtremeRow label="Highest temp" extreme={highestTemp} unit={WEATHER_UNITS.temperature} />
+        <ExtremeRow label="Lowest temp" extreme={lowestTemp} unit={WEATHER_UNITS.temperature} />
+        <ExtremeRow label="Highest gust" extreme={highestGust} unit={WEATHER_UNITS.wind} />
+      </dl>
+    </section>
+  )
+}
+
+function ExtremeRow({
+  label,
+  extreme,
+  unit,
+}: {
+  readonly label: string
+  readonly extreme: { value: number; timeUtc: string } | null
+  readonly unit: string
+}) {
+  return (
+    <div className="info-card__row">
+      <dt>{label}</dt>
+      <dd>
+        {extreme == null ? '—' : formatNullableMeasurement(extreme.value, { unit })}
+        {extreme != null ? (
+          <span className="info-card__row-sub">{formatDateTimeValue(extreme.timeUtc, { hour: '2-digit', minute: '2-digit' })}</span>
+        ) : null}
+      </dd>
+    </div>
+  )
+}
+
+function RainfallSummaryCard({
+  todayRainfall,
+  rainDays,
+  wettestDay,
+}: {
+  readonly todayRainfall: number | null
+  readonly rainDays: number
+  readonly wettestDay: number | null
+}) {
+  return (
+    <section className="card info-card" aria-labelledby="rainfall-summary-title">
+      <h3 id="rainfall-summary-title">
+        Rainfall summary <span className="info-card__period">(Today / month)</span>
+      </h3>
+      <dl className="info-card__list">
+        <div className="info-card__row">
+          <dt>Total today</dt>
+          <dd>{formatNullableMeasurement(todayRainfall, { unit: WEATHER_UNITS.rainfall })}</dd>
+        </div>
+        <div className="info-card__row">
+          <dt>Rain days (month)</dt>
+          <dd>{rainDays}</dd>
+        </div>
+        <div className="info-card__row">
+          <dt>Wettest day (month)</dt>
+          <dd>{formatNullableMeasurement(wettestDay, { unit: WEATHER_UNITS.rainfall })}</dd>
+        </div>
+      </dl>
+    </section>
+  )
+}
+
+function extremeBy(
+  observations: readonly RecentObservation[],
+  selector: (entry: RecentObservation) => number | null,
+  mode: 'max' | 'min',
+): { value: number; timeUtc: string } | null {
+  let best: { value: number; timeUtc: string } | null = null
+  for (const entry of observations) {
+    const value = selector(entry)
+    if (value == null || !Number.isFinite(value)) {
+      continue
+    }
+    if (
+      best == null ||
+      (mode === 'max' && value > best.value) ||
+      (mode === 'min' && value < best.value)
+    ) {
+      best = { value, timeUtc: entry.observationTimeUtc }
+    }
+  }
+  return best
+}
+
+type Trend = { delta: number } | null
+
+function deriveTrend(
+  observations: readonly RecentObservation[],
+  selector: (entry: RecentObservation) => number | null,
+): Trend {
+  if (observations.length < 2) {
+    return null
+  }
+  const latest = observations[observations.length - 1]
+  const latestValue = selector(latest)
+  if (latestValue == null || !Number.isFinite(latestValue)) {
+    return null
+  }
+  const latestTime = new Date(latest.observationTimeUtc).valueOf()
+  const targetTime = latestTime - 60 * 60 * 1000
+  let reference: RecentObservation | null = null
+  for (const entry of observations) {
+    const value = selector(entry)
+    if (value == null || !Number.isFinite(value)) {
+      continue
+    }
+    const time = new Date(entry.observationTimeUtc).valueOf()
+    if (time <= targetTime) {
+      reference = entry
+    }
+  }
+  if (reference == null) {
+    reference = observations.find((entry) => {
+      const value = selector(entry)
+      return value != null && Number.isFinite(value)
+    }) ?? null
+  }
+  if (reference == null || reference === latest) {
+    return null
+  }
+  const referenceValue = selector(reference)
+  if (referenceValue == null || !Number.isFinite(referenceValue)) {
+    return null
+  }
+  return { delta: latestValue - referenceValue }
+}
+
+function renderTrend(trend: Trend, unit: string): ReactNode {
+  if (trend == null || Math.abs(trend.delta) < 0.05) {
+    return undefined
+  }
+  const rising = trend.delta > 0
+  const arrow = rising ? '▲' : '▼'
+  const className = rising ? 'metric-card__sub--up' : 'metric-card__sub--down'
+  return (
+    <span className={className}>
+      {arrow} {Math.abs(trend.delta).toFixed(1)} {unit}
+    </span>
+  )
+}
+
+function degreesToCompass(deg: number | null): string | null {
+  if (deg == null || !Number.isFinite(deg)) {
+    return null
+  }
+  return COMPASS_POINTS[Math.round(deg / 22.5) % 16]
+}
+
+function sortObservations(observations: readonly RecentObservation[]): RecentObservation[] {
+  return [...observations].sort(
+    (left, right) =>
+      new Date(left.observationTimeUtc).valueOf() -
+      new Date(right.observationTimeUtc).valueOf(),
+  )
+}
+
+function filterByRange(
+  observations: readonly RecentObservation[],
+  preset: RangePresetId,
+): RecentObservation[] {
+  if (observations.length === 0) {
+    return []
+  }
+  const latestTime = new Date(observations[observations.length - 1].observationTimeUtc).valueOf()
+  let cutoff: number | null = null
+
+  if (preset === 'ytd') {
+    const year = new Date(latestTime).getUTCFullYear()
+    cutoff = Date.UTC(year, 0, 1)
+  } else if (preset === 'custom') {
+    cutoff = null
+  } else {
+    const definition = RANGE_PRESETS.find((entry) => entry.id === preset)
+    cutoff = definition?.ms != null ? latestTime - definition.ms : null
   }
 
-  const minimum = Math.min(...values)
-  const maximum = Math.max(...values)
-  const missing = points.length - values.length
+  if (cutoff == null) {
+    return [...observations]
+  }
 
-  return `Range ${formatNullableMeasurement(minimum, { unit })} to ${formatNullableMeasurement(maximum, { unit })}. Missing observations: ${missing}.`
+  const filtered = observations.filter(
+    (entry) => new Date(entry.observationTimeUtc).valueOf() >= (cutoff as number),
+  )
+  return filtered.length >= 2 ? filtered : [...observations]
 }
 
 function deriveCurrentMonthStats(records: readonly ClimateDay[], monthlyNormal: MonthlyNormal | null) {
@@ -638,10 +832,8 @@ function deriveCurrentMonthStats(records: readonly ClimateDay[], monthlyNormal: 
   const meanValues = records.map((record) => record.meanTempC).filter(isFiniteNumber)
   const rainfallValues = records.map((record) => record.rainfallMm).filter(isFiniteNumber)
 
-  const rainfallTotal = rainfallValues.length === 0
-    ? null
-    : rainfallValues.reduce((sum, value) => sum + value, 0)
-
+  const rainfallTotal =
+    rainfallValues.length === 0 ? null : rainfallValues.reduce((sum, value) => sum + value, 0)
   const rainDays = rainfallValues.filter((value) => value > 0.1).length
   const wettestDay = rainfallValues.length === 0 ? null : Math.max(...rainfallValues)
 
@@ -650,6 +842,7 @@ function deriveCurrentMonthStats(records: readonly ClimateDay[], monthlyNormal: 
   const minCoverage = minValues.length
   const meanCoverage = meanValues.length
   const rainfallCoverage = records.filter((record) => record.rainfallMm != null).length
+  const coverageDays = Math.min(maxCoverage, minCoverage, meanCoverage, rainfallCoverage)
 
   const complete =
     maxCoverage >= expectedDays &&
@@ -657,14 +850,13 @@ function deriveCurrentMonthStats(records: readonly ClimateDay[], monthlyNormal: 
     meanCoverage >= expectedDays &&
     rainfallCoverage >= expectedDays
 
-  const meanTemp = meanValues.length === 0
-    ? null
-    : meanValues.reduce((sum, value) => sum + value, 0) / meanValues.length
+  const meanTemp =
+    meanValues.length === 0
+      ? null
+      : meanValues.reduce((sum, value) => sum + value, 0) / meanValues.length
 
   const temperatureAnomaly =
-    meanTemp != null && monthlyNormal?.meanTempC != null
-      ? meanTemp - monthlyNormal.meanTempC
-      : null
+    meanTemp != null && monthlyNormal?.meanTempC != null ? meanTemp - monthlyNormal.meanTempC : null
 
   const rainfallPercentageOfNormal =
     rainfallTotal != null && monthlyNormal?.rainfallMm != null && monthlyNormal.rainfallMm > 0
@@ -674,64 +866,31 @@ function deriveCurrentMonthStats(records: readonly ClimateDay[], monthlyNormal: 
   return {
     highestMax: maxValues.length === 0 ? null : Math.max(...maxValues),
     lowestMin: minValues.length === 0 ? null : Math.min(...minValues),
-    meanMax: maxValues.length === 0
-      ? null
-      : maxValues.reduce((sum, value) => sum + value, 0) / maxValues.length,
-    meanMin: minValues.length === 0
-      ? null
-      : minValues.reduce((sum, value) => sum + value, 0) / minValues.length,
+    meanMax:
+      maxValues.length === 0
+        ? null
+        : maxValues.reduce((sum, value) => sum + value, 0) / maxValues.length,
+    meanMin:
+      minValues.length === 0
+        ? null
+        : minValues.reduce((sum, value) => sum + value, 0) / minValues.length,
     meanTemp,
     rainfallTotal,
     rainDays,
     wettestDay,
-    coverageText: `${Math.min(maxCoverage, minCoverage, meanCoverage, rainfallCoverage)}/${expectedDays}`,
+    coverageDays,
+    expectedDays,
+    coveragePct: expectedDays === 0 ? 0 : Math.round((coverageDays / expectedDays) * 100),
     temperatureAnomaly,
     rainfallPercentageOfNormal,
     complete,
   }
 }
 
-function chooseRainfallMetric(observations: readonly RecentObservation[]): {
-  label: string
-  unit: string
-  selector: (entry: RecentObservation) => number | null
-} {
-  const hasRainRate = observations.some((entry) => entry.rainRateMmPerHour != null)
-
-  if (hasRainRate) {
-    return {
-      label: 'Rain rate',
-      unit: `${WEATHER_UNITS.rainfall}/hr`,
-      selector: (entry) => entry.rainRateMmPerHour,
-    }
-  }
-
-  return {
-    label: `Today's live rainfall`,
-    unit: WEATHER_UNITS.rainfall,
-    selector: (entry) => entry.rainTodayMm,
-  }
-}
-
-function toChartPoints(
-  observations: readonly RecentObservation[],
-  selector: (entry: RecentObservation) => number | null,
-): ChartPoint[] {
-  return [...observations]
-    .sort((left, right) =>
-      new Date(left.observationTimeUtc).valueOf() - new Date(right.observationTimeUtc).valueOf(),
-    )
-    .map((entry) => ({
-      timeLabel: formatDateTimeValue(entry.observationTimeUtc, TIME_FORMAT),
-      value: selector(entry),
-    }))
-}
-
 function resolveMonthlyNormal(months: readonly MonthlyNormal[] | undefined): MonthlyNormal | null {
   if (months == null || months.length === 0) {
     return null
   }
-
   const month = new Date().getMonth() + 1
   return months.find((entry) => entry.month === month) ?? null
 }
@@ -742,7 +901,6 @@ function findClimateRecord(records: readonly ClimateDay[], date: ClimateDateStri
 
 function recordsForMonth(records: readonly ClimateDay[], date: ClimateDateString): ClimateDay[] {
   const { year, month } = parseIsoClimateDate(date)
-
   return records.filter((record) => {
     const parts = parseIsoClimateDate(record.date)
     return parts.year === year && parts.month === month
@@ -753,66 +911,40 @@ function deriveObservationAgeSeconds(observationTimeUtc: string | null, now: Dat
   if (observationTimeUtc == null) {
     return null
   }
-
   const observationDate = new Date(observationTimeUtc)
-
   if (Number.isNaN(observationDate.valueOf())) {
     return null
   }
-
   return Math.max(0, Math.floor((now.valueOf() - observationDate.valueOf()) / 1000))
-}
-
-function formatObservationAge(seconds: number | null): string {
-  if (seconds == null) {
-    return '—'
-  }
-
-  const minutes = Math.floor(seconds / 60)
-
-  if (minutes < 1) {
-    return '<1 minute'
-  }
-
-  if (minutes < 60) {
-    return `${minutes} minute${minutes === 1 ? '' : 's'}`
-  }
-
-  const hours = Math.floor(minutes / 60)
-  const remainingMinutes = minutes % 60
-
-  if (remainingMinutes === 0) {
-    return `${hours} hour${hours === 1 ? '' : 's'}`
-  }
-
-  return `${hours}h ${remainingMinutes}m`
 }
 
 function getTodayAndYesterdayClimateDates(now: Date): {
   todayDate: ClimateDateString
   yesterdayDate: ClimateDateString
 } {
-  const parts = ISO_DATE_FORMATTER
-    .formatToParts(now)
-    .reduce<Record<string, string>>((accumulator, part) => {
+  const parts = ISO_DATE_FORMATTER.formatToParts(now).reduce<Record<string, string>>(
+    (accumulator, part) => {
       if (part.type === 'year' || part.type === 'month' || part.type === 'day') {
         accumulator[part.type] = part.value
       }
       return accumulator
-    }, {})
+    },
+    {},
+  )
 
   const todayDate = `${parts.year}-${parts.month}-${parts.day}` as ClimateDateString
   const todayUtc = new Date(Date.UTC(Number(parts.year), Number(parts.month) - 1, Number(parts.day), 12))
   const yesterdayUtc = new Date(todayUtc.valueOf() - 24 * 60 * 60 * 1000)
 
-  const yesterdayParts = ISO_DATE_FORMATTER
-    .formatToParts(yesterdayUtc)
-    .reduce<Record<string, string>>((accumulator, part) => {
+  const yesterdayParts = ISO_DATE_FORMATTER.formatToParts(yesterdayUtc).reduce<Record<string, string>>(
+    (accumulator, part) => {
       if (part.type === 'year' || part.type === 'month' || part.type === 'day') {
         accumulator[part.type] = part.value
       }
       return accumulator
-    }, {})
+    },
+    {},
+  )
 
   return {
     todayDate,
@@ -822,10 +954,7 @@ function getTodayAndYesterdayClimateDates(now: Date): {
 
 function expectedDaysThisMonth(): number {
   const now = new Date()
-  const year = now.getFullYear()
-  const month = now.getMonth()
-
-  return new Date(year, month + 1, 0).getDate()
+  return new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate()
 }
 
 function formatDateTimeValue(
@@ -835,11 +964,21 @@ function formatDateTimeValue(
   if (value == null) {
     return '—'
   }
-
   try {
     return formatEuropeLondonDisplay(value, options)
   } catch {
     return '—'
+  }
+}
+
+function formatLocalTime(value: string | null): string | null {
+  if (value == null) {
+    return null
+  }
+  try {
+    return formatEuropeLondonDisplay(value, { hour: '2-digit', minute: '2-digit' })
+  } catch {
+    return value
   }
 }
 

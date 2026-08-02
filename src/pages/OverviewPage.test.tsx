@@ -193,7 +193,7 @@ describe('OverviewPage', () => {
 
     renderOverview()
 
-    expect(screen.getByText('Offline')).toBeInTheDocument()
+    expect(screen.getByText('Station offline')).toBeInTheDocument()
   })
 
   it('shows missing optional fields as unavailable', () => {
@@ -206,7 +206,7 @@ describe('OverviewPage', () => {
 
     renderOverview()
 
-    expect(screen.getByRole('heading', { name: 'Feels-like' })).toBeInTheDocument()
+    expect(screen.getByText('Feels like')).toBeInTheDocument()
     expect(screen.getAllByText('—').length).toBeGreaterThan(0)
   })
 
@@ -250,7 +250,9 @@ describe('OverviewPage', () => {
     renderOverview()
 
     expect(screen.getAllByText('0.0 mm').length).toBeGreaterThan(0)
-    expect(screen.getByText('Provisional rainfall')).toBeInTheDocument()
+    expect(
+      screen.getByRole('heading', { name: "Today's provisional climate" }),
+    ).toBeInTheDocument()
     expect(screen.getAllByText('—').length).toBeGreaterThan(0)
   })
 })

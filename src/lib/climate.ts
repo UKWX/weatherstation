@@ -8,6 +8,7 @@ import type {
   ClimateDay,
   MeteorologicalSeason,
   MetricCoverage,
+  MonthlyNormal,
   ObservationCounts,
   PeriodCoverage,
 } from '@/types/weather'
@@ -232,6 +233,28 @@ export function calculateRainfallDifferenceFromNormal(
   }
 
   return observed - normal
+}
+
+/**
+ * Sum the twelve monthly 1991–2020 rainfall normals into an annual rainfall
+ * normal. Returns null unless all twelve months are present with finite values.
+ */
+export function computeAnnualRainfallNormal(
+  months: readonly MonthlyNormal[],
+): number | null {
+  if (months.length !== 12) {
+    return null
+  }
+
+  const values = months
+    .map((month) => month.rainfallMm)
+    .filter(isFiniteNumber)
+
+  if (values.length !== 12) {
+    return null
+  }
+
+  return values.reduce((sum, value) => sum + value, 0)
 }
 
 export function getMeteorologicalSeason(

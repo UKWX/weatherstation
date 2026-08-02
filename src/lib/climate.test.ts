@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest'
-import type { ClimateDateString, ClimateDay } from '@/types/weather'
+import type {
+  ClimateDateString,
+  ClimateDay,
+  MonthlyNormal,
+} from '@/types/weather'
 import {
   calculateAnnualCompleteness,
   calculateColdStreak,
@@ -15,6 +19,7 @@ import {
   calculateWarmStreak,
   calculateWetStreak,
   collectTiedValues,
+  computeAnnualRainfallNormal,
   countValidAndMissingObservations,
   expectedDaysInPeriod,
   formatEuropeLondonDisplay,
@@ -302,5 +307,41 @@ describe('climate utilities', () => {
       availableDays: 3,
       expectedDays: 5,
     })
+  })
+})
+
+describe('computeAnnualRainfallNormal', () => {
+  function createMonthlyNormal(
+    month: number,
+    rainfallMm: number | null,
+  ): MonthlyNormal {
+    return {
+      month,
+      meanMaxTempC: 12,
+      meanMinTempC: 5,
+      meanTempC: 8.5,
+      rainfallMm,
+    }
+  }
+
+  it('sums twelve monthly rainfall normals', () => {
+    const months = Array.from({ length: 12 }, (_, index) =>
+      createMonthlyNormal(index + 1, 50),
+    )
+    expect(computeAnnualRainfallNormal(months)).toBe(600)
+  })
+
+  it('returns null when fewer than twelve months are provided', () => {
+    const months = Array.from({ length: 11 }, (_, index) =>
+      createMonthlyNormal(index + 1, 50),
+    )
+    expect(computeAnnualRainfallNormal(months)).toBeNull()
+  })
+
+  it('returns null when any month has a null rainfall value', () => {
+    const months = Array.from({ length: 12 }, (_, index) =>
+      createMonthlyNormal(index + 1, index === 5 ? null : 50),
+    )
+    expect(computeAnnualRainfallNormal(months)).toBeNull()
   })
 })

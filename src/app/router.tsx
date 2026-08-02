@@ -1,8 +1,10 @@
 import { lazy, Suspense, useEffect, useMemo, useState } from 'react'
 import { NavLink, Route, Routes, useLocation } from 'react-router-dom'
+import { useQueryClient } from '@tanstack/react-query'
 import { DEFAULT_PAGE_META, findNavigationItem, NAVIGATION_ITEMS } from '@/app/navigation'
 import { useStationStatusQuery } from '@/hooks/usePublicWeatherQueries'
 import { useTheme } from '@/app/theme'
+import { formatEuropeLondonDisplay } from '@/lib/climate'
 import {
   Badge,
   ErrorState,
@@ -10,6 +12,14 @@ import {
   StaleDataWarning,
   VisuallyHidden,
 } from '@/components/ui'
+
+const HEADER_TIME_FORMAT: Intl.DateTimeFormatOptions = {
+  day: '2-digit',
+  month: 'short',
+  year: 'numeric',
+  hour: '2-digit',
+  minute: '2-digit',
+}
 
 const OverviewPage = lazy(() => import('@/pages/OverviewPage'))
 const LiveDataPage = lazy(() => import('@/pages/LiveDataPage'))
@@ -93,12 +103,18 @@ function StationStatusBadge() {
   }
 
   const online = (statusQuery.data?.online ?? false) && !offline
+  const lastUpdated = statusQuery.data?.observationTimeUtc ?? statusQuery.data?.checkedAtUtc ?? null
 
   return (
     <div className="header-meta">
       <Badge variant={online ? 'success' : 'error'}>
         {online ? 'Station online' : 'Station offline'}
       </Badge>
+      {lastUpdated != null ? (
+        <span className="header-updated">
+          Last updated: {formatHeaderTime(lastUpdated)}
+        </span>
+      ) : null}
       {stale ? (
         <StaleDataWarning message="Showing last successful status snapshot." />
       ) : null}
@@ -106,9 +122,18 @@ function StationStatusBadge() {
   )
 }
 
+function formatHeaderTime(value: string): string {
+  try {
+    return `${formatEuropeLondonDisplay(value, HEADER_TIME_FORMAT)}`
+  } catch {
+    return value
+  }
+}
+
 export function AppRouter() {
   const location = useLocation()
   const { theme, toggleTheme } = useTheme()
+  const queryClient = useQueryClient()
   const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false)
 
   useEffect(() => {
@@ -139,12 +164,17 @@ export function AppRouter() {
 
   const pageTitle = currentPage?.label ?? DEFAULT_PAGE_META.title
   const pageDescription = currentPage?.description ?? DEFAULT_PAGE_META.description
+  const isOverview = location.pathname === '/'
 
   return (
     <div className="app-shell">
       <aside className="sidebar" aria-label="Desktop sidebar">
-        <h2 className="brand">Wakefield Station</h2>
+        <div className="brand">
+          <span className="brand__name">Wakefield Station</span>
+          <span className="brand__subtitle">Live weather • Yorkshire, UK</span>
+        </div>
         <Navigation />
+        <div className="sidebar-footer">© 2026 UKWX v2.0.0</div>
       </aside>
 
       <div className="app-main">
@@ -161,9 +191,20 @@ export function AppRouter() {
             </button>
             <StationStatusBadge />
           </div>
-          <button type="button" className="button button-ghost" onClick={toggleTheme}>
-            Theme: {theme === 'dark' ? 'Dark' : 'Light'}
-          </button>
+          <div className="header-meta">
+            <button type="button" className="button button-ghost" onClick={toggleTheme}>
+              Theme: {theme === 'dark' ? 'Dark' : 'Light'}
+            </button>
+            <button
+              type="button"
+              className="button button-outline"
+              onClick={() => {
+                void queryClient.invalidateQueries()
+              }}
+            >
+              Manual refresh
+            </button>
+          </div>
         </header>
 
         {mobileDrawerOpen ? (
@@ -180,7 +221,9 @@ export function AppRouter() {
         ) : null}
 
         <main className="main-container">
-          <header className="page-header">
+          <header
+            className={isOverview ? 'page-header page-header--hidden' : 'page-header'}
+          >
             <h1>{pageTitle}</h1>
             <p>{pageDescription}</p>
           </header>

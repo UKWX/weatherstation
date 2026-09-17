@@ -4,6 +4,7 @@ export type NavigationItem = {
   readonly description: string
   readonly end?: boolean
   readonly available: boolean
+  readonly dynamicCurrentYearLabel?: boolean
 }
 
 export const NAVIGATION_ITEMS: readonly NavigationItem[] = [
@@ -25,6 +26,13 @@ export const NAVIGATION_ITEMS: readonly NavigationItem[] = [
     label: 'Custom Graphs',
     description: 'Interactive graphing for selected periods and metrics.',
     available: true,
+  },
+  {
+    to: '/annual-overview',
+    label: 'ANNUAL OVERVIEW',
+    description: 'Daily temperatures, normals, records, and annual chart export.',
+    available: true,
+    dynamicCurrentYearLabel: true,
   },
   {
     to: '/climate-archive',
@@ -93,4 +101,12 @@ export function findNavigationItem(pathname: string): NavigationItem | undefined
   }
 
   return NAVIGATION_ITEMS.find((item) => item.to !== '/' && pathname.startsWith(item.to))
+}
+
+export function resolveNavigationLabel(item: NavigationItem, currentYear: number): string {
+  if (item.dynamicCurrentYearLabel) {
+    return `${currentYear} OVERVIEW`
+  }
+
+  return item.label
 }

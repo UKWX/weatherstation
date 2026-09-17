@@ -172,10 +172,11 @@ describe('AppRouter shell and navigation', () => {
     setMatchMedia(false)
   })
 
-  it('renders all 12 navigation items', () => {
+  it('renders all 13 navigation items', () => {
     renderWithRouter('/')
     const nav = screen.getByRole('navigation', { name: 'Main navigation' })
-    expect(nav.querySelectorAll('a, span[aria-disabled="true"]').length).toBe(12)
+    expect(nav.querySelectorAll('a, span[aria-disabled="true"]').length).toBe(13)
+    expect(screen.getAllByRole('link', { name: '2026 OVERVIEW' }).length).toBeGreaterThan(0)
   })
 
   it('applies active route state', () => {

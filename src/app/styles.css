@@ -1101,6 +1101,11 @@ th {
   gap: 1rem;
 }
 
+.annual-overview-layout {
+  display: grid;
+  gap: 1rem;
+}
+
 .archive-annual-layout,
 .archive-monthly-layout {
   display: grid;
@@ -1153,6 +1158,180 @@ th {
   background: var(--surface);
   color: var(--text);
   font-size: 0.95rem;
+}
+
+.annual-overview-controls {
+  gap: 0.75rem;
+}
+
+.annual-overview-baseline-note {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.annual-overview-export-actions {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-left: auto;
+}
+
+.annual-overview-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.8rem;
+}
+
+.annual-overview-header h2 {
+  margin: 0;
+}
+
+.annual-overview-header p {
+  margin: 0.2rem 0 0;
+  color: var(--text-muted);
+}
+
+.annual-overview-through {
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.annual-overview-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem 1rem;
+  margin-bottom: 0.8rem;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+}
+
+.annual-overview-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.annual-overview-swatch {
+  display: inline-block;
+  width: 1.4rem;
+  height: 0.7rem;
+  border-radius: 999px;
+  border: 2px solid transparent;
+}
+
+.annual-overview-swatch--band {
+  background: linear-gradient(180deg, #f2922f 0%, #ffd955 34%, #4caf50 54%, #2f7fd6 88%, #0f3f6e 100%);
+  opacity: 0.8;
+}
+
+.annual-overview-swatch--rolling {
+  height: 0;
+  border-top-color: #555b61;
+  border-top-width: 4px;
+}
+
+.annual-overview-swatch--max {
+  height: 0;
+  border-top-color: #c22b2b;
+  border-top-width: 3px;
+}
+
+.annual-overview-swatch--min {
+  height: 0;
+  border-top-color: #2453c9;
+  border-top-width: 3px;
+}
+
+.annual-overview-swatch--record-high {
+  height: 0;
+  border-top-color: #e07a4d;
+  border-top-width: 2px;
+  border-top-style: dashed;
+}
+
+.annual-overview-swatch--record-low {
+  height: 0;
+  border-top-color: #6fa3d6;
+  border-top-width: 2px;
+  border-top-style: dashed;
+}
+
+.annual-overview-swatch--marker {
+  width: 0.9rem;
+  height: 0.9rem;
+  border-color: #a3241d;
+  background: var(--surface);
+}
+
+.annual-overview-chart-canvas {
+  position: relative;
+  min-height: 0;
+}
+
+.annual-overview-chart-svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.annual-overview-tooltip {
+  background: var(--chart-tooltip-background);
+  color: var(--chart-tooltip-text);
+  border: 1px solid var(--chart-tooltip-border);
+  border-radius: 0.55rem;
+  padding: 0.6rem 0.75rem;
+  box-shadow: 0 6px 18px rgb(0 0 0 / 25%);
+  max-width: min(16rem, calc(100vw - 1rem));
+  pointer-events: none;
+  z-index: 30;
+}
+
+.annual-overview-tooltip__title {
+  font-weight: 700;
+  margin-bottom: 0.3rem;
+}
+
+.annual-overview-tooltip__row {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.9rem;
+  font-size: 0.82rem;
+}
+
+.annual-overview-tooltip__record {
+  margin-top: 0.35rem;
+  color: #ffd27a;
+  font-weight: 700;
+  font-size: 0.8rem;
+}
+
+.annual-overview-footnote {
+  margin: 0.8rem 0 0;
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+
+.annual-overview-records-card h2 {
+  margin-top: 0;
+  margin-bottom: 0.25rem;
+}
+
+.annual-overview-records-card p {
+  margin-top: 0;
+  color: var(--text-muted);
+}
+
+.annual-overview-record-tag {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  padding: 0.18rem 0.55rem;
+  color: #fff;
+  font-size: 0.74rem;
+  font-weight: 700;
 }
 
 .archive-view-toggle {
@@ -1705,6 +1884,10 @@ th {
 }
 
 @media (max-width: 640px) {
+  .annual-overview-export-actions {
+    margin-left: 0;
+  }
+
   .normals-ranking-grid {
     grid-template-columns: 1fr;
   }

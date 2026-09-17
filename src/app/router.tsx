@@ -1,8 +1,14 @@
 import { lazy, Suspense, useEffect, useMemo, useState } from 'react'
 import { NavLink, Route, Routes, useLocation } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
-import { DEFAULT_PAGE_META, findNavigationItem, NAVIGATION_ITEMS } from '@/app/navigation'
+import {
+  DEFAULT_PAGE_META,
+  findNavigationItem,
+  NAVIGATION_ITEMS,
+  resolveNavigationLabel,
+} from '@/app/navigation'
 import { useStationStatusQuery } from '@/hooks/usePublicWeatherQueries'
+import { useCurrentClimateYear } from '@/hooks/useCurrentClimateYear'
 import { useTheme } from '@/app/theme'
 import { formatEuropeLondonDisplay } from '@/lib/climate'
 import {
@@ -24,6 +30,7 @@ const HEADER_TIME_FORMAT: Intl.DateTimeFormatOptions = {
 const OverviewPage = lazy(() => import('@/pages/OverviewPage'))
 const LiveDataPage = lazy(() => import('@/pages/LiveDataPage'))
 const CustomGraphsPage = lazy(() => import('@/pages/CustomGraphsPage'))
+const AnnualOverviewPage = lazy(() => import('@/pages/AnnualOverviewPage'))
 const ClimateArchivePage = lazy(() => import('@/pages/ClimateArchivePage'))
 const NormalsAnomaliesPage = lazy(() => import('@/pages/NormalsAnomaliesPage'))
 const RecordsPage = lazy(() => import('@/pages/RecordsPage'))
@@ -37,7 +44,13 @@ const ApiDiagnosticsPage = import.meta.env.DEV
   ? lazy(() => import('@/pages/ApiDiagnosticsPage'))
   : null
 
-function Navigation({ closeMobile }: { readonly closeMobile?: () => void }) {
+function Navigation({
+  closeMobile,
+  currentClimateYear,
+}: {
+  readonly closeMobile?: () => void
+  readonly currentClimateYear: number
+}) {
   return (
     <nav aria-label="Main navigation">
       <ul className="nav-list">
@@ -61,7 +74,7 @@ function Navigation({ closeMobile }: { readonly closeMobile?: () => void }) {
                 className="nav-link"
                 onClick={closeMobile}
               >
-                {item.label}
+                {resolveNavigationLabel(item, currentClimateYear)}
               </NavLink>
             </li>
           )
@@ -134,6 +147,7 @@ export function AppRouter() {
   const location = useLocation()
   const { theme, toggleTheme } = useTheme()
   const queryClient = useQueryClient()
+  const currentClimateYear = useCurrentClimateYear()
   const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false)
 
   useEffect(() => {
@@ -162,7 +176,8 @@ export function AppRouter() {
     [location.pathname],
   )
 
-  const pageTitle = currentPage?.label ?? DEFAULT_PAGE_META.title
+  const pageTitle =
+    currentPage != null ? resolveNavigationLabel(currentPage, currentClimateYear) : DEFAULT_PAGE_META.title
   const pageDescription = currentPage?.description ?? DEFAULT_PAGE_META.description
   const isOverview = location.pathname === '/'
 
@@ -173,7 +188,7 @@ export function AppRouter() {
           <span className="brand__name">Wakefield Station</span>
           <span className="brand__subtitle">Live weather • Yorkshire, UK</span>
         </div>
-        <Navigation />
+        <Navigation currentClimateYear={currentClimateYear} />
         <div className="sidebar-footer">© 2026 UKWX v2.0.0</div>
       </aside>
 
@@ -215,7 +230,10 @@ export function AppRouter() {
               onClick={(event) => event.stopPropagation()}
             >
               <h2 className="brand">Navigation</h2>
-              <Navigation closeMobile={() => setMobileDrawerOpen(false)} />
+              <Navigation
+                currentClimateYear={currentClimateYear}
+                closeMobile={() => setMobileDrawerOpen(false)}
+              />
             </aside>
           </div>
         ) : null}
@@ -232,6 +250,7 @@ export function AppRouter() {
               <Route path="/" element={<OverviewPage />} />
               <Route path="/live-data" element={<LiveDataPage />} />
               <Route path="/custom-graphs" element={<CustomGraphsPage />} />
+              <Route path="/annual-overview" element={<AnnualOverviewPage />} />
               <Route path="/climate-archive" element={<ClimateArchivePage />} />
               <Route path="/normals-anomalies" element={<NormalsAnomaliesPage />} />
               <Route path="/records" element={<RecordsPage />} />

@@ -4,7 +4,6 @@ import {
   useRef,
   useState,
   type CSSProperties,
-  type PointerEvent as ReactPointerEvent,
 } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { Badge, ErrorState, ResponsiveChartContainer, Skeleton, TableWrapper } from '@/components/ui'

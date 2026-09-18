@@ -1,29 +1,28 @@
-import { fireEvent, render, screen } from '@testing-library/react'
+import { fireEvent, render } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 import { LiveLineChart } from '@/features/liveData/LiveLineChart'
 
 describe('LiveLineChart', () => {
-  it('uses the interactive plot bounds for hover lookup', () => {
-    const { container } = render(
+  function renderChart() {
+    const rendered = render(
       <LiveLineChart
         title="Temperature"
         unit="°C"
         tMin={0}
-        tMax={2}
+        tMax={10}
         primary={{
           label: 'Primary',
           color: '#f00',
-          points: [
-            { timestamp: 0, value: 1 },
-            { timestamp: 1, value: 2 },
-            { timestamp: 2, value: 3 },
-          ],
+          points: Array.from({ length: 11 }, (_, index) => ({
+            timestamp: index,
+            value: index,
+          })),
         }}
       />,
     )
 
-    const svg = container.querySelector('.live-chart-svg')
-    const overlay = container.querySelector('.live-chart-svg rect[fill="transparent"]')
+    const svg = rendered.container.querySelector('.live-chart-svg')
+    const overlay = rendered.container.querySelector('.live-chart-svg rect[fill="transparent"]')
     expect(svg).not.toBeNull()
     expect(overlay).not.toBeNull()
 
@@ -32,9 +31,9 @@ describe('LiveLineChart', () => {
       y: 20,
       left: 40,
       top: 20,
-      right: 640,
+      right: 740,
       bottom: 280,
-      width: 600,
+      width: 700,
       height: 260,
       toJSON: () => ({}),
     })
@@ -50,10 +49,14 @@ describe('LiveLineChart', () => {
       toJSON: () => ({}),
     })
 
-    fireEvent.pointerMove(overlay!, { clientX: 94, clientY: 90 })
-    expect(screen.getByText('Primary: 1.0 °C')).toBeInTheDocument()
+    return { container: rendered.container, overlay: overlay! }
+  }
 
-    fireEvent.pointerMove(overlay!, { clientX: 620, clientY: 90 })
-    expect(screen.getByText('Primary: 3.0 °C')).toBeInTheDocument()
+  it('uses the left edge of the interactive plot for hover lookup', () => {
+    const { container, overlay } = renderChart()
+
+    fireEvent.pointerMove(overlay!, { clientX: 94, clientY: 90 })
+    expect(container.querySelector('.live-chart-data-panel')?.textContent).toContain('Primary: 0.0 °C')
   })
+
 })

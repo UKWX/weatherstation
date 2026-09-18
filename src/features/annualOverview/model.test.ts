@@ -81,6 +81,7 @@ describe('buildAnnualOverviewDataset', () => {
     const day = dataset.days.find((entry) => entry.date === '2026-03-02')
     expect(day?.recordFlags).toEqual(['record-high-max', 'record-high-min'])
     expect(dataset.recordEvents).toHaveLength(2)
+    expect(dataset.recordEvents[0]?.previousRecordYears).toEqual([2025])
     expect(dataset.normalPeriodLabel).toBe('2024–2025')
   })
 })

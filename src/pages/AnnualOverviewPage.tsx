@@ -43,7 +43,6 @@ import {
 } from '@/hooks/usePublicWeatherQueries'
 import {
   compareClimateDates,
-  daysInMonth,
   formatEuropeLondonDisplay,
   parseIsoClimateDate,
   toClimateDateString,
@@ -1310,9 +1309,13 @@ function ensureSelectedYears(
 ): readonly number[] {
   const unique = [...new Set(years)].sort((left, right) => left - right)
   if (preferredYear == null) {
-    return unique
+    return sameYearList(unique, years) ? years : unique
   }
-  return unique.includes(preferredYear) ? unique : [...unique, preferredYear].sort((left, right) => left - right)
+  if (unique.includes(preferredYear)) {
+    return sameYearList(unique, years) ? years : unique
+  }
+  const next = [...unique, preferredYear].sort((left, right) => left - right)
+  return sameYearList(next, years) ? years : next
 }
 
 function toggleSelectedYear(
@@ -1329,6 +1332,10 @@ function toggleSelectedYear(
     return next
   }
   return fallbackYear == null ? [] : [fallbackYear]
+}
+
+function sameYearList(left: readonly number[], right: readonly number[]): boolean {
+  return left.length === right.length && left.every((value, index) => value === right[index])
 }
 
 function formatPreviousRecordLabel(event: AnnualOverviewRecordEvent): string {

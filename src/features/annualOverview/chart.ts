@@ -612,11 +612,11 @@ function parseSvgSize(svgMarkup: string): { readonly width: number; readonly hei
     width: Number.isFinite(width) && width > 0 ? width : ANNUAL_OVERVIEW_EXPORT_WIDTH,
     height: Number.isFinite(height) && height > 0 ? height : ANNUAL_OVERVIEW_CHART_HEIGHT,
   }
+}
 
-  function formatPreviousRecordExportLabel(row: AnnualOverviewRecordEvent): string {
-    const years = row.previousRecordYears.join(', ')
-    return years.length > 0 ? `${row.previousRecordC.toFixed(1)}°C (${years})` : `${row.previousRecordC.toFixed(1)}°C`
-  }
+function formatPreviousRecordExportLabel(row: AnnualOverviewRecordEvent): string {
+  const years = row.previousRecordYears.join(', ')
+  return years.length > 0 ? `${row.previousRecordC.toFixed(1)}°C (${years})` : `${row.previousRecordC.toFixed(1)}°C`
 }
 
 async function loadSvgImage(svgMarkup: string): Promise<HTMLImageElement> {

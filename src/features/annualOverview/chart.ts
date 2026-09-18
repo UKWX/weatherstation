@@ -473,12 +473,13 @@ function buildExportTableSvg(input: {
   readonly y: number
   readonly width: number
 }): { readonly markup: string; readonly height: number } {
+  const columnOffsets = [0, 0.104, 0.338, 0.455, 0.579] as const
   const colX = [
-    input.x,
-    input.x + 142,
-    input.x + 462,
-    input.x + 622,
-    input.x + 792,
+    input.x + input.width * columnOffsets[0],
+    input.x + input.width * columnOffsets[1],
+    input.x + input.width * columnOffsets[2],
+    input.x + input.width * columnOffsets[3],
+    input.x + input.width * columnOffsets[4],
   ]
 
   if (input.rows.length === 0) {
@@ -490,7 +491,7 @@ function buildExportTableSvg(input: {
 
   const startY = input.y
   const dividerX2 = input.x + input.width
-  const tagWidth = 152
+  const tagWidth = Math.min(152, Math.max(136, input.width * 0.111))
 
   const headers = ['Date', 'Record type', 'Selected-year value', 'Previous record', 'Margin']
   const headerRow = headers

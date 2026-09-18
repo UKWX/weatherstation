@@ -102,7 +102,18 @@ describe('annual overview export', () => {
     }
 
     const originalImage = globalThis.Image
+    const originalFileReader = globalThis.FileReader
     globalThis.Image = FakeImage as unknown as typeof Image
+    globalThis.FileReader = class FakeFileReader {
+      onload: null | (() => void) = null
+      onerror: null | (() => void) = null
+      result: string | ArrayBuffer | null = null
+
+      readAsDataURL() {
+        this.result = 'data:image/svg+xml;base64,PHN2Zy8+'
+        this.onload?.()
+      }
+    } as unknown as typeof FileReader
 
     const anchor = document.createElement('a')
     const click = vi.fn()
@@ -159,6 +170,7 @@ describe('annual overview export', () => {
       expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:png-output')
     } finally {
       globalThis.Image = originalImage
+      globalThis.FileReader = originalFileReader
       URL.createObjectURL = originalCreateObjectURL
       URL.revokeObjectURL = originalRevokeObjectURL
     }

@@ -378,7 +378,9 @@ export function downloadAnnualOverviewSvg(svgMarkup: string, filename: string): 
   const blob = new Blob([svgMarkup], { type: 'image/svg+xml;charset=utf-8' })
   const url = URL.createObjectURL(blob)
   triggerDownload(url, filename)
-  URL.revokeObjectURL(url)
+  setTimeout(() => {
+    URL.revokeObjectURL(url)
+  }, 0)
 }
 
 function buildLegendSvg(input: {
@@ -588,7 +590,7 @@ function parseSvgSize(svgMarkup: string): { readonly width: number; readonly hei
 }
 
 async function loadSvgImage(svgMarkup: string): Promise<HTMLImageElement> {
-  const svgUrl = `data:image/svg+xml;base64,${encodeSvgBase64(svgMarkup)}`
+  const svgUrl = await svgMarkupToDataUrl(svgMarkup)
   return await new Promise<HTMLImageElement>((resolve, reject) => {
     const image = new Image()
     image.onload = () => resolve(image)
@@ -597,13 +599,20 @@ async function loadSvgImage(svgMarkup: string): Promise<HTMLImageElement> {
   })
 }
 
-function encodeSvgBase64(svgMarkup: string): string {
-  const bytes = new TextEncoder().encode(svgMarkup)
-  let binary = ''
-  for (const byte of bytes) {
-    binary += String.fromCharCode(byte)
-  }
-  return btoa(binary)
+async function svgMarkupToDataUrl(svgMarkup: string): Promise<string> {
+  const blob = new Blob([svgMarkup], { type: 'image/svg+xml;charset=utf-8' })
+  return await new Promise<string>((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => {
+      if (typeof reader.result !== 'string') {
+        reject(new Error('Unable to prepare annual overview export'))
+        return
+      }
+      resolve(reader.result)
+    }
+    reader.onerror = () => reject(new Error('Unable to prepare annual overview export'))
+    reader.readAsDataURL(blob)
+  })
 }
 
 async function canvasToBlob(canvas: HTMLCanvasElement): Promise<Blob> {

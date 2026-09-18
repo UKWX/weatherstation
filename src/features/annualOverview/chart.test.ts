@@ -25,6 +25,10 @@ const dataset: AnnualOverviewDataset = {
       recordLowMaxC: -2,
       recordHighMinC: 6,
       recordLowMinC: -5,
+      recordHighMaxYears: [2025],
+      recordLowMaxYears: [],
+      recordHighMinYears: [],
+      recordLowMinYears: [],
       recordFlags: ['record-high-max'],
     },
     {
@@ -44,6 +48,10 @@ const dataset: AnnualOverviewDataset = {
       recordLowMaxC: -1.5,
       recordHighMinC: 5.5,
       recordLowMinC: -4.5,
+      recordHighMaxYears: [2026],
+      recordLowMaxYears: [],
+      recordHighMinYears: [],
+      recordLowMinYears: [],
       recordFlags: [],
     },
   ],
@@ -53,6 +61,7 @@ const dataset: AnnualOverviewDataset = {
       type: 'record-high-max',
       currentValueC: 12,
       previousRecordC: 11,
+      previousRecordYears: [2025],
       marginC: 1,
     },
   ],
@@ -89,6 +98,23 @@ describe('annual overview export', () => {
     expect(svg).toContain('<tspan')
     expect(svg).toContain('New daily records set in 2026')
     expect(svg).toContain('fill="#f5f7f9"')
+    expect(svg).toContain('11.0°C (2025)')
+  })
+
+  it('supports exporting chart-only without record markers', () => {
+    const svg = buildAnnualOverviewExportSvg({
+      year: 2026,
+      dataset,
+      subtitle: 'Short subtitle',
+      footnote: 'Short footnote',
+      recordSummary: 'Summary',
+      includeChart: true,
+      includeRecords: false,
+      showRecordOutlines: false,
+    })
+
+    expect(svg).not.toContain('New daily records set in 2026')
+    expect(svg).not.toContain('<circle')
   })
 
   it('renders a PNG download from the generated SVG dimensions', async () => {

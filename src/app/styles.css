@@ -1169,6 +1169,33 @@ th {
   color: var(--text-muted);
 }
 
+.annual-overview-tab-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+}
+
+.annual-overview-tab {
+  border: 1px solid var(--border);
+  background: var(--surface-muted);
+  color: var(--text);
+  border-radius: 999px;
+  padding: 0.5rem 0.9rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.annual-overview-tab--active {
+  background: var(--primary);
+  color: #fff;
+  border-color: var(--primary);
+}
+
+.annual-overview-date-input {
+  min-width: 9.5rem;
+}
+
 .annual-overview-export-actions {
   display: inline-flex;
   flex-wrap: wrap;
@@ -1262,7 +1289,7 @@ th {
   width: 0.9rem;
   height: 0.9rem;
   border-color: #a3241d;
-  background: var(--surface);
+  background: transparent;
 }
 
 .annual-overview-chart-canvas {
@@ -1307,6 +1334,12 @@ th {
   font-size: 0.8rem;
 }
 
+.annual-overview-tooltip__detail {
+  margin-top: 0.35rem;
+  font-size: 0.78rem;
+  color: #d7e5ff;
+}
+
 .annual-overview-footnote {
   margin: 0.8rem 0 0;
   font-size: 0.82rem;
@@ -1332,6 +1365,34 @@ th {
   color: #fff;
   font-size: 0.74rem;
   font-weight: 700;
+}
+
+.annual-overview-year-selector {
+  margin-bottom: 1rem;
+}
+
+.annual-overview-year-selector__label {
+  margin: 0 0 0.55rem;
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.annual-overview-year-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(5.5rem, 1fr));
+  gap: 0.55rem;
+}
+
+.annual-overview-year-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 0.45rem 0.7rem;
+  background: var(--surface-muted);
+  font-size: 0.88rem;
 }
 
 .archive-view-toggle {

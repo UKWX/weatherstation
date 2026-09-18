@@ -15,7 +15,7 @@ function makeRecord(
     maxTempC: 12,
     minTempC: 4,
     meanTempC: 8,
-    rainfallMm: null,
+    rainfallMm: 1,
     status: 'finalised',
     ...overrides,
   }
@@ -90,6 +90,8 @@ describe('AnnualOverviewPage', () => {
     expect(screen.getByText('2026 OVERVIEW')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Export SVG' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Export PNG' })).toBeInTheDocument()
+    expect(screen.getByRole('tab', { name: 'Rainfall accumulation' })).toBeInTheDocument()
+    expect(screen.getByText('15.0°C (2025)')).toBeInTheDocument()
   })
 
   it('supports historical year selection from the query string', () => {
@@ -110,5 +112,16 @@ describe('AnnualOverviewPage', () => {
     expect(
       screen.getByRole('heading', { name: '2024 Daily Temperature Data for Wakefield, United Kingdom' }),
     ).toBeInTheDocument()
+  })
+
+  it('switches to rainfall and comparison tabs', async () => {
+    const user = userEvent.setup()
+    renderPage()
+
+    await user.click(screen.getByRole('tab', { name: 'Rainfall accumulation' }))
+    expect(screen.getByRole('heading', { name: 'Rainfall accumulation by year' })).toBeInTheDocument()
+
+    await user.click(screen.getByRole('tab', { name: 'Temperature comparison' }))
+    expect(screen.getByRole('heading', { name: 'Temperature comparison by year' })).toBeInTheDocument()
   })
 })

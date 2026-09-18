@@ -35,6 +35,10 @@ export interface AnnualOverviewDay {
   readonly recordLowMaxC: number | null
   readonly recordHighMinC: number | null
   readonly recordLowMinC: number | null
+  readonly recordHighMaxYears: readonly number[]
+  readonly recordLowMaxYears: readonly number[]
+  readonly recordHighMinYears: readonly number[]
+  readonly recordLowMinYears: readonly number[]
   readonly recordFlags: readonly AnnualOverviewRecordType[]
 }
 
@@ -43,6 +47,7 @@ export interface AnnualOverviewRecordEvent {
   readonly type: AnnualOverviewRecordType
   readonly currentValueC: number
   readonly previousRecordC: number
+  readonly previousRecordYears: readonly number[]
   readonly marginC: number
 }
 
@@ -60,6 +65,7 @@ export function buildAnnualOverviewDataset(input: {
   readonly selectedYearRecords: readonly ClimateDay[]
   readonly historicalPayloads: readonly AnnualClimatePayload[]
 }): AnnualOverviewDataset {
+  const emptyYears: readonly number[] = []
   const selectedByDate = new Map(
     input.selectedYearRecords.map((record) => [record.date, record] as const),
   )
@@ -108,6 +114,10 @@ export function buildAnnualOverviewDataset(input: {
         recordLowMaxC: baseline?.lowestMax.value ?? null,
         recordHighMinC: baseline?.highestMin.value ?? null,
         recordLowMinC: baseline?.lowestMin.value ?? null,
+        recordHighMaxYears: baseline?.highestMax.years ?? emptyYears,
+        recordLowMaxYears: baseline?.lowestMax.years ?? emptyYears,
+        recordHighMinYears: baseline?.highestMin.years ?? emptyYears,
+        recordLowMinYears: baseline?.lowestMin.years ?? emptyYears,
         recordFlags,
       })
     }
@@ -221,6 +231,14 @@ function buildRecordEventsForDay(day: AnnualOverviewDay): readonly AnnualOvervie
             : type === 'record-high-min'
               ? day.recordHighMinC
               : day.recordLowMinC
+      const previousRecordYears =
+        type === 'record-high-max'
+          ? day.recordHighMaxYears
+          : type === 'record-low-max'
+            ? day.recordLowMaxYears
+            : type === 'record-high-min'
+              ? day.recordHighMinYears
+              : day.recordLowMinYears
 
       if (currentValueC == null || previousRecordC == null) {
         return null
@@ -231,6 +249,7 @@ function buildRecordEventsForDay(day: AnnualOverviewDay): readonly AnnualOvervie
         type,
         currentValueC,
         previousRecordC,
+        previousRecordYears,
         marginC:
           type === 'record-low-max' || type === 'record-low-min'
             ? previousRecordC - currentValueC

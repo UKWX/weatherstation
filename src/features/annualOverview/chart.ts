@@ -240,7 +240,13 @@ export function buildAnnualOverviewExportSvg(input: {
   readonly subtitle: string
   readonly footnote: string
   readonly recordSummary: string
+  readonly includeChart?: boolean
+  readonly includeRecords?: boolean
+  readonly showRecordOutlines?: boolean
 }): string {
+  const includeChart = input.includeChart ?? true
+  const includeRecords = input.includeRecords ?? true
+  const showRecordOutlines = input.showRecordOutlines ?? true
   const geometry = createAnnualOverviewChartGeometry(input.dataset)
   const monthBoundaries = getMonthBoundaries(input.dataset)
   const bandPath = buildNormalBandPath(input.dataset, geometry.yMin, geometry.yMax)
@@ -257,55 +263,37 @@ export function buildAnnualOverviewExportSvg(input: {
   const footnoteLines = wrapText(input.footnote, 11.5, textWidth)
   const recordSummaryLines = wrapText(input.recordSummary, 13, textWidth)
   const chartCardX = EXPORT_PAGE_PADDING
-  const chartCardY = EXPORT_PAGE_PADDING
-  const titleY = chartCardY + 42
-  const subtitleY = titleY + 28
-  const legend = buildLegendSvg({
-    year: input.year,
-    x: chartCardX + EXPORT_CARD_PADDING_X,
-    y: subtitleY + subtitleLines.length * 18 + 22,
-    maxWidth: textWidth,
-  })
-  const chartY = legend.bottom + 18
-  const footnoteY = chartY + ANNUAL_OVERVIEW_CHART_HEIGHT + 28
-  const chartCardHeight =
-    footnoteY +
-    Math.max(footnoteLines.length, 1) * 16 -
-    chartCardY +
-    EXPORT_CARD_PADDING_Y
-  const recordsCardY = chartCardY + chartCardHeight + EXPORT_CARD_GAP
-  const recordsTitleY = recordsCardY + 36
-  const recordsSummaryY = recordsTitleY + 26
-  const tableStartY = recordsSummaryY + Math.max(recordSummaryLines.length, 1) * 18 + 22
-  const table = buildExportTableSvg({
-    rows,
-    year: input.year,
-    x: chartCardX + EXPORT_CARD_PADDING_X,
-    y: tableStartY,
-    width: textWidth,
-  })
-  const recordsCardHeight = table.height + (tableStartY - recordsCardY) + EXPORT_CARD_PADDING_Y
-  const contentHeight = recordsCardY + recordsCardHeight + EXPORT_PAGE_PADDING
+  let cursorY = EXPORT_PAGE_PADDING
+  let chartMarkup = ''
+  let recordsMarkup = ''
 
-  return `<?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" width="${ANNUAL_OVERVIEW_EXPORT_WIDTH}" height="${contentHeight}" viewBox="0 0 ${ANNUAL_OVERVIEW_EXPORT_WIDTH} ${contentHeight}" role="img" aria-label="${escapeXml(`${input.year} Daily Temperature Data for Wakefield, United Kingdom`)}">
-  <defs>
-    <linearGradient id="annual-normal-band" x1="0" y1="${MARGIN.top}" x2="0" y2="${ANNUAL_OVERVIEW_CHART_HEIGHT - MARGIN.bottom}" gradientUnits="userSpaceOnUse">
-      ${NORMAL_GRADIENT_STOPS.map((stop) => `<stop offset="${stop.offset}" stop-color="${stop.color}"/>`).join('')}
-    </linearGradient>
-    <style>
-      text { font-family: ${EXPORT_FONT_FAMILY}; }
-    </style>
-  </defs>
-  <rect width="${ANNUAL_OVERVIEW_EXPORT_WIDTH}" height="${contentHeight}" fill="${EXPORT_PAGE_BACKGROUND}"/>
+  if (includeChart) {
+    const chartCardY = cursorY
+    const titleY = chartCardY + 42
+    const subtitleY = titleY + 28
+    const legend = buildLegendSvg({
+      year: input.year,
+      x: chartCardX + EXPORT_CARD_PADDING_X,
+      y: subtitleY + subtitleLines.length * 18 + 22,
+      maxWidth: textWidth,
+      showRecordOutlines,
+    })
+    const chartY = legend.bottom + 18
+    const footnoteY = chartY + ANNUAL_OVERVIEW_CHART_HEIGHT + 28
+    const chartCardHeight =
+      footnoteY +
+      Math.max(footnoteLines.length, 1) * 16 -
+      chartCardY +
+      EXPORT_CARD_PADDING_Y
+    chartMarkup = `
   <rect x="${chartCardX}" y="${chartCardY}" width="${contentWidth}" height="${chartCardHeight}" rx="${EXPORT_CARD_RADIUS}" fill="${EXPORT_SURFACE}" stroke="${EXPORT_SURFACE_BORDER}"/>
   <text x="${chartCardX + EXPORT_CARD_PADDING_X}" y="${titleY}" font-size="24" font-weight="700" fill="${ANNUAL_OVERVIEW_COLORS.ink}">${escapeXml(title)}</text>
   ${buildMultilineTextSvg(subtitleLines, {
-   x: chartCardX + EXPORT_CARD_PADDING_X,
-   y: subtitleY,
-   fontSize: 14,
-   lineHeight: 18,
-   fill: ANNUAL_OVERVIEW_COLORS.sub,
+    x: chartCardX + EXPORT_CARD_PADDING_X,
+    y: subtitleY,
+    fontSize: 14,
+    lineHeight: 18,
+    fill: ANNUAL_OVERVIEW_COLORS.sub,
   })}
   ${legend.markup}
   <g transform="translate(${EXPORT_CHART_OFFSET_X} ${chartY})">
@@ -326,7 +314,7 @@ export function buildAnnualOverviewExportSvg(input: {
   <path d="${maxPath}" fill="none" stroke="${ANNUAL_OVERVIEW_COLORS.actualMax}" stroke-width="2.4" stroke-linejoin="round"/>
   <path d="${minPath}" fill="none" stroke="${ANNUAL_OVERVIEW_COLORS.actualMin}" stroke-width="2.4" stroke-linejoin="round"/>
   <path d="${rollingPath}" fill="none" stroke="${ANNUAL_OVERVIEW_COLORS.rollingMean}" stroke-width="3.4" stroke-linejoin="round" stroke-linecap="round"/>
-  ${buildMarkerSvg(input.dataset, geometry.yMin, geometry.yMax)}
+  ${showRecordOutlines ? buildMarkerSvg(input.dataset, geometry.yMin, geometry.yMax) : ''}
   <rect x="${MARGIN.left}" y="${MARGIN.top}" width="${geometry.plotWidth}" height="${geometry.plotHeight}" fill="none" stroke="#c7ced4" stroke-width="1"/>
   ${buildBottomAxisSvg(input.dataset)}
   <text x="28" y="${MARGIN.top + geometry.plotHeight / 2}" transform="rotate(-90 28 ${MARGIN.top + geometry.plotHeight / 2})" font-size="12" fill="${ANNUAL_OVERVIEW_COLORS.sub}">Temperature (°C)</text>
@@ -337,7 +325,24 @@ export function buildAnnualOverviewExportSvg(input: {
     fontSize: 11.5,
     lineHeight: 16,
     fill: ANNUAL_OVERVIEW_COLORS.sub,
-  })}
+  })}`
+    cursorY += chartCardHeight + (includeRecords ? EXPORT_CARD_GAP : 0)
+  }
+
+  if (includeRecords) {
+    const recordsCardY = cursorY
+    const recordsTitleY = recordsCardY + 36
+    const recordsSummaryY = recordsTitleY + 26
+    const tableStartY = recordsSummaryY + Math.max(recordSummaryLines.length, 1) * 18 + 22
+    const table = buildExportTableSvg({
+      rows,
+      year: input.year,
+      x: chartCardX + EXPORT_CARD_PADDING_X,
+      y: tableStartY,
+      width: textWidth,
+    })
+    const recordsCardHeight = table.height + (tableStartY - recordsCardY) + EXPORT_CARD_PADDING_Y
+    recordsMarkup = `
   <rect x="${chartCardX}" y="${recordsCardY}" width="${contentWidth}" height="${recordsCardHeight}" rx="${EXPORT_CARD_RADIUS}" fill="${EXPORT_SURFACE}" stroke="${EXPORT_SURFACE_BORDER}"/>
   <text x="${chartCardX + EXPORT_CARD_PADDING_X}" y="${recordsTitleY}" font-size="16" font-weight="700" fill="${ANNUAL_OVERVIEW_COLORS.ink}">${escapeXml(`New daily records set in ${input.year}`)}</text>
   ${buildMultilineTextSvg(recordSummaryLines, {
@@ -347,7 +352,25 @@ export function buildAnnualOverviewExportSvg(input: {
     lineHeight: 18,
     fill: ANNUAL_OVERVIEW_COLORS.sub,
   })}
-  ${table.markup}
+  ${table.markup}`
+    cursorY += recordsCardHeight
+  }
+
+  const contentHeight = cursorY + EXPORT_PAGE_PADDING
+
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="${ANNUAL_OVERVIEW_EXPORT_WIDTH}" height="${contentHeight}" viewBox="0 0 ${ANNUAL_OVERVIEW_EXPORT_WIDTH} ${contentHeight}" role="img" aria-label="${escapeXml(`${input.year} Daily Temperature Data for Wakefield, United Kingdom`)}">
+  <defs>
+    <linearGradient id="annual-normal-band" x1="0" y1="${MARGIN.top}" x2="0" y2="${ANNUAL_OVERVIEW_CHART_HEIGHT - MARGIN.bottom}" gradientUnits="userSpaceOnUse">
+      ${NORMAL_GRADIENT_STOPS.map((stop) => `<stop offset="${stop.offset}" stop-color="${stop.color}"/>`).join('')}
+    </linearGradient>
+    <style>
+      text { font-family: ${EXPORT_FONT_FAMILY}; }
+    </style>
+  </defs>
+  <rect width="${ANNUAL_OVERVIEW_EXPORT_WIDTH}" height="${contentHeight}" fill="${EXPORT_PAGE_BACKGROUND}"/>
+  ${chartMarkup}
+  ${recordsMarkup}
 </svg>`
 }
 
@@ -388,6 +411,7 @@ function buildLegendSvg(input: {
   readonly x: number
   readonly y: number
   readonly maxWidth: number
+  readonly showRecordOutlines: boolean
 }): { readonly markup: string; readonly bottom: number } {
   const items = [
     'Normal range (dynamic mean)',
@@ -396,7 +420,7 @@ function buildLegendSvg(input: {
     'Min Temp (°C)',
     'Absolute max on record',
     'Absolute min on record',
-    `New record set in ${input.year}`,
+    ...(input.showRecordOutlines ? [`New record set in ${input.year}`] : []),
   ]
 
   let x = input.x
@@ -428,7 +452,7 @@ function buildLegendSvg(input: {
         } else if (index === 5) {
           marker = `<line x1="${itemX}" y1="${itemY - 4}" x2="${itemX + 22}" y2="${itemY - 4}" stroke="${ANNUAL_OVERVIEW_COLORS.recordLowMin}" stroke-width="1.8" stroke-dasharray="6 4"/>`
         } else {
-          marker = `<circle cx="${itemX + 11}" cy="${itemY - 4}" r="6" fill="#ffffff" stroke="${ANNUAL_OVERVIEW_COLORS.tagHighMax}" stroke-width="2.4"/>`
+          marker = `<circle cx="${itemX + 11}" cy="${itemY - 4}" r="6" fill="none" stroke="${ANNUAL_OVERVIEW_COLORS.tagHighMax}" stroke-width="2.4"/>`
         }
         const text = `<text x="${itemX + 30}" y="${itemY}" font-size="12.5" fill="${ANNUAL_OVERVIEW_COLORS.ink}">${escapeXml(label)}</text>`
         const chunk = `${marker}${text}`
@@ -460,7 +484,7 @@ function buildMarkerSvg(dataset: AnnualOverviewDataset, yMin: number, yMax: numb
         if (y == null) {
           return ''
         }
-        return `<circle cx="${xForDay(day.index, dataset.days.length)}" cy="${y}" r="6.5" fill="#ffffff" stroke="${getRecordMarkerColor(type)}" stroke-width="2.4"/>`
+        return `<circle cx="${xForDay(day.index, dataset.days.length)}" cy="${y}" r="6.5" fill="none" stroke="${getRecordMarkerColor(type)}" stroke-width="2.4"/>`
       }),
     )
     .join('')
@@ -507,7 +531,7 @@ function buildExportTableSvg(input: {
       <rect x="${colX[1]}" y="${y - 12}" width="${tagWidth}" height="18" rx="9" fill="${color}"/>
       <text x="${colX[1] + 10}" y="${y}" font-size="11" font-weight="700" fill="#ffffff">${escapeXml(getExportRecordLabel(row.type))}</text>
       <text x="${colX[2]}" y="${y}" font-size="12.5" fill="${ANNUAL_OVERVIEW_COLORS.ink}">${row.currentValueC.toFixed(1)}°C</text>
-      <text x="${colX[3]}" y="${y}" font-size="12.5" fill="${ANNUAL_OVERVIEW_COLORS.ink}">${row.previousRecordC.toFixed(1)}°C</text>
+      <text x="${colX[3]}" y="${y}" font-size="12.5" fill="${ANNUAL_OVERVIEW_COLORS.ink}">${escapeXml(formatPreviousRecordExportLabel(row))}</text>
       <text x="${colX[4]}" y="${y}" font-size="12.5" fill="${ANNUAL_OVERVIEW_COLORS.ink}">+${row.marginC.toFixed(1)}°C</text>
       <line x1="${input.x}" x2="${dividerX2}" y1="${y + 8}" y2="${y + 8}" stroke="#eef1f3"/>
       `
@@ -587,6 +611,11 @@ function parseSvgSize(svgMarkup: string): { readonly width: number; readonly hei
   return {
     width: Number.isFinite(width) && width > 0 ? width : ANNUAL_OVERVIEW_EXPORT_WIDTH,
     height: Number.isFinite(height) && height > 0 ? height : ANNUAL_OVERVIEW_CHART_HEIGHT,
+  }
+
+  function formatPreviousRecordExportLabel(row: AnnualOverviewRecordEvent): string {
+    const years = row.previousRecordYears.join(', ')
+    return years.length > 0 ? `${row.previousRecordC.toFixed(1)}°C (${years})` : `${row.previousRecordC.toFixed(1)}°C`
   }
 }
 

@@ -134,11 +134,10 @@ describe('annual overview export', () => {
       return originalCreateElement(tagName)
     })
 
-    const createObjectURL = vi
-      .spyOn(URL, 'createObjectURL')
-      .mockReturnValueOnce('blob:svg-source')
-      .mockReturnValueOnce('blob:png-output')
-    const revokeObjectURL = vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {})
+    const originalCreateObjectURL = URL.createObjectURL
+    const originalRevokeObjectURL = URL.revokeObjectURL
+    URL.createObjectURL = vi.fn(() => 'blob:png-output')
+    URL.revokeObjectURL = vi.fn()
 
     try {
       await downloadAnnualOverviewPng(
@@ -153,13 +152,15 @@ describe('annual overview export', () => {
       expect(context.scale).toHaveBeenCalledWith(2, 2)
       expect(context.fillRect).toHaveBeenCalledWith(0, 0, 1480, 980)
       expect(context.drawImage).toHaveBeenCalled()
-      expect(createObjectURL).toHaveBeenCalledTimes(2)
+      expect(URL.createObjectURL).toHaveBeenCalledTimes(1)
       expect(anchor.download).toBe('annual-overview.png')
       expect(anchor.href).toBe('blob:png-output')
       expect(click).toHaveBeenCalledTimes(1)
-      expect(revokeObjectURL).toHaveBeenCalledWith('blob:png-output')
+      expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:png-output')
     } finally {
       globalThis.Image = originalImage
+      URL.createObjectURL = originalCreateObjectURL
+      URL.revokeObjectURL = originalRevokeObjectURL
     }
   })
 })

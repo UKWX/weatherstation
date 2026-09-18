@@ -452,7 +452,7 @@ function buildLegendSvg(input: {
         } else if (index === 5) {
           marker = `<line x1="${itemX}" y1="${itemY - 4}" x2="${itemX + 22}" y2="${itemY - 4}" stroke="${ANNUAL_OVERVIEW_COLORS.recordLowMin}" stroke-width="1.8" stroke-dasharray="6 4"/>`
         } else {
-          marker = `<circle cx="${itemX + 11}" cy="${itemY - 4}" r="6" fill="none" stroke="${ANNUAL_OVERVIEW_COLORS.tagHighMax}" stroke-width="2.4"/>`
+          marker = `<circle cx="${itemX + 11}" cy="${itemY - 4}" r="3" fill="none" stroke="${ANNUAL_OVERVIEW_COLORS.tagHighMax}" stroke-width="1.2"/>`
         }
         const text = `<text x="${itemX + 30}" y="${itemY}" font-size="12.5" fill="${ANNUAL_OVERVIEW_COLORS.ink}">${escapeXml(label)}</text>`
         const chunk = `${marker}${text}`
@@ -484,7 +484,7 @@ function buildMarkerSvg(dataset: AnnualOverviewDataset, yMin: number, yMax: numb
         if (y == null) {
           return ''
         }
-        return `<circle cx="${xForDay(day.index, dataset.days.length)}" cy="${y}" r="6.5" fill="none" stroke="${getRecordMarkerColor(type)}" stroke-width="2.4"/>`
+        return `<circle cx="${xForDay(day.index, dataset.days.length)}" cy="${y}" r="3.25" fill="none" stroke="${getRecordMarkerColor(type)}" stroke-width="1.2"/>`
       }),
     )
     .join('')

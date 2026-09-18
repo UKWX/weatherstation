@@ -13,8 +13,20 @@ export function prepareSvgPngExport(
     readonly backgroundColor?: string
   } = {},
 ): SvgPngExportPreparation {
-  const width = svg.clientWidth || Number(svg.getAttribute('width')) || 960
-  const height = svg.clientHeight || Number(svg.getAttribute('height')) || 420
+  const widthAttr = Number(svg.getAttribute('width'))
+  const heightAttr = Number(svg.getAttribute('height'))
+  const viewBoxWidth = svg.viewBox.baseVal.width
+  const viewBoxHeight = svg.viewBox.baseVal.height
+  const width =
+    (Number.isFinite(svg.clientWidth) && svg.clientWidth > 0 ? svg.clientWidth : 0) ||
+    (Number.isFinite(widthAttr) && widthAttr > 0 ? widthAttr : 0) ||
+    (Number.isFinite(viewBoxWidth) && viewBoxWidth > 0 ? viewBoxWidth : 0) ||
+    960
+  const height =
+    (Number.isFinite(svg.clientHeight) && svg.clientHeight > 0 ? svg.clientHeight : 0) ||
+    (Number.isFinite(heightAttr) && heightAttr > 0 ? heightAttr : 0) ||
+    (Number.isFinite(viewBoxHeight) && viewBoxHeight > 0 ? viewBoxHeight : 0) ||
+    420
   const clone = svg.cloneNode(true) as SVGSVGElement
   clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg')
   clone.setAttribute('width', String(width))

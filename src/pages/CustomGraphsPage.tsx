@@ -493,9 +493,9 @@ function GraphPanel({
             fill="transparent"
             onPointerLeave={() => setHoveredTimestamp(null)}
             onPointerMove={(event) => {
-              if (svgRef.current == null || hoverTimestamps.length === 0) return
-              const rect = svgRef.current.getBoundingClientRect()
-              const ratio = (event.clientX - rect.left) / rect.width
+              if (hoverTimestamps.length === 0) return
+              const rect = event.currentTarget.getBoundingClientRect()
+              const ratio = Math.max(0, Math.min(1, (event.clientX - rect.left) / rect.width))
               const timestamp = domain.start + (domain.end - domain.start) * ratio
               let best = hoverTimestamps[0]!
               let bestDiff = Math.abs(best - timestamp)

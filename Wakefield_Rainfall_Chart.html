@@ -1,0 +1,413 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>2026 Rainfall Accumulation for Wakefield, United Kingdom</title>
+<style>
+  :root{
+    --ink:#1c2530;
+    --sub:#5b6773;
+    --grid:#e4e8ec;
+    --monthline:#aeb8c2;
+    --panel:#ffffff;
+    --page:#f5f7f9;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;background:var(--page);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif;color:var(--ink);}
+  .wrap{max-width:1400px;margin:0 auto;padding:28px 24px 48px;}
+  h1{font-size:20px;font-weight:700;margin:0 0 2px;letter-spacing:-0.01em;}
+  .subtitle{font-size:13px;color:var(--sub);margin:0 0 18px;}
+  .chart-card{background:var(--panel);border:1px solid #e6e9ec;border-radius:10px;padding:8px 8px 4px;box-shadow:0 1px 2px rgba(20,30,40,0.04);}
+  .toolbar{display:flex;justify-content:flex-end;gap:8px;padding:10px 10px 2px;}
+  .dl-btn{
+    display:inline-flex;align-items:center;gap:6px;
+    background:#1c2530;color:#fff;border:none;border-radius:7px;
+    font-size:12.5px;font-weight:600;padding:8px 13px;cursor:pointer;
+    font-family:inherit;transition:background .12s ease;
+  }
+  .dl-btn:hover{background:#333f4d;}
+  .dl-btn.secondary{background:#fff;color:#1c2530;border:1px solid #d4d9dd;}
+  .dl-btn.secondary:hover{background:#f2f4f6;}
+  .dl-btn svg{width:14px;height:14px;stroke:currentColor;flex:none;}
+  .dl-btn[disabled]{opacity:0.6;cursor:default;}
+  .scroll{overflow-x:auto;}
+  #chartHolder svg{display:block;font-family:inherit;width:100%;height:auto;min-width:1150px;}
+  .tick-label{fill:var(--sub);font-size:11px;}
+  .month-label{fill:var(--ink);font-size:12.5px;font-weight:700;letter-spacing:0.03em;}
+  .axis-label{fill:var(--sub);font-size:12px;}
+  .legend-title{fill:var(--sub);font-size:11px;}
+  #tooltip{
+    position:absolute;pointer-events:none;background:#1c2530;color:#fff;border-radius:8px;
+    padding:10px 12px;font-size:12.5px;line-height:1.5;box-shadow:0 6px 18px rgba(0,0,0,0.25);
+    opacity:0;transition:opacity .08s ease;max-width:250px;z-index:5;
+  }
+  #tooltip b{font-weight:700;}
+  #tooltip .row{display:flex;justify-content:space-between;gap:14px;}
+  #tooltip .hl{color:#7ec8ff;font-weight:700;}
+  .chart-holder{position:relative;}
+  .footnote{font-size:11.5px;color:var(--sub);margin-top:10px;line-height:1.5;}
+  .records-panel{margin-top:22px;background:var(--panel);border:1px solid #e6e9ec;border-radius:10px;padding:16px 20px 20px;}
+  .records-panel h2{font-size:14.5px;margin:0 0 4px;}
+  .records-panel p{font-size:12.5px;color:var(--sub);margin:0 0 12px;}
+  table{border-collapse:collapse;width:100%;font-size:12.5px;}
+  th,td{text-align:left;padding:6px 10px;border-bottom:1px solid #eef1f3;}
+  th{color:var(--sub);font-weight:600;font-size:11.5px;text-transform:uppercase;letter-spacing:0.03em;}
+  tr:last-child td{border-bottom:none;}
+  .val{font-variant-numeric:tabular-nums;text-align:right;}
+  th.val{text-align:right;}
+  .pct-up{color:#1d7a3d;font-weight:600;}
+  .pct-down{color:#a3241d;font-weight:600;}
+  .muted{color:var(--sub);}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>2026 Rainfall Accumulation for Wakefield, United Kingdom</h1>
+  <p class="subtitle">Daily rainfall and running annual total vs. the 1991&ndash;2020 average</p>
+  <div class="chart-card">
+    <div class="toolbar">
+      <button class="dl-btn secondary" id="btnSvg" type="button">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12m0 0l-4-4m4 4l4-4M4 19h16"/></svg>
+        Download SVG (vector)
+      </button>
+      <button class="dl-btn" id="btnPng" type="button">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12m0 0l-4-4m4 4l4-4M4 19h16"/></svg>
+        Download PNG (high-res)
+      </button>
+    </div>
+    <div class="scroll">
+      <div class="chart-holder" id="chartHolder"></div>
+    </div>
+  </div>
+  <p class="footnote">Blue area is the running rainfall total for 2026 (right axis). Thin vertical bars are each day's individual rainfall (left axis). The grey line is the running total expected from the 1991&ndash;2020 monthly averages, spread evenly across the days of each month. Data year to date runs to 31 August 2026.</p>
+  <div class="records-panel" id="summaryPanel"></div>
+</div>
+<div id="tooltip"></div>
+
+<script>
+// index: [doy, isoDate, dailyActual, cumActual, cumAverage]
+const DATA = [[1,"2026-01-01",0.0,0.0,1.7],[2,"2026-01-02",0.0,0.0,3.5],[3,"2026-01-03",0.0,0.0,5.2],[4,"2026-01-04",0.0,0.0,6.9],[5,"2026-01-05",0.0,0.0,8.6],[6,"2026-01-06",2.5,2.5,10.4],[7,"2026-01-07",1.2,3.7,12.1],[8,"2026-01-08",5.6,9.3,13.8],[9,"2026-01-09",5.4,14.7,15.5],[10,"2026-01-10",0.0,14.7,17.3],[11,"2026-01-11",4.4,19.1,19.0],[12,"2026-01-12",0.8,19.9,20.7],[13,"2026-01-13",0.0,19.9,22.4],[14,"2026-01-14",0.5,20.4,24.2],[15,"2026-01-15",0.3,20.7,25.9],[16,"2026-01-16",0.0,20.7,27.6],[17,"2026-01-17",1.9,22.6,29.3],[18,"2026-01-18",6.1,28.7,31.1],[19,"2026-01-19",2.5,31.2,32.8],[20,"2026-01-20",1.5,32.7,34.5],[21,"2026-01-21",6.3,39.0,36.2],[22,"2026-01-22",19.7,58.7,38.0],[23,"2026-01-23",3.0,61.7,39.7],[24,"2026-01-24",1.0,62.7,41.4],[25,"2026-01-25",6.1,68.8,43.1],[26,"2026-01-26",0.8,69.6,44.9],[27,"2026-01-27",18.4,88.0,46.6],[28,"2026-01-28",0.2,88.2,48.3],[29,"2026-01-29",0.3,88.5,50.0],[30,"2026-01-30",9.5,98.0,51.8],[31,"2026-01-31",4.6,102.6,53.5],[32,"2026-02-01",0.3,102.9,55.2],[33,"2026-02-02",2.2,105.1,56.9],[34,"2026-02-03",1.8,106.9,58.6],[35,"2026-02-04",3.1,110.0,60.3],[36,"2026-02-05",16.0,126.0,61.9],[37,"2026-02-06",20.5,146.5,63.6],[38,"2026-02-07",5.1,151.6,65.3],[39,"2026-02-08",4.9,156.5,67.0],[40,"2026-02-09",0.0,156.5,68.7],[41,"2026-02-10",7.7,164.2,70.4],[42,"2026-02-11",10.9,175.1,72.1],[43,"2026-02-12",9.1,184.2,73.8],[44,"2026-02-13",11.9,196.1,75.5],[45,"2026-02-14",0.0,196.1,77.2],[46,"2026-02-15",1.3,197.4,78.8],[47,"2026-02-16",6.4,203.8,80.5],[48,"2026-02-17",0.0,203.8,82.2],[49,"2026-02-18",1.1,204.9,83.9],[50,"2026-02-19",7.4,212.3,85.6],[51,"2026-02-20",2.9,215.2,87.3],[52,"2026-02-21",1.1,216.3,89.0],[53,"2026-02-22",0.0,216.3,90.7],[54,"2026-02-23",1.4,217.7,92.4],[55,"2026-02-24",0.0,217.7,94.0],[56,"2026-02-25",0.0,217.7,95.7],[57,"2026-02-26",0.7,218.4,97.4],[58,"2026-02-27",3.5,221.9,99.1],[59,"2026-02-28",4.2,226.1,100.8],[60,"2026-03-01",0.0,226.1,102.2],[61,"2026-03-02",0.3,226.4,103.6],[62,"2026-03-03",0.0,226.4,105.0],[63,"2026-03-04",0.0,226.4,106.4],[64,"2026-03-05",0.0,226.4,107.8],[65,"2026-03-06",6.2,232.6,109.2],[66,"2026-03-07",0.0,232.6,110.6],[67,"2026-03-08",0.0,232.6,112.0],[68,"2026-03-09",0.0,232.6,113.4],[69,"2026-03-10",0.0,232.6,114.8],[70,"2026-03-11",0.0,232.6,116.2],[71,"2026-03-12",12.6,245.2,117.6],[72,"2026-03-13",2.9,248.1,119.0],[73,"2026-03-14",0.1,248.2,120.4],[74,"2026-03-15",2.8,251.0,121.8],[75,"2026-03-16",0.7,251.7,123.2],[76,"2026-03-17",0.0,251.7,124.6],[77,"2026-03-18",0.0,251.7,126.0],[78,"2026-03-19",0.0,251.7,127.4],[79,"2026-03-20",0.0,251.7,128.8],[80,"2026-03-21",0.0,251.7,130.2],[81,"2026-03-22",0.0,251.7,131.6],[82,"2026-03-23",0.0,251.7,133.0],[83,"2026-03-24",6.8,258.5,134.4],[84,"2026-03-25",0.3,258.8,135.8],[85,"2026-03-26",0.0,258.8,137.2],[86,"2026-03-27",1.1,259.9,138.6],[87,"2026-03-28",0.0,259.9,140.0],[88,"2026-03-29",1.6,261.5,141.4],[89,"2026-03-30",5.7,267.2,142.8],[90,"2026-03-31",0.0,267.2,144.2],[91,"2026-04-01",0.0,267.2,145.7],[92,"2026-04-02",0.0,267.2,147.3],[93,"2026-04-03",0.0,267.2,148.8],[94,"2026-04-04",0.3,267.5,150.4],[95,"2026-04-05",2.0,269.5,151.9],[96,"2026-04-06",0.0,269.5,153.4],[97,"2026-04-07",0.0,269.5,155.0],[98,"2026-04-08",0.0,269.5,156.5],[99,"2026-04-09",0.2,269.7,158.1],[100,"2026-04-10",0.0,269.7,159.6],[101,"2026-04-11",1.1,270.8,161.1],[102,"2026-04-12",1.7,272.5,162.7],[103,"2026-04-13",0.0,272.5,164.2],[104,"2026-04-14",1.7,274.2,165.8],[105,"2026-04-15",5.6,279.8,167.3],[106,"2026-04-16",0.8,280.6,168.8],[107,"2026-04-17",2.6,283.2,170.4],[108,"2026-04-18",0.0,283.2,171.9],[109,"2026-04-19",0.0,283.2,173.5],[110,"2026-04-20",0.0,283.2,175.0],[111,"2026-04-21",0.0,283.2,176.5],[112,"2026-04-22",0.0,283.2,178.1],[113,"2026-04-23",0.0,283.2,179.6],[114,"2026-04-24",0.0,283.2,181.2],[115,"2026-04-25",0.0,283.2,182.7],[116,"2026-04-26",0.0,283.2,184.2],[117,"2026-04-27",0.0,283.2,185.8],[118,"2026-04-28",0.0,283.2,187.3],[119,"2026-04-29",0.0,283.2,188.9],[120,"2026-04-30",0.0,283.2,190.4],[121,"2026-05-01",0.0,283.2,191.8],[122,"2026-05-02",1.4,284.6,193.2],[123,"2026-05-03",28.9,313.5,194.6],[124,"2026-05-04",0.0,313.5,196.0],[125,"2026-05-05",0.0,313.5,197.4],[126,"2026-05-06",0.0,313.5,198.8],[127,"2026-05-07",0.0,313.5,200.2],[128,"2026-05-08",0.0,313.5,201.6],[129,"2026-05-09",2.6,316.1,203.0],[130,"2026-05-10",0.0,316.1,204.4],[131,"2026-05-11",0.8,316.9,205.8],[132,"2026-05-12",0.2,317.1,207.2],[133,"2026-05-13",8.7,325.8,208.6],[134,"2026-05-14",0.2,326.0,210.0],[135,"2026-05-15",0.0,326.0,211.4],[136,"2026-05-16",2.5,328.5,212.7],[137,"2026-05-17",4.3,332.8,214.1],[138,"2026-05-18",9.2,342.0,215.5],[139,"2026-05-19",13.1,355.1,216.9],[140,"2026-05-20",0.0,355.1,218.3],[141,"2026-05-21",0.2,355.3,219.7],[142,"2026-05-22",0.0,355.3,221.1],[143,"2026-05-23",0.0,355.3,222.5],[144,"2026-05-24",0.0,355.3,223.9],[145,"2026-05-25",0.0,355.3,225.3],[146,"2026-05-26",0.0,355.3,226.7],[147,"2026-05-27",0.0,355.3,228.1],[148,"2026-05-28",7.1,362.4,229.5],[149,"2026-05-29",0.0,362.4,230.9],[150,"2026-05-30",0.0,362.4,232.3],[151,"2026-05-31",0.0,362.4,233.7],[152,"2026-06-01",3.1,365.5,235.9],[153,"2026-06-02",0.4,365.9,238.0],[154,"2026-06-03",2.0,367.9,240.2],[155,"2026-06-04",0.7,368.6,242.3],[156,"2026-06-05",0.0,368.6,244.5],[157,"2026-06-06",3.0,371.6,246.7],[158,"2026-06-07",0.9,372.5,248.8],[159,"2026-06-08",2.0,374.5,251.0],[160,"2026-06-09",0.2,374.7,253.1],[161,"2026-06-10",1.7,376.4,255.3],[162,"2026-06-11",13.3,389.7,257.5],[163,"2026-06-12",0.3,390.0,259.6],[164,"2026-06-13",0.0,390.0,261.8],[165,"2026-06-14",0.0,390.0,263.9],[166,"2026-06-15",0.2,390.2,266.1],[167,"2026-06-16",0.3,390.5,268.3],[168,"2026-06-17",0.0,390.5,270.4],[169,"2026-06-18",0.0,390.5,272.6],[170,"2026-06-19",0.0,390.5,274.7],[171,"2026-06-20",0.0,390.5,276.9],[172,"2026-06-21",0.0,390.5,279.1],[173,"2026-06-22",0.0,390.5,281.2],[174,"2026-06-23",0.0,390.5,283.4],[175,"2026-06-24",0.0,390.5,285.5],[176,"2026-06-25",0.0,390.5,287.7],[177,"2026-06-26",4.4,394.9,289.9],[178,"2026-06-27",0.0,394.9,292.0],[179,"2026-06-28",0.0,394.9,294.2],[180,"2026-06-29",0.0,394.9,296.3],[181,"2026-06-30",2.0,396.9,298.5],[182,"2026-07-01",0.0,396.9,300.3],[183,"2026-07-02",0.0,396.9,302.0],[184,"2026-07-03",0.0,396.9,303.8],[185,"2026-07-04",0.0,396.9,305.6],[186,"2026-07-05",0.0,396.9,307.3],[187,"2026-07-06",0.0,396.9,309.1],[188,"2026-07-07",0.0,396.9,310.9],[189,"2026-07-08",0.0,396.9,312.6],[190,"2026-07-09",0.0,396.9,314.4],[191,"2026-07-10",0.0,396.9,316.1],[192,"2026-07-11",0.0,396.9,317.9],[193,"2026-07-12",0.0,396.9,319.7],[194,"2026-07-13",0.0,396.9,321.4],[195,"2026-07-14",0.0,396.9,323.2],[196,"2026-07-15",0.0,396.9,325.0],[197,"2026-07-16",0.0,396.9,326.7],[198,"2026-07-17",0.0,396.9,328.5],[199,"2026-07-18",0.0,396.9,330.3],[200,"2026-07-19",0.0,396.9,332.0],[201,"2026-07-20",0.0,396.9,333.8],[202,"2026-07-21",0.0,396.9,335.6],[203,"2026-07-22",0.0,396.9,337.3],[204,"2026-07-23",0.0,396.9,339.1],[205,"2026-07-24",0.0,396.9,340.8],[206,"2026-07-25",0.0,396.9,342.6],[207,"2026-07-26",0.1,397.0,344.4],[208,"2026-07-27",0.0,397.0,346.1],[209,"2026-07-28",0.0,397.0,347.9],[210,"2026-07-29",0.0,397.0,349.7],[211,"2026-07-30",0.0,397.0,351.4],[212,"2026-07-31",0.0,397.0,353.2],[213,"2026-08-01",0.0,397.0,355.1],[214,"2026-08-02",0.0,397.0,357.1],[215,"2026-08-03",0.0,397.0,359.0],[216,"2026-08-04",4.3,401.3,361.0],[217,"2026-08-05",0.2,401.5,362.9],[218,"2026-08-06",0.0,401.5,364.8],[219,"2026-08-07",0.0,401.5,366.8],[220,"2026-08-08",0.0,401.5,368.7],[221,"2026-08-09",0.0,401.5,370.6],[222,"2026-08-10",0.0,401.5,372.6],[223,"2026-08-11",0.0,401.5,374.5],[224,"2026-08-12",0.0,401.5,376.5],[225,"2026-08-13",0.0,401.5,378.4],[226,"2026-08-14",0.0,401.5,380.3],[227,"2026-08-15",0.0,401.5,382.3],[228,"2026-08-16",2.8,404.3,384.2],[229,"2026-08-17",4.9,409.2,386.2],[230,"2026-08-18",0.4,409.6,388.1],[231,"2026-08-19",0.2,409.8,390.0],[232,"2026-08-20",7.3,417.1,392.0],[233,"2026-08-21",0.0,417.1,393.9],[234,"2026-08-22",0.0,417.1,395.9],[235,"2026-08-23",0.0,417.1,397.8],[236,"2026-08-24",0.0,417.1,399.7],[237,"2026-08-25",0.0,417.1,401.7],[238,"2026-08-26",0.0,417.1,403.6],[239,"2026-08-27",19.5,436.6,405.5],[240,"2026-08-28",20.6,457.2,407.5],[241,"2026-08-29",5.5,462.7,409.4],[242,"2026-08-30",7.3,470.0,411.4],[243,"2026-08-31",2.4,472.4,413.3],[244,"2026-09-01",null,null,415.1],[245,"2026-09-02",null,null,416.8],[246,"2026-09-03",null,null,418.6],[247,"2026-09-04",null,null,420.4],[248,"2026-09-05",null,null,422.1],[249,"2026-09-06",null,null,423.9],[250,"2026-09-07",null,null,425.7],[251,"2026-09-08",null,null,427.5],[252,"2026-09-09",null,null,429.2],[253,"2026-09-10",null,null,431.0],[254,"2026-09-11",null,null,432.8],[255,"2026-09-12",null,null,434.5],[256,"2026-09-13",null,null,436.3],[257,"2026-09-14",null,null,438.1],[258,"2026-09-15",null,null,439.9],[259,"2026-09-16",null,null,441.6],[260,"2026-09-17",null,null,443.4],[261,"2026-09-18",null,null,445.2],[262,"2026-09-19",null,null,446.9],[263,"2026-09-20",null,null,448.7],[264,"2026-09-21",null,null,450.5],[265,"2026-09-22",null,null,452.2],[266,"2026-09-23",null,null,454.0],[267,"2026-09-24",null,null,455.8],[268,"2026-09-25",null,null,457.6],[269,"2026-09-26",null,null,459.3],[270,"2026-09-27",null,null,461.1],[271,"2026-09-28",null,null,462.9],[272,"2026-09-29",null,null,464.6],[273,"2026-09-30",null,null,466.4],[274,"2026-10-01",null,null,468.5],[275,"2026-10-02",null,null,470.7],[276,"2026-10-03",null,null,472.8],[277,"2026-10-04",null,null,474.9],[278,"2026-10-05",null,null,477.0],[279,"2026-10-06",null,null,479.2],[280,"2026-10-07",null,null,481.3],[281,"2026-10-08",null,null,483.4],[282,"2026-10-09",null,null,485.5],[283,"2026-10-10",null,null,487.7],[284,"2026-10-11",null,null,489.8],[285,"2026-10-12",null,null,491.9],[286,"2026-10-13",null,null,494.0],[287,"2026-10-14",null,null,496.2],[288,"2026-10-15",null,null,498.3],[289,"2026-10-16",null,null,500.4],[290,"2026-10-17",null,null,502.5],[291,"2026-10-18",null,null,504.7],[292,"2026-10-19",null,null,506.8],[293,"2026-10-20",null,null,508.9],[294,"2026-10-21",null,null,511.0],[295,"2026-10-22",null,null,513.2],[296,"2026-10-23",null,null,515.3],[297,"2026-10-24",null,null,517.4],[298,"2026-10-25",null,null,519.5],[299,"2026-10-26",null,null,521.7],[300,"2026-10-27",null,null,523.8],[301,"2026-10-28",null,null,525.9],[302,"2026-10-29",null,null,528.0],[303,"2026-10-30",null,null,530.2],[304,"2026-10-31",null,null,532.3],[305,"2026-11-01",null,null,534.3],[306,"2026-11-02",null,null,536.2],[307,"2026-11-03",null,null,538.2],[308,"2026-11-04",null,null,540.2],[309,"2026-11-05",null,null,542.2],[310,"2026-11-06",null,null,544.1],[311,"2026-11-07",null,null,546.1],[312,"2026-11-08",null,null,548.1],[313,"2026-11-09",null,null,550.1],[314,"2026-11-10",null,null,552.0],[315,"2026-11-11",null,null,554.0],[316,"2026-11-12",null,null,556.0],[317,"2026-11-13",null,null,558.0],[318,"2026-11-14",null,null,559.9],[319,"2026-11-15",null,null,561.9],[320,"2026-11-16",null,null,563.9],[321,"2026-11-17",null,null,565.8],[322,"2026-11-18",null,null,567.8],[323,"2026-11-19",null,null,569.8],[324,"2026-11-20",null,null,571.8],[325,"2026-11-21",null,null,573.7],[326,"2026-11-22",null,null,575.7],[327,"2026-11-23",null,null,577.7],[328,"2026-11-24",null,null,579.7],[329,"2026-11-25",null,null,581.6],[330,"2026-11-26",null,null,583.6],[331,"2026-11-27",null,null,585.6],[332,"2026-11-28",null,null,587.6],[333,"2026-11-29",null,null,589.5],[334,"2026-11-30",null,null,591.5],[335,"2026-12-01",null,null,593.6],[336,"2026-12-02",null,null,595.8],[337,"2026-12-03",null,null,597.9],[338,"2026-12-04",null,null,600.0],[339,"2026-12-05",null,null,602.1],[340,"2026-12-06",null,null,604.3],[341,"2026-12-07",null,null,606.4],[342,"2026-12-08",null,null,608.5],[343,"2026-12-09",null,null,610.6],[344,"2026-12-10",null,null,612.8],[345,"2026-12-11",null,null,614.9],[346,"2026-12-12",null,null,617.0],[347,"2026-12-13",null,null,619.1],[348,"2026-12-14",null,null,621.3],[349,"2026-12-15",null,null,623.4],[350,"2026-12-16",null,null,625.5],[351,"2026-12-17",null,null,627.6],[352,"2026-12-18",null,null,629.8],[353,"2026-12-19",null,null,631.9],[354,"2026-12-20",null,null,634.0],[355,"2026-12-21",null,null,636.1],[356,"2026-12-22",null,null,638.3],[357,"2026-12-23",null,null,640.4],[358,"2026-12-24",null,null,642.5],[359,"2026-12-25",null,null,644.6],[360,"2026-12-26",null,null,646.8],[361,"2026-12-27",null,null,648.9],[362,"2026-12-28",null,null,651.0],[363,"2026-12-29",null,null,653.1],[364,"2026-12-30",null,null,655.3],[365,"2026-12-31",null,null,657.4]];
+const MONTHLY = [{"month":"Jan","avg":53.5,"actual":102.6,"complete":true},{"month":"Feb","avg":47.3,"actual":123.5,"complete":true},{"month":"Mar","avg":43.4,"actual":41.1,"complete":true},{"month":"Apr","avg":46.2,"actual":16.0,"complete":true},{"month":"May","avg":43.3,"actual":79.2,"complete":true},{"month":"Jun","avg":64.8,"actual":34.5,"complete":true},{"month":"Jul","avg":54.7,"actual":0.1,"complete":true},{"month":"Aug","avg":60.1,"actual":75.4,"complete":true},{"month":"Sep","avg":53.1,"actual":null,"complete":false},{"month":"Oct","avg":65.9,"actual":null,"complete":false},{"month":"Nov","avg":59.2,"actual":null,"complete":false},{"month":"Dec","avg":65.9,"actual":null,"complete":false}];
+
+const MONTH_NAMES = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const MONTH_LEN_2026 = [31,28,31,30,31,30,31,31,30,31,30,31];
+
+// ---------- layout ----------
+const W = 2600, H = 950;
+const marginLeft = 74, marginRight = 76, marginTop = 70, marginBottom = 60;
+const plotW = W - marginLeft - marginRight;
+const plotH = H - marginTop - marginBottom;
+const N = DATA.length; // 365
+
+const LEFT_MAX = 35;     // daily rainfall axis (mm)
+const RIGHT_MAX = 700;   // cumulative annual axis (mm)
+
+function xScale(doy){ return marginLeft + (doy - 1) / (N - 1) * plotW; }
+function yLeft(v){ return marginTop + (LEFT_MAX - v) / LEFT_MAX * plotH; }
+function yRight(v){ return marginTop + (RIGHT_MAX - v) / RIGHT_MAX * plotH; }
+
+let monthStarts = [];
+let acc = 1;
+for (let m = 0; m < 12; m++){ monthStarts.push(acc); acc += MONTH_LEN_2026[m]; }
+monthStarts.push(N + 1);
+let monthCenters = [];
+for (let m = 0; m < 12; m++){ monthCenters.push((monthStarts[m] + monthStarts[m+1] - 1) / 2); }
+
+function fmtDate(iso, opts){
+  const d = new Date(iso + 'T00:00:00');
+  const day = d.getDate().toString().padStart(2,'0');
+  const mon = d.toLocaleString('en-GB', {month:'short'});
+  return opts && opts.long ? d.toLocaleDateString('en-GB', {day:'numeric', month:'long', year:'numeric'}) : `${day} ${mon}`;
+}
+function fmtMm(v){ return v === null || v === undefined ? '\u2013' : v.toFixed(1) + ' mm'; }
+
+// ---------- path builders ----------
+function areaPathCumActual(){
+  let top = '';
+  let started = false;
+  let firstX = null, lastX = null;
+  for (let i = 0; i < N; i++){
+    const v = DATA[i][3];
+    if (v === null){ continue; }
+    const x = xScale(DATA[i][0]);
+    const y = yRight(v);
+    if (!started){ firstX = x; started = true; }
+    top += (top === '' ? 'M' : 'L') + x.toFixed(1) + ',' + y.toFixed(1) + ' ';
+    lastX = x;
+  }
+  if (!started) return '';
+  const baseY = yRight(0);
+  return top + `L${lastX.toFixed(1)},${baseY.toFixed(1)} L${firstX.toFixed(1)},${baseY.toFixed(1)} Z`;
+}
+
+function linePath(idx, scaleFn){
+  let d = '';
+  let started = false;
+  for (let i = 0; i < N; i++){
+    const v = DATA[i][idx];
+    if (v === null || v === undefined){ started = false; continue; }
+    const x = xScale(DATA[i][0]);
+    const y = scaleFn(v);
+    d += (started ? 'L' : 'M') + x.toFixed(1) + ',' + y.toFixed(1) + ' ';
+    started = true;
+  }
+  return d.trim();
+}
+
+function dailyBars(){
+  let svg = '';
+  const base = yLeft(0);
+  for (let i = 0; i < N; i++){
+    const v = DATA[i][2];
+    if (v === null || v === undefined || v <= 0) continue;
+    const x = xScale(DATA[i][0]);
+    const y = yLeft(Math.min(v, LEFT_MAX));
+    svg += `<line x1="${x.toFixed(1)}" y1="${base.toFixed(1)}" x2="${x.toFixed(1)}" y2="${y.toFixed(1)}" stroke="#5b7690" stroke-width="1.6" opacity="0.75"/>`;
+  }
+  return svg;
+}
+
+// ---------- gridlines / months ----------
+function gridAndMonths(){
+  let svg = '';
+  monthStarts.forEach((d) => {
+    const x = xScale(Math.min(d, N));
+    svg += `<line x1="${x.toFixed(1)}" y1="${marginTop}" x2="${x.toFixed(1)}" y2="${marginTop+plotH}" stroke="var(--monthline)" stroke-width="1.2"/>`;
+  });
+  monthCenters.forEach((c, i) => {
+    const x = xScale(c);
+    svg += `<text class="month-label" x="${x.toFixed(1)}" y="${marginTop+plotH+34}" text-anchor="middle">${MONTH_NAMES[i]}</text>`;
+  });
+  return svg;
+}
+
+function axes(){
+  let svg = '';
+  // left axis (daily, mm) drives the horizontal gridlines
+  for (let v = 0; v <= LEFT_MAX; v += 5){
+    const y = yLeft(v);
+    svg += `<line x1="${marginLeft}" y1="${y.toFixed(1)}" x2="${marginLeft+plotW}" y2="${y.toFixed(1)}" stroke="${v===0? '#9aa4ad':'var(--grid)'}" stroke-width="${v===0?1.4:1}"/>`;
+    svg += `<text class="tick-label" x="${marginLeft-10}" y="${(y+4).toFixed(1)}" text-anchor="end">${v}</text>`;
+  }
+  svg += `<text class="axis-label" transform="rotate(-90)" x="${-(marginTop+plotH/2)}" y="20" text-anchor="middle">Daily rainfall (mm)</text>`;
+  // right axis (cumulative annual, mm) independent tick positions
+  for (let v = 0; v <= RIGHT_MAX; v += 100){
+    const y = yRight(v);
+    svg += `<line x1="${marginLeft+plotW}" y1="${y.toFixed(1)}" x2="${marginLeft+plotW+6}" y2="${y.toFixed(1)}" stroke="#9aa4ad" stroke-width="1"/>`;
+    svg += `<text class="tick-label" x="${marginLeft+plotW+12}" y="${(y+4).toFixed(1)}" text-anchor="start">${v}</text>`;
+  }
+  svg += `<text class="axis-label" transform="rotate(-90)" x="${-(marginTop+plotH/2)}" y="${W-16}" text-anchor="middle">Annual rainfall total (mm)</text>`;
+  return svg;
+}
+
+// ---------- legend ----------
+function legend(){
+  const items = [
+    {type:'swatch', color:'#4f7cc2', label:'Rainfall total (mm)'},
+    {type:'bar', color:'#5b7690', label:'Daily rainfall (mm)'},
+    {type:'line', color:'#555b61', w:3.2, label:'Average annual rainfall total (mm)'},
+  ];
+  let x = marginLeft;
+  const y = 34;
+  let svg = '';
+  items.forEach(it => {
+    if (it.type === 'swatch'){
+      svg += `<rect x="${x}" y="${y-10}" width="22" height="12" rx="2" fill="${it.color}" opacity="0.55"/>`;
+    } else if (it.type === 'bar'){
+      svg += `<line x1="${x+11}" y1="${y-10}" x2="${x+11}" y2="${y+2}" stroke="${it.color}" stroke-width="2.4" opacity="0.85"/>`;
+    } else if (it.type === 'line'){
+      svg += `<line x1="${x}" y1="${y-4}" x2="${x+22}" y2="${y-4}" stroke="${it.color}" stroke-width="${it.w}" stroke-linecap="round"/>`;
+    }
+    const tw = it.label.length * 6.4 + 34;
+    svg += `<text class="legend-title" x="${x+28}" y="${y}">${it.label}</text>`;
+    x += tw;
+  });
+  return svg;
+}
+
+// ---------- build ----------
+function build(){
+  const svg = `
+  <svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <style>
+        text{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif;}
+        .tick-label{fill:#5b6773;font-size:11px;}
+        .month-label{fill:#1c2530;font-size:12.5px;font-weight:700;letter-spacing:0.03em;}
+        .axis-label{fill:#5b6773;font-size:12px;}
+        .legend-title{fill:#5b6773;font-size:11px;}
+      </style>
+    </defs>
+    <rect x="0" y="0" width="${W}" height="${H}" fill="#ffffff"/>
+    ${legend()}
+    ${gridAndMonths()}
+    <path d="${areaPathCumActual()}" fill="#4f7cc2" fill-opacity="0.55" stroke="none"/>
+    <path d="${linePath(3, yRight)}" fill="none" stroke="#2f5fa8" stroke-width="1.6" opacity="0.9"/>
+    ${dailyBars()}
+    <path d="${linePath(4, yRight)}" fill="none" stroke="#555b61" stroke-width="3.2" stroke-linejoin="round" stroke-linecap="round"/>
+    <rect x="${marginLeft}" y="${marginTop}" width="${plotW}" height="${plotH}" fill="none" stroke="#c7ced4" stroke-width="1"/>
+    ${axes()}
+    <rect id="hoverCapture" x="${marginLeft}" y="${marginTop}" width="${plotW}" height="${plotH}" fill="transparent"/>
+    <line id="crosshair" x1="0" y1="${marginTop}" x2="0" y2="${marginTop+plotH}" stroke="#8a94a0" stroke-width="1" stroke-dasharray="3,3" visibility="hidden"/>
+  </svg>`;
+  document.getElementById('chartHolder').innerHTML = svg;
+  wireTooltip();
+  buildSummaryTable();
+}
+
+function wireTooltip(){
+  const svgEl = document.querySelector('#chartHolder svg');
+  const capture = document.getElementById('hoverCapture');
+  const crosshair = document.getElementById('crosshair');
+  const tooltip = document.getElementById('tooltip');
+  const holder = document.getElementById('chartHolder');
+
+  function doyFromEvt(evt){
+    const rect = svgEl.getBoundingClientRect();
+    const scaleX = W / rect.width;
+    const xIn = (evt.clientX - rect.left) * scaleX;
+    let doy = Math.round((xIn - marginLeft) / plotW * (N - 1)) + 1;
+    return Math.max(1, Math.min(N, doy));
+  }
+
+  capture.addEventListener('mousemove', (evt) => {
+    const doy = doyFromEvt(evt);
+    const row = DATA[doy - 1];
+    const x = xScale(doy);
+    crosshair.setAttribute('x1', x); crosshair.setAttribute('x2', x);
+    crosshair.setAttribute('visibility', 'visible');
+
+    let html = `<div><b>${fmtDate(row[1], {long:true})}</b></div>`;
+    html += `<div class="row"><span>Rainfall this day</span><span class="val">${fmtMm(row[2])}</span></div>`;
+    html += `<div class="row"><span>Total to date</span><span class="hl">${fmtMm(row[3])}</span></div>`;
+    html += `<div class="row"><span>Average to date</span><span class="val">${fmtMm(row[4])}</span></div>`;
+    if (row[3] !== null){
+      const pct = (row[3] / row[4] * 100).toFixed(1);
+      html += `<div class="row"><span>% of average</span><span class="val">${pct}%</span></div>`;
+    }
+    tooltip.innerHTML = html;
+
+    const holderRect = holder.getBoundingClientRect();
+    let left = evt.clientX - holderRect.left + 16;
+    let top = evt.clientY - holderRect.top - 10;
+    tooltip.style.left = left + 'px';
+    tooltip.style.top = top + 'px';
+    tooltip.style.opacity = '1';
+  });
+  capture.addEventListener('mouseleave', () => {
+    tooltip.style.opacity = '0';
+    crosshair.setAttribute('visibility', 'hidden');
+  });
+}
+
+function buildSummaryTable(){
+  const panel = document.getElementById('summaryPanel');
+  const lastActualRow = DATA.filter(r => r[3] !== null).slice(-1)[0];
+  const totalActual = lastActualRow ? lastActualRow[3] : null;
+  const totalAvgToDate = lastActualRow ? lastActualRow[4] : null;
+  const pctToDate = totalActual !== null ? (totalActual / totalAvgToDate * 100).toFixed(1) : null;
+
+  let intro = totalActual !== null
+    ? `<p>Year to date (through ${fmtDate(lastActualRow[1])}), Wakefield has had <b>${totalActual.toFixed(1)} mm</b> of rain against an average of <b>${totalAvgToDate.toFixed(1)} mm</b> for the same period &mdash; <span class="${pctToDate>=100?'pct-up':'pct-down'}">${pctToDate}% of average</span>.</p>`
+    : '';
+
+  let body = MONTHLY.map(r => {
+    let actCell, diffCell, pctCell;
+    if (r.actual === null){
+      actCell = '<span class="muted">&mdash;</span>';
+      diffCell = '<span class="muted">&mdash;</span>';
+      pctCell = '<span class="muted">&mdash;</span>';
+    } else {
+      const diff = r.actual - r.avg;
+      const pct = (r.actual / r.avg * 100).toFixed(1);
+      const cls = diff >= 0 ? 'pct-up' : 'pct-down';
+      actCell = `${r.actual.toFixed(1)} mm`;
+      diffCell = `<span class="${cls}">${diff >= 0 ? '+' : ''}${diff.toFixed(1)} mm</span>`;
+      pctCell = `<span class="${cls}">${pct}%</span>`;
+    }
+    return `<tr>
+      <td>${r.month}</td>
+      <td class="val">${r.avg.toFixed(1)} mm</td>
+      <td class="val">${actCell}</td>
+      <td class="val">${diffCell}</td>
+      <td class="val">${pctCell}</td>
+    </tr>`;
+  }).join('');
+
+  panel.innerHTML = `
+    <h2>Monthly rainfall vs. the 1991&ndash;2020 average</h2>
+    ${intro}
+    <table>
+      <thead><tr><th>Month</th><th class="val">1991&ndash;2020 avg</th><th class="val">2026 actual</th><th class="val">Difference</th><th class="val">% of average</th></tr></thead>
+      <tbody>${body}</tbody>
+    </table>`;
+}
+
+// ---------- export ----------
+function serializedSvg(){
+  const svgEl = document.querySelector('#chartHolder svg');
+  const clone = svgEl.cloneNode(true);
+  clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+  clone.setAttribute('width', W);
+  clone.setAttribute('height', H);
+  const cap = clone.querySelector('#hoverCapture'); if (cap) cap.remove();
+  const ch = clone.querySelector('#crosshair'); if (ch) ch.remove();
+  return new XMLSerializer().serializeToString(clone);
+}
+
+function triggerDownload(blob, filename){
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 2000);
+}
+
+function downloadSvg(){
+  const str = serializedSvg();
+  const blob = new Blob([str], {type:'image/svg+xml;charset=utf-8'});
+  triggerDownload(blob, 'wakefield-2026-rainfall-chart.svg');
+}
+
+function downloadPng(scale){
+  const btn = document.getElementById('btnPng');
+  const originalLabel = btn.innerHTML;
+  btn.setAttribute('disabled', 'true');
+  btn.textContent = 'Rendering\u2026';
+
+  const str = serializedSvg();
+  const svgBlob = new Blob([str], {type:'image/svg+xml;charset=utf-8'});
+  const url = URL.createObjectURL(svgBlob);
+  const img = new Image();
+  img.onload = function(){
+    const canvas = document.createElement('canvas');
+    canvas.width = W * scale;
+    canvas.height = H * scale;
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.scale(scale, scale);
+    ctx.drawImage(img, 0, 0, W, H);
+    URL.revokeObjectURL(url);
+    canvas.toBlob(function(blob){
+      triggerDownload(blob, 'wakefield-2026-rainfall-chart.png');
+      btn.removeAttribute('disabled');
+      btn.innerHTML = originalLabel;
+    }, 'image/png', 1.0);
+  };
+  img.onerror = function(){
+    URL.revokeObjectURL(url);
+    btn.removeAttribute('disabled');
+    btn.innerHTML = originalLabel;
+    alert('Could not render the PNG. Try the SVG download instead.');
+  };
+  img.src = url;
+}
+
+build();
+document.getElementById('btnSvg').addEventListener('click', downloadSvg);
+document.getElementById('btnPng').addEventListener('click', () => downloadPng(3));
+</script>
+</body>
+</html>

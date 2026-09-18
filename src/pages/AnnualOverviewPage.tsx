@@ -40,6 +40,7 @@ import {
   useAnnualClimateQueries,
   useAnnualClimateQuery,
   useClimateArchiveIndexQuery,
+  useMonthlyNormalsQuery,
 } from '@/hooks/usePublicWeatherQueries'
 import {
   compareClimateDates,
@@ -47,7 +48,7 @@ import {
   parseIsoClimateDate,
   toClimateDateString,
 } from '@/lib/climate'
-import type { AnnualClimatePayload, ClimateDateString, ClimateDay } from '@/types/weather'
+import type { AnnualClimatePayload, ClimateDateString, ClimateDay, MonthlyNormal } from '@/types/weather'
 
 const YEAR_PARAM_PATTERN = /^\d{4}$/
 const TOOLTIP_OFFSET = 14
@@ -111,6 +112,7 @@ export default function AnnualOverviewPage() {
 
   const selectedYearQuery = useAnnualClimateQuery(selectedYear)
   const historicalQueries = useAnnualClimateQueries(availableArchiveYears)
+  const monthlyNormalsQuery = useMonthlyNormalsQuery()
 
   const loadedHistoricalPayloads = useMemo(() => {
     const payloads = historicalQueries
@@ -267,6 +269,10 @@ export default function AnnualOverviewPage() {
         .filter((series): series is ChartPointSeries => series != null),
     [historicalPayloadsByYear, rangeDays, selectedRainfallYears],
   )
+  const rainfallAverageValues = useMemo(
+    () => buildRainfallAverageValues(selectedYear, rangeDays, monthlyNormalsQuery.data?.months ?? []),
+    [monthlyNormalsQuery.data?.months, rangeDays, selectedYear],
+  )
   const comparisonSeries = useMemo(
     () =>
       selectedComparisonYears
@@ -332,6 +338,7 @@ export default function AnnualOverviewPage() {
     await downloadSvgAsPng(
       svg,
       `wakefield-${selectedYear}-${activeTab}${buildRangeSlug(range.start, range.end)}.png`,
+      { scale: 2 },
     )
   }
 
@@ -646,10 +653,10 @@ export default function AnnualOverviewPage() {
                               key={`${day.date}-${type}`}
                               cx={xForDay(day.index, dataset.days.length)}
                               cy={cy}
-                              r="6.5"
+                              r="3.25"
                               fill="none"
                               stroke={getRecordMarkerColor(type)}
-                              strokeWidth="2.4"
+                              strokeWidth="1.2"
                             />
                           )
                         }),
@@ -809,7 +816,12 @@ export default function AnnualOverviewPage() {
           />
 
           <ResponsiveChartContainer size="detail" minWidth={1150}>
-            <RainfallComparisonChart ref={rainfallChartRef} days={rangeDays} series={rainfallSeries} />
+            <RainfallComparisonChart
+              ref={rainfallChartRef}
+              days={rangeDays}
+              series={rainfallSeries}
+              averageValues={rainfallAverageValues}
+            />
           </ResponsiveChartContainer>
         </section>
       ) : null}
@@ -935,8 +947,13 @@ function YearToggleList({
 const RainfallComparisonChart = forwardRef<SVGSVGElement, {
   readonly days: readonly AnnualOverviewDay[]
   readonly series: readonly ChartPointSeries[]
-}>(({ days, series }, ref) => {
-  const domain = computeChartDomain(series.flatMap((entry) => entry.values), 0, 10)
+  readonly averageValues: readonly (number | null)[] | null
+}>(({ days, series, averageValues }, ref) => {
+  const domain = computeChartDomain(
+    [...series.flatMap((entry) => entry.values), ...(averageValues ?? [])],
+    0,
+    10,
+  )
   const ticks = buildTicks(domain.min, domain.max, Math.max(10, roundStep((domain.max - domain.min) / 5)))
   const monthSections = buildRangeMonthSections(days)
 
@@ -1002,6 +1019,17 @@ const RainfallComparisonChart = forwardRef<SVGSVGElement, {
           />
         ) : null
       })}
+      {averageValues != null ? (
+        <path
+          d={buildValuesPath(averageValues, domain.min, domain.max)}
+          fill="none"
+          stroke={ANNUAL_OVERVIEW_COLORS.sub}
+          strokeWidth="2.4"
+          strokeDasharray="7 5"
+          strokeLinejoin="round"
+          strokeLinecap="round"
+        />
+      ) : null}
 
       <rect x="72" y="112" width={ANNUAL_OVERVIEW_CHART_WIDTH - 106} height={ANNUAL_OVERVIEW_CHART_HEIGHT - 194} fill="none" stroke="#c7ced4" />
 
@@ -1032,10 +1060,17 @@ const RainfallComparisonChart = forwardRef<SVGSVGElement, {
       </text>
 
       <ChartLegend
-        items={series.map((entry) => ({ label: String(entry.year), color: entry.color, dashed: false }))}
-        note="Each line shows cumulative rainfall through the selected dates."
+        items={[
+          ...series.map((entry) => ({ label: String(entry.year), color: entry.color, dashed: false })),
+          ...(averageValues != null
+            ? [{ label: '1991–2020 avg', color: ANNUAL_OVERVIEW_COLORS.sub, dashed: true }]
+            : []),
+        ]}
+        note="Each line shows cumulative rainfall through the selected dates. Dashed line is the 1991–2020 average."
       />
-      {series.length === 0 ? <EmptyChartMessage message="Select at least one rainfall year." /> : null}
+      {series.length === 0 && averageValues == null ? (
+        <EmptyChartMessage message="Select at least one rainfall year." />
+      ) : null}
     </svg>
   )
 })
@@ -1478,6 +1513,43 @@ function buildRainfallSeries(
     color: YEAR_LINE_COLORS[colorIndex % YEAR_LINE_COLORS.length]!,
     values: days.map((day) => cumulativeByKey.get(day.dateKey) ?? null),
   }
+}
+
+function buildRainfallAverageValues(
+  year: number,
+  days: readonly AnnualOverviewDay[],
+  monthlyNormals: readonly MonthlyNormal[],
+): readonly (number | null)[] | null {
+  if (monthlyNormals.length === 0) {
+    return null
+  }
+
+  const rainfallByMonth = new Map<number, number>()
+  for (const normal of monthlyNormals) {
+    if (normal.rainfallMm == null) {
+      continue
+    }
+    rainfallByMonth.set(normal.month, normal.rainfallMm)
+  }
+
+  if (rainfallByMonth.size === 0) {
+    return null
+  }
+
+  const cumulativeByKey = new Map<string, number>()
+  let runningTotal = 0
+  for (let month = 1; month <= 12; month += 1) {
+    const monthLength = new Date(year, month, 0).getDate()
+    const monthTotal = rainfallByMonth.get(month) ?? 0
+    const dailyContribution = monthTotal / monthLength
+    for (let day = 1; day <= monthLength; day += 1) {
+      runningTotal += dailyContribution
+      const key = `${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`
+      cumulativeByKey.set(key, runningTotal)
+    }
+  }
+
+  return days.map((day) => cumulativeByKey.get(day.dateKey) ?? null)
 }
 
 function buildTemperatureSeries(

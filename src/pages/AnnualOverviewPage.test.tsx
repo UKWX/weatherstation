@@ -68,6 +68,25 @@ vi.mock('@/hooks/usePublicWeatherQueries', () => ({
       error: null,
       refetch: vi.fn(),
     })),
+  useMonthlyNormalsQuery: () => ({
+    data: {
+      station: 'Wakefield',
+      generatedAtUtc: null,
+      baseline: '1991-2020',
+      units: { temperature: '°C', rainfall: 'mm' },
+      monthCount: 12,
+      months: Array.from({ length: 12 }, (_, index) => ({
+        month: index + 1,
+        meanMaxTempC: null,
+        meanMinTempC: null,
+        meanTempC: null,
+        rainfallMm: 50,
+      })),
+    },
+    isLoading: false,
+    error: null,
+    refetch: vi.fn(),
+  }),
 }))
 
 function renderPage(initialEntries = ['/annual-overview']) {
@@ -120,6 +139,7 @@ describe('AnnualOverviewPage', () => {
 
     await user.click(screen.getByRole('tab', { name: 'Rainfall accumulation' }))
     expect(screen.getByRole('heading', { name: 'Rainfall accumulation by year' })).toBeInTheDocument()
+    expect(screen.getByText('1991–2020 avg')).toBeInTheDocument()
 
     await user.click(screen.getByRole('tab', { name: 'Temperature comparison' }))
     expect(screen.getByRole('heading', { name: 'Temperature comparison by year' })).toBeInTheDocument()

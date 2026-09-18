@@ -726,10 +726,7 @@ export default function AnnualOverviewPage() {
                       if (dataset.days.length === 0) {
                         return
                       }
-                      const rect = event.currentTarget.ownerSVGElement?.getBoundingClientRect()
-                      if (rect == null) {
-                        return
-                      }
+                      const rect = event.currentTarget.getBoundingClientRect()
                       const ratio = Math.max(0, Math.min(1, (event.clientX - rect.left) / rect.width))
                       const index = Math.round(ratio * (dataset.days.length - 1))
                       setHoverState({ index, clientX: event.clientX, clientY: event.clientY })

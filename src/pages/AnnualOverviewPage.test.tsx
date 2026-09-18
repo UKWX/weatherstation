@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { render, screen } from '@testing-library/react'
+import { fireEvent, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
@@ -143,5 +143,41 @@ describe('AnnualOverviewPage', () => {
 
     await user.click(screen.getByRole('tab', { name: 'Temperature comparison' }))
     expect(screen.getByRole('heading', { name: 'Temperature comparison by year' })).toBeInTheDocument()
+  })
+
+  it('maps overview hover to the plot area instead of the full svg width', async () => {
+    const { container } = renderPage(['/annual-overview?year=2026'])
+
+    const svg = container.querySelector('.annual-overview-chart-svg')
+    const overlay = container.querySelector('.annual-overview-chart-svg rect[fill="transparent"]')
+    expect(svg).not.toBeNull()
+    expect(overlay).not.toBeNull()
+
+    vi.spyOn(svg!, 'getBoundingClientRect').mockReturnValue({
+      x: 40,
+      y: 20,
+      left: 40,
+      top: 20,
+      right: 1240,
+      bottom: 520,
+      width: 1200,
+      height: 500,
+      toJSON: () => ({}),
+    })
+    vi.spyOn(overlay!, 'getBoundingClientRect').mockReturnValue({
+      x: 100,
+      y: 112,
+      left: 100,
+      top: 112,
+      right: 1100,
+      bottom: 452,
+      width: 1000,
+      height: 340,
+      toJSON: () => ({}),
+    })
+
+    fireEvent.pointerMove(overlay!, { clientX: 100, clientY: 200 })
+
+    expect(await screen.findByText('1 January 2026')).toBeInTheDocument()
   })
 })

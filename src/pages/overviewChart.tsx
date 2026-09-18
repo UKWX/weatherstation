@@ -288,17 +288,15 @@ export function OverviewChart({
 
   const handlePointerMove = useCallback(
     (event: PointerEvent<SVGRectElement>) => {
-      if (svgRef.current == null || n === 0) {
+      if (n === 0) {
         return
       }
-      const rect = svgRef.current.getBoundingClientRect()
-      const ratio = (event.clientX - rect.left) / rect.width
-      const svgX = ratio * SVG_W
-      const relative = n <= 1 ? 0 : (svgX - margin.left) / plotW
-      const index = Math.round(relative * (n - 1))
+      const rect = event.currentTarget.getBoundingClientRect()
+      const ratio = Math.max(0, Math.min(1, (event.clientX - rect.left) / rect.width))
+      const index = Math.round(ratio * (n - 1))
       setHoveredIndex(Math.max(0, Math.min(n - 1, index)))
     },
-    [n, margin.left, plotW],
+    [n],
   )
 
   const handlePointerLeave = useCallback(() => setHoveredIndex(null), [])

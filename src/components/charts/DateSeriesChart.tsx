@@ -338,15 +338,13 @@ export function DateSeriesChart({
             height={plotHeight}
             fill="transparent"
             onPointerDown={(event) => {
-              if (svgRef.current == null) return
-              const rect = svgRef.current.getBoundingClientRect()
+              const rect = event.currentTarget.getBoundingClientRect()
               const ratio = Math.max(0, Math.min(1, (event.clientX - rect.left) / rect.width))
               const svgX = MARGIN.left + plotWidth * ratio
               setBrush({ startX: svgX, currentX: svgX })
             }}
             onPointerMove={(event) => {
-              if (svgRef.current == null) return
-              const rect = svgRef.current.getBoundingClientRect()
+              const rect = event.currentTarget.getBoundingClientRect()
               const ratio = Math.max(0, Math.min(1, (event.clientX - rect.left) / rect.width))
               const timestamp = effectiveDomain.start + spanMs * ratio
               setHoveredIndex(findNearestRowIndex(filteredRows, timestamp))

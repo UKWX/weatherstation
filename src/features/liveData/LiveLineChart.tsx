@@ -236,11 +236,9 @@ export function LiveLineChart({
 
   const handlePointerMove = useCallback(
     (e: React.PointerEvent<SVGRectElement>) => {
-      if (!svgRef.current) return
-      const rect = svgRef.current.getBoundingClientRect()
-      const svgXRatio = (e.clientX - rect.left) / rect.width
-      const svgX = svgXRatio * SVG_W
-      const t = tMin + ((svgX - M.l) / PLOT_W) * (tMax - tMin)
+      const rect = e.currentTarget.getBoundingClientRect()
+      const ratio = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width))
+      const t = tMin + ratio * (tMax - tMin)
       if (allTimestamps.length === 0) return
       setHoveredIndex(findNearestIndex(allTimestamps, t))
     },

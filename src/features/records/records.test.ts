@@ -787,6 +787,8 @@ describe('getOverallRecords', () => {
     const lowest = result.find((r) => r.label === 'Lowest daily diurnal range')!
     expect(highest.value).toBe(17)
     expect(lowest.value).toBe(8)
+    expect(highest.holders[0]!.date).toBe(d('2023-07-15'))
+    expect(lowest.holders[0]!.date).toBe(d('2023-01-10'))
   })
 
   it('has correct unit labels', () => {

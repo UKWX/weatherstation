@@ -136,9 +136,11 @@ function RankingsBarChart({
   const min = Math.min(...values)
   const max = Math.max(...values)
   const span = max - min
+  const headingId = `${title.toLowerCase().replace(/[^a-z0-9]+/g, '-')}-heading`
 
   return (
-    <div className="records-ranking-chart" role="img" aria-label={title}>
+    <div className="records-ranking-chart" aria-labelledby={headingId}>
+      <p id={headingId} className="visually-hidden">{title}</p>
       {entries.map((entry) => {
         const normalized = span === 0
           ? 1

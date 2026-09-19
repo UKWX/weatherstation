@@ -12,18 +12,22 @@ export type DailyMetric =
   | 'lowest-max'
   | 'highest-min'
   | 'lowest-min'
+  | 'highest-range'
+  | 'lowest-range'
   | 'wettest'
 
 export type MonthlyMetric =
   | 'mean-max'
   | 'mean-min'
   | 'mean-temp'
+  | 'mean-diurnal-range'
   | 'rainfall'
 
 export type AnnualMetric =
   | 'mean-max'
   | 'mean-min'
   | 'mean-temp'
+  | 'mean-diurnal-range'
   | 'rainfall'
 
 export type ProgressionMetric =
@@ -31,6 +35,8 @@ export type ProgressionMetric =
   | 'lowest-min'
   | 'highest-min'
   | 'lowest-max'
+  | 'highest-range'
+  | 'lowest-range'
   | 'wettest'
 
 // ── Daily filters ─────────────────────────────────────────────────────────────

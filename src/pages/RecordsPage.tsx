@@ -114,6 +114,56 @@ function CsvButton({ label, onClick }: { readonly label: string; readonly onClic
   )
 }
 
+interface RankingChartDatum {
+  key: string
+  label: string
+  value: number
+}
+
+function RankingsBarChart({
+  title,
+  unit,
+  entries,
+  lowerIsBetter = false,
+}: {
+  readonly title: string
+  readonly unit: string
+  readonly entries: RankingChartDatum[]
+  readonly lowerIsBetter?: boolean
+}) {
+  if (entries.length === 0) return null
+  const values = entries.map((entry) => entry.value)
+  const min = Math.min(...values)
+  const max = Math.max(...values)
+  const span = max - min
+  const headingId = `${title.toLowerCase().replace(/[^a-z0-9]+/g, '-')}-heading`
+
+  return (
+    <div className="records-ranking-chart" aria-labelledby={headingId}>
+      <p id={headingId} className="visually-hidden">{title}</p>
+      {entries.map((entry) => {
+        const normalized = span === 0
+          ? 1
+          : lowerIsBetter
+            ? (max - entry.value) / span
+            : (entry.value - min) / span
+        const pct = normalized * 100
+        return (
+          <div key={entry.key} className="records-ranking-chart-row">
+            <span className="records-ranking-chart-label">{entry.label}</span>
+            <div className="records-ranking-chart-track" aria-hidden="true">
+              <div className="records-ranking-chart-fill" style={{ width: `${pct}%` }} />
+            </div>
+            <span className="records-ranking-chart-value">
+              {entry.value.toFixed(1)} {unit}
+            </span>
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
 function LoadingProgress({
   loaded,
   total,
@@ -202,6 +252,8 @@ const DAILY_METRIC_LABELS: Record<DailyMetric, string> = {
   'lowest-max':  'Lowest daily maximum',
   'highest-min': 'Highest daily minimum',
   'lowest-min':  'Lowest daily minimum',
+  'highest-range': 'Highest diurnal range',
+  'lowest-range':  'Lowest diurnal range',
   'wettest':     'Wettest days',
 }
 
@@ -210,6 +262,8 @@ const DAILY_METRIC_UNIT: Record<DailyMetric, string> = {
   'lowest-max':  '°C',
   'highest-min': '°C',
   'lowest-min':  '°C',
+  'highest-range': '°C',
+  'lowest-range':  '°C',
   'wettest':     'mm',
 }
 
@@ -356,6 +410,16 @@ function DailyRankingsTab({ index }: { readonly index: RecordsIndex }) {
         <p className="records-summary-text">No records match the current filters.</p>
       ) : (
         <TableWrapper>
+          <RankingsBarChart
+            title={`${DAILY_METRIC_LABELS[metric]} chart`}
+            unit={DAILY_METRIC_UNIT[metric]}
+            lowerIsBetter={metric === 'lowest-max' || metric === 'lowest-min' || metric === 'lowest-range'}
+            entries={entries.slice(0, 15).map((entry, i) => ({
+              key: `${entry.date}-${i}`,
+              label: fmtDate(entry.date),
+              value: entry.value,
+            }))}
+          />
           <table>
             <thead>
               <tr>
@@ -573,6 +637,7 @@ const MONTHLY_METRIC_LABELS: Record<MonthlyMetric, string> = {
   'mean-max':  'Mean maximum',
   'mean-min':  'Mean minimum',
   'mean-temp': 'Mean temperature',
+  'mean-diurnal-range': 'Mean diurnal range',
   'rainfall':  'Rainfall total',
 }
 
@@ -580,6 +645,7 @@ const MONTHLY_METRIC_UNIT: Record<MonthlyMetric, string> = {
   'mean-max':  '°C',
   'mean-min':  '°C',
   'mean-temp': '°C',
+  'mean-diurnal-range': '°C',
   'rainfall':  'mm',
 }
 
@@ -683,6 +749,15 @@ function MonthlyRankingsTab({ index }: { readonly index: RecordsIndex }) {
         <p className="records-summary-text">No months match the current filters.</p>
       ) : (
         <TableWrapper>
+          <RankingsBarChart
+            title={`${MONTHLY_METRIC_LABELS[metric]} chart`}
+            unit={MONTHLY_METRIC_UNIT[metric]}
+            entries={entries.slice(0, 15).map((entry, i) => ({
+              key: `${entry.year}-${entry.month}-${i}`,
+              label: `${MONTH_NAMES[entry.month - 1] ?? entry.month} ${entry.year}`,
+              value: entry.value,
+            }))}
+          />
           <table>
             <thead>
               <tr>
@@ -740,6 +815,7 @@ const ANNUAL_METRIC_LABELS: Record<AnnualMetric, string> = {
   'mean-max':  'Mean maximum',
   'mean-min':  'Mean minimum',
   'mean-temp': 'Mean temperature',
+  'mean-diurnal-range': 'Mean diurnal range',
   'rainfall':  'Rainfall total',
 }
 
@@ -747,6 +823,7 @@ const ANNUAL_METRIC_UNIT: Record<AnnualMetric, string> = {
   'mean-max':  '°C',
   'mean-min':  '°C',
   'mean-temp': '°C',
+  'mean-diurnal-range': '°C',
   'rainfall':  'mm',
 }
 
@@ -806,6 +883,15 @@ function AnnualRankingsTab({ index }: { readonly index: RecordsIndex }) {
         <p className="records-summary-text">No years match the current filters.</p>
       ) : (
         <TableWrapper>
+          <RankingsBarChart
+            title={`${ANNUAL_METRIC_LABELS[metric]} chart`}
+            unit={ANNUAL_METRIC_UNIT[metric]}
+            entries={entries.slice(0, 15).map((entry, i) => ({
+              key: `${entry.year}-${i}`,
+              label: String(entry.year),
+              value: entry.value,
+            }))}
+          />
           <table>
             <thead>
               <tr>
@@ -1062,6 +1148,8 @@ const PROGRESSION_METRIC_LABELS: Record<ProgressionMetric, string> = {
   'lowest-min':  'Lowest daily minimum',
   'highest-min': 'Highest daily minimum',
   'lowest-max':  'Lowest daily maximum',
+  'highest-range': 'Highest diurnal range',
+  'lowest-range':  'Lowest diurnal range',
   'wettest':     'Wettest day',
 }
 
@@ -1070,6 +1158,8 @@ const PROGRESSION_METRIC_UNIT: Record<ProgressionMetric, string> = {
   'lowest-min':  '°C',
   'highest-min': '°C',
   'lowest-max':  '°C',
+  'highest-range': '°C',
+  'lowest-range':  '°C',
   'wettest':     'mm',
 }
 
@@ -1088,7 +1178,15 @@ function ProgressionTab({ index }: { readonly index: RecordsIndex }) {
 
   const allProgressions = useMemo(
     () =>
-      (['highest-max', 'lowest-min', 'highest-min', 'lowest-max', 'wettest'] as ProgressionMetric[]).map(
+      ([
+        'highest-max',
+        'lowest-min',
+        'highest-min',
+        'lowest-max',
+        'highest-range',
+        'lowest-range',
+        'wettest',
+      ] as ProgressionMetric[]).map(
         (m) => getRecordProgression(index, m),
       ),
     [index],

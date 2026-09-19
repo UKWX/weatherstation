@@ -257,6 +257,34 @@ describe('getDailyRankings', () => {
     expect(result[1]!.value).toBe(12.5)
     expect(result[2]!.value).toBe(5.0)
   })
+
+  it('returns highest diurnal ranges in descending order', () => {
+    const rangeRecords = [
+      makeDay('2024-06-01', { maxTempC: 30, minTempC: 10 }),
+      makeDay('2024-06-02', { maxTempC: 26, minTempC: 12 }),
+      makeDay('2024-06-03', { maxTempC: 25, minTempC: 6 }),
+      makeDay('2024-06-04', { maxTempC: null, minTempC: 8 }),
+    ]
+    const idx2 = buildRecordsIndex([makePayload(2024, rangeRecords)], [])
+    const result = getDailyRankings(idx2, 'highest-range', { month: null, season: 'all', yearFrom: null, yearTo: null }, 10)
+    expect(result).toHaveLength(3)
+    expect(result[0]!.value).toBe(20)
+    expect(result[1]!.value).toBe(19)
+    expect(result[2]!.value).toBe(14)
+  })
+
+  it('returns lowest diurnal ranges in ascending order', () => {
+    const rangeRecords = [
+      makeDay('2024-06-01', { maxTempC: 18, minTempC: 12 }),
+      makeDay('2024-06-02', { maxTempC: 21, minTempC: 10 }),
+      makeDay('2024-06-03', { maxTempC: 24, minTempC: 8 }),
+    ]
+    const idx2 = buildRecordsIndex([makePayload(2024, rangeRecords)], [])
+    const result = getDailyRankings(idx2, 'lowest-range', { month: null, season: 'all', yearFrom: null, yearTo: null }, 10)
+    expect(result[0]!.value).toBe(6)
+    expect(result[1]!.value).toBe(11)
+    expect(result[2]!.value).toBe(16)
+  })
 })
 
 // ── getCalendarDateRecords ────────────────────────────────────────────────────
@@ -712,6 +740,17 @@ describe('getRecordProgression', () => {
     expect(result.currentValue).toBeNull()
     expect(result.currentRecordYears).toHaveLength(0)
   })
+
+  it('supports diurnal range progression metrics', () => {
+    const idx = buildRecordsIndex([
+      makePayload(2021, [makeDay('2021-06-01', { maxTempC: 24, minTempC: 10 })]),
+      makePayload(2022, [makeDay('2022-06-01', { maxTempC: 28, minTempC: 8 })]),
+    ], [])
+    const result = getRecordProgression(idx, 'highest-range')
+    expect(result.entries).toHaveLength(2)
+    expect(result.currentValue).toBe(20)
+    expect(result.currentRecordYears).toEqual([2022])
+  })
 })
 
 // ── getOverallRecords ─────────────────────────────────────────────────────────
@@ -727,8 +766,8 @@ describe('getOverallRecords', () => {
   const idx = buildRecordsIndex([makePayload(2023, records2023)], MONTHLY_NORMALS)
   const result = getOverallRecords(idx)
 
-  it('returns 13 overall records', () => {
-    expect(result).toHaveLength(13)
+  it('returns 15 overall records', () => {
+    expect(result).toHaveLength(15)
   })
 
   it('finds highest daily max', () => {
@@ -741,6 +780,13 @@ describe('getOverallRecords', () => {
     const record = result.find((r) => r.label === 'Lowest daily minimum')!
     expect(record.value).toBe(-5)
     expect(record.holders[0]!.date).toBe(d('2023-01-10'))
+  })
+
+  it('includes diurnal range records', () => {
+    const highest = result.find((r) => r.label === 'Highest daily diurnal range')!
+    const lowest = result.find((r) => r.label === 'Lowest daily diurnal range')!
+    expect(highest.value).toBe(17)
+    expect(lowest.value).toBe(8)
   })
 
   it('has correct unit labels', () => {

@@ -80,6 +80,11 @@ function matchesYearRange(
   return true
 }
 
+function diurnalRange(day: ClimateDay): number | null {
+  if (!isFiniteNum(day.maxTempC) || !isFiniteNum(day.minTempC)) return null
+  return day.maxTempC - day.minTempC
+}
+
 /**
  * Assign dense ranks to a pre-sorted array.
  * All items with the same value get the same rank.
@@ -87,7 +92,7 @@ function matchesYearRange(
 // ── 1. Overall station records ────────────────────────────────────────────────
 
 export function getOverallRecords(index: RecordsIndex): OverallRecord[] {
-  const { daysByMaxTempDesc, daysByMaxTempAsc, daysByMinTempDesc, daysByMinTempAsc, daysByRainfallDesc, monthlySummaries, annualSummaries } = index
+  const { allDays, daysByMaxTempDesc, daysByMaxTempAsc, daysByMinTempDesc, daysByMinTempAsc, daysByRainfallDesc, monthlySummaries, annualSummaries } = index
 
   // Highest daily max
   const highestMaxDay = daysByMaxTempDesc[0]
@@ -132,6 +137,26 @@ export function getOverallRecords(index: RecordsIndex): OverallRecord[] {
     ? daysByRainfallDesc
         .filter((d) => d.rainfallMm === wettestDayVal)
         .map((d) => ({ date: d.date, label: d.date }))
+    : []
+
+  const diurnalDays = allDays
+    .map((day) => ({ day, value: diurnalRange(day) }))
+    .filter((entry): entry is { day: ClimateDay; value: number } => isFiniteNum(entry.value))
+  const diurnalDaysDesc = diurnalDays.toSorted((a, b) => b.value - a.value)
+  const diurnalDaysAsc = diurnalDays.toSorted((a, b) => a.value - b.value)
+
+  const highestDiurnalRange = diurnalDaysDesc[0]?.value ?? null
+  const highestDiurnalRangeHolders = isFiniteNum(highestDiurnalRange)
+    ? diurnalDaysDesc
+        .filter((entry) => entry.value === highestDiurnalRange)
+        .map((entry) => ({ date: entry.day.date, label: entry.day.date }))
+    : []
+
+  const lowestDiurnalRange = diurnalDaysAsc[0]?.value ?? null
+  const lowestDiurnalRangeHolders = isFiniteNum(lowestDiurnalRange)
+    ? diurnalDaysAsc
+        .filter((entry) => entry.value === lowestDiurnalRange)
+        .map((entry) => ({ date: entry.day.date, label: entry.day.date }))
     : []
 
   // Monthly records: warmest/coldest complete months, wettest/driest complete rainfall months
@@ -234,6 +259,18 @@ export function getOverallRecords(index: RecordsIndex): OverallRecord[] {
       note: 'Rainfall records begin May 2020',
     },
     {
+      label: 'Highest daily diurnal range',
+      value: highestDiurnalRange,
+      unit: tempUnit,
+      holders: highestDiurnalRangeHolders,
+    },
+    {
+      label: 'Lowest daily diurnal range',
+      value: lowestDiurnalRange,
+      unit: tempUnit,
+      holders: lowestDiurnalRangeHolders,
+    },
+    {
       label: 'Warmest complete month',
       value: warmestMonth?.meanTempC ?? null,
       unit: tempUnit,
@@ -316,6 +353,16 @@ function dailySortedArray(index: RecordsIndex, metric: DailyMetric): ClimateDay[
     case 'lowest-max':  return index.daysByMaxTempAsc
     case 'highest-min': return index.daysByMinTempDesc
     case 'lowest-min':  return index.daysByMinTempAsc
+    case 'highest-range':
+    case 'lowest-range':
+      return index.allDays.toSorted((a, b) => {
+        const av = diurnalRange(a)
+        const bv = diurnalRange(b)
+        if (!isFiniteNum(av) && !isFiniteNum(bv)) return 0
+        if (!isFiniteNum(av)) return 1
+        if (!isFiniteNum(bv)) return -1
+        return metric === 'highest-range' ? bv - av : av - bv
+      })
     case 'wettest':     return index.daysByRainfallDesc
   }
 }
@@ -326,6 +373,9 @@ function dailyValue(day: ClimateDay, metric: DailyMetric): number | null {
     case 'lowest-max':  return day.maxTempC
     case 'highest-min':
     case 'lowest-min':  return day.minTempC
+    case 'highest-range':
+    case 'lowest-range':
+      return diurnalRange(day)
     case 'wettest':     return day.rainfallMm
   }
 }
@@ -456,6 +506,10 @@ function monthlyMetricValue(summary: MonthlySummary, metric: MonthlyMetric): num
     case 'mean-max':   return summary.meanMaxTempC
     case 'mean-min':   return summary.meanMinTempC
     case 'mean-temp':  return summary.meanTempC
+    case 'mean-diurnal-range':
+      return isFiniteNum(summary.meanMaxTempC) && isFiniteNum(summary.meanMinTempC)
+        ? summary.meanMaxTempC - summary.meanMinTempC
+        : null
     case 'rainfall':   return summary.rainfallTotalMm
   }
 }
@@ -524,6 +578,10 @@ function annualMetricValue(summary: AnnualSummary, metric: AnnualMetric): number
     case 'mean-max':   return summary.meanMaxTempC
     case 'mean-min':   return summary.meanMinTempC
     case 'mean-temp':  return summary.meanTempC
+    case 'mean-diurnal-range':
+      return isFiniteNum(summary.meanMaxTempC) && isFiniteNum(summary.meanMinTempC)
+        ? summary.meanMaxTempC - summary.meanMinTempC
+        : null
     case 'rainfall':   return summary.rainfallTotalMm
   }
 }
@@ -571,9 +629,13 @@ export function getAnnualRankings(
     const provisional = s.coverage.provisional
     const complete = metric === 'rainfall'
       ? s.coverage.rainfall.complete
-      : s.coverage.maxTemperature.complete
+      : metric === 'mean-diurnal-range'
+        ? s.coverage.maxTemperature.complete && s.coverage.minTemperature.complete
+        : s.coverage.maxTemperature.complete
 
-    const validDays = s.coverage.maxTemperature.valid
+    const validDays = metric === 'mean-diurnal-range'
+      ? Math.min(s.coverage.maxTemperature.valid, s.coverage.minTemperature.valid)
+      : s.coverage.maxTemperature.valid
     const expectedDays = s.coverage.expectedDays
     const pct = expectedDays > 0 ? Math.round((validDays / expectedDays) * 100) : 0
     const coverageNote = complete
@@ -687,6 +749,9 @@ function progressionSelector(metric: ProgressionMetric) {
       case 'lowest-min':  return day.minTempC
       case 'highest-min': return day.minTempC
       case 'lowest-max':  return day.maxTempC
+      case 'highest-range':
+      case 'lowest-range':
+        return diurnalRange(day)
       case 'wettest':     return day.rainfallMm
     }
   }
@@ -701,10 +766,12 @@ function progressionIsNewRecord(
   switch (metric) {
     case 'highest-max':
     case 'highest-min':
+    case 'highest-range':
     case 'wettest':
       return value > current
     case 'lowest-min':
     case 'lowest-max':
+    case 'lowest-range':
       return value < current
   }
 }

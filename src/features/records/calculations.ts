@@ -355,14 +355,11 @@ function dailySortedArray(index: RecordsIndex, metric: DailyMetric): ClimateDay[
     case 'lowest-min':  return index.daysByMinTempAsc
     case 'highest-range':
     case 'lowest-range':
-      return index.allDays.toSorted((a, b) => {
-        const av = diurnalRange(a)
-        const bv = diurnalRange(b)
-        if (!isFiniteNum(av) && !isFiniteNum(bv)) return 0
-        if (!isFiniteNum(av)) return 1
-        if (!isFiniteNum(bv)) return -1
-        return metric === 'highest-range' ? bv - av : av - bv
-      })
+      return index.allDays
+        .map((day) => ({ day, value: diurnalRange(day) }))
+        .filter((entry): entry is { day: ClimateDay; value: number } => isFiniteNum(entry.value))
+        .toSorted((a, b) => metric === 'highest-range' ? b.value - a.value : a.value - b.value)
+        .map((entry) => entry.day)
     case 'wettest':     return index.daysByRainfallDesc
   }
 }

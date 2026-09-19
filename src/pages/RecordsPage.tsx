@@ -147,7 +147,7 @@ function RankingsBarChart({
           : lowerIsBetter
             ? (max - entry.value) / span
             : (entry.value - min) / span
-        const pct = Math.max(normalized * 100, 4)
+        const pct = normalized * 100
         return (
           <div key={entry.key} className="records-ranking-chart-row">
             <span className="records-ranking-chart-label">{entry.label}</span>

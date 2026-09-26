@@ -8,8 +8,9 @@ import {
   type CSSProperties,
 } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { Badge, ErrorState, ResponsiveChartContainer, Skeleton, TableWrapper } from '@/components/ui'
+import { Badge, ErrorState, ResponsiveChartContainer, Skeleton } from '@/components/ui'
 import { RAINFALL_START_DATE, TEMPERATURE_START_DATE } from '@/config/weather'
+import { AnnualOverviewRecordsCard } from '@/features/annualOverview/AnnualOverviewRecordsCard'
 import {
   ANNUAL_OVERVIEW_CHART_HEIGHT,
   ANNUAL_OVERVIEW_CHART_WIDTH,
@@ -26,6 +27,7 @@ import {
   xForDay,
   yForValue,
 } from '@/features/annualOverview/chart'
+import { formatAnnualOverviewPreviousRecordLabel } from '@/features/annualOverview/recordsCard'
 import {
   buildAnnualOverviewDataset,
   buildSelectableYears,
@@ -749,43 +751,11 @@ export default function AnnualOverviewPage() {
             <p className="annual-overview-footnote">{footnote}</p>
           </section>
 
-          <section className="card annual-overview-records-card">
-            <h2>New daily records set in {selectedYear}</h2>
-            <p>{recordSummary}</p>
-            {dataset.recordEvents.length === 0 ? null : (
-              <TableWrapper>
-                <table>
-                  <thead>
-                    <tr>
-                      <th scope="col">Date</th>
-                      <th scope="col">Record type</th>
-                      <th scope="col">{selectedYear} value</th>
-                      <th scope="col">Previous record</th>
-                      <th scope="col">Margin</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {dataset.recordEvents.map((event) => (
-                      <tr key={`${event.date}-${event.type}`}>
-                        <td>{formatEuropeLondonDisplay(event.date)}</td>
-                        <td>
-                          <span
-                            className="annual-overview-record-tag"
-                            style={{ backgroundColor: getRecordMarkerColor(event.type) }}
-                          >
-                            {getAnnualOverviewRecordLabel(event.type)}
-                          </span>
-                        </td>
-                        <td>{event.currentValueC.toFixed(1)}°C</td>
-                        <td>{formatPreviousRecordLabel(event)}</td>
-                        <td>+{event.marginC.toFixed(1)}°C</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </TableWrapper>
-            )}
-          </section>
+          <AnnualOverviewRecordsCard
+            year={selectedYear}
+            rows={dataset.recordEvents}
+            latestObservedDate={dataset.latestObservedDate}
+          />
         </>
       ) : null}
 
@@ -889,7 +859,8 @@ function AnnualOverviewTooltip({
       ) : null}
       {events.map((event) => (
         <div key={`${event.date}-${event.type}`} className="annual-overview-tooltip__detail">
-          {getAnnualOverviewRecordLabel(event.type)}: previous {formatPreviousRecordLabel(event)}
+          {getAnnualOverviewRecordLabel(event.type)}: previous{' '}
+          {formatAnnualOverviewPreviousRecordLabel(event)}
         </div>
       ))}
     </>
@@ -1368,11 +1339,6 @@ function toggleSelectedYear(
 
 function sameYearList(left: readonly number[], right: readonly number[]): boolean {
   return left.length === right.length && left.every((value, index) => value === right[index])
-}
-
-function formatPreviousRecordLabel(event: AnnualOverviewRecordEvent): string {
-  const years = event.previousRecordYears.join(', ')
-  return years.length > 0 ? `${event.previousRecordC.toFixed(1)}°C (${years})` : `${event.previousRecordC.toFixed(1)}°C`
 }
 
 function buildRangeSlug(startDate: ClimateDateString, endDate: ClimateDateString): string {

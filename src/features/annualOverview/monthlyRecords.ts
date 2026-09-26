@@ -110,6 +110,7 @@ export function buildAnnualOverviewMonthlyRecordsCardModel(input: {
   readonly year: number
   readonly selectedYearRecords: readonly ClimateDay[]
   readonly historicalPayloads: readonly AnnualClimatePayload[]
+  readonly linkedDailyRecordDates?: ReadonlySet<ClimateDateString>
 }): AnnualOverviewMonthlyRecordsCardModel {
   const historicalPayloads = [...input.historicalPayloads].sort((left, right) => left.year - right.year)
   const firstYearOfRecord =
@@ -259,6 +260,9 @@ export function buildAnnualOverviewMonthlyRecordsCardModel(input: {
   for (const row of rows) {
     for (const cell of row.cells) {
       if (cell.status !== 'broken' || cell.displayDate == null) {
+        continue
+      }
+      if (input.linkedDailyRecordDates != null && !input.linkedDailyRecordDates.has(cell.displayDate)) {
         continue
       }
       const existing = linkedDailyRecordMonthsByDate.get(cell.displayDate) ?? []

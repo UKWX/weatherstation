@@ -93,6 +93,7 @@ describe('buildAnnualOverviewMonthlyRecordsCardModel', () => {
           makeRecord('2026-03-20', { maxTempC: 18, minTempC: 0 }),
         ]),
       ],
+      linkedDailyRecordDates: new Set(['2026-03-20' as ClimateDateString]),
     })
 
     const marchHighestMax = model.rows[0]?.cells[2]

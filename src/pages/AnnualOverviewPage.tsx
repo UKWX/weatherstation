@@ -224,14 +224,19 @@ export default function AnnualOverviewPage() {
     dataset.recordEvents.length,
     selectedYearQuery.data?.through ?? dataset.latestObservedDate,
   )
+  const dailyRecordDates = useMemo(
+    () => new Set(dataset.recordEvents.map((event) => event.date)),
+    [dataset.recordEvents],
+  )
   const monthlyRecordsModel = useMemo(
     () =>
       buildAnnualOverviewMonthlyRecordsCardModel({
         year: selectedYear,
         selectedYearRecords: selectedYearQuery.data?.records ?? [],
         historicalPayloads: loadedHistoricalPayloads,
+        linkedDailyRecordDates: dailyRecordDates,
       }),
-    [loadedHistoricalPayloads, selectedYear, selectedYearQuery.data?.records],
+    [dailyRecordDates, loadedHistoricalPayloads, selectedYear, selectedYearQuery.data?.records],
   )
 
   const bandPath = buildNormalBandPath(dataset, geometry.yMin, geometry.yMax)

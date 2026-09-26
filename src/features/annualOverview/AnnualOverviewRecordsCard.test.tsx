@@ -73,7 +73,7 @@ describe('AnnualOverviewRecordsCard', () => {
     expect(container.querySelectorAll('.annual-overview-records-grid__fill--split')).toHaveLength(2)
 
     const cell = screen.getByLabelText(
-      '03 Jan 2026. Record high max: 34.6°C. Previous record 27.9°C (2011). Beaten by 6.7°C. Record high min: 19.2°C. Previous record 16.0°C (2003). Beaten by 3.2°C',
+      '03 Jan 2026. Record high max: 34.6°C. Previous record 27.9°C (2011). Beaten by 6.7°C. Record high min: 19.2°C. Previous record 16.0°C (2003). Beaten by 3.2°C. Also a new monthly record for January',
     )
     await user.tab()
     expect(cell).toHaveFocus()

@@ -36,18 +36,20 @@ describe('AnnualOverviewMonthlyRecordsCard', () => {
   it('renders highlight tiles, matrix cells, and tooltips from the shared monthly model', async () => {
     const model = buildAnnualOverviewMonthlyRecordsCardModel({
       year: 2026,
-      selectedYearRecords: [makeRecord('2026-03-20', { maxTempC: 18 })],
+      selectedYearRecords: [makeRecord('2026-03-20', { maxTempC: 18, minTempC: 0 })],
       historicalPayloads: [
-        makePayload(2024, [makeRecord('2024-03-10', { maxTempC: 14 })]),
-        makePayload(2025, [makeRecord('2025-03-11', { maxTempC: 16 })]),
-        makePayload(2026, [makeRecord('2026-03-20', { maxTempC: 18 })]),
+        makePayload(2024, [makeRecord('2024-03-10', { maxTempC: 14, minTempC: -2 })]),
+        makePayload(2025, [makeRecord('2025-03-11', { maxTempC: 16, minTempC: 1 })]),
+        makePayload(2026, [makeRecord('2026-03-20', { maxTempC: 18, minTempC: 0 })]),
       ],
     })
 
     render(<AnnualOverviewMonthlyRecordsCard model={model} />)
 
     expect(screen.getByText('Monthly records')).toBeInTheDocument()
-    expect(screen.getByText('All-time monthly extremes for Wakefield · 1 broken in 2026')).toBeInTheDocument()
+    expect(
+      screen.getByText('All-time monthly extremes for Wakefield · 1 broken in 2026'),
+    ).toBeInTheDocument()
     expect(screen.getByText('Highest max · March')).toBeInTheDocument()
     expect(screen.getByText('18.0°C')).toBeInTheDocument()
 

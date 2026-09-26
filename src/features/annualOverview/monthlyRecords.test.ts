@@ -35,18 +35,26 @@ describe('buildAnnualOverviewMonthlyRecordsCardModel', () => {
     const model = buildAnnualOverviewMonthlyRecordsCardModel({
       year: 2026,
       selectedYearRecords: [
-        makeRecord('2026-01-03', { maxTempC: 13 }),
-        makeRecord('2026-01-12', { maxTempC: 15 }),
-        makeRecord('2026-02-14', { minTempC: -4 }),
+        makeRecord('2026-01-03', { maxTempC: 13, minTempC: 0 }),
+        makeRecord('2026-01-12', { maxTempC: 15, minTempC: 0 }),
+        makeRecord('2026-02-14', { maxTempC: 10, minTempC: -4 }),
       ],
       historicalPayloads: [
-        makePayload(1995, [makeRecord('1995-01-05', { maxTempC: 11 }), makeRecord('1995-02-11', { minTempC: -4 })]),
-        makePayload(2013, [makeRecord('2013-01-08', { maxTempC: 15 })]),
-        makePayload(2025, [makeRecord('2025-01-11', { maxTempC: 14 }), makeRecord('2025-02-03', { minTempC: -3 })]),
+        makePayload(1995, [
+          makeRecord('1995-01-05', { maxTempC: 11, minTempC: -5 }),
+          makeRecord('1995-01-20', { maxTempC: 9, minTempC: 4 }),
+          makeRecord('1995-02-11', { maxTempC: 9, minTempC: -4 }),
+          makeRecord('1995-02-18', { maxTempC: 13, minTempC: 3 }),
+        ]),
+        makePayload(2013, [makeRecord('2013-01-08', { maxTempC: 15, minTempC: -1 })]),
+        makePayload(2025, [
+          makeRecord('2025-01-11', { maxTempC: 14, minTempC: 1 }),
+          makeRecord('2025-02-03', { maxTempC: 10, minTempC: -3 }),
+        ]),
         makePayload(2026, [
-          makeRecord('2026-01-03', { maxTempC: 13 }),
-          makeRecord('2026-01-12', { maxTempC: 15 }),
-          makeRecord('2026-02-14', { minTempC: -4 }),
+          makeRecord('2026-01-03', { maxTempC: 13, minTempC: 0 }),
+          makeRecord('2026-01-12', { maxTempC: 15, minTempC: 0 }),
+          makeRecord('2026-02-14', { maxTempC: 10, minTempC: -4 }),
         ]),
       ],
     })
@@ -74,15 +82,15 @@ describe('buildAnnualOverviewMonthlyRecordsCardModel', () => {
     const model = buildAnnualOverviewMonthlyRecordsCardModel({
       year: 2026,
       selectedYearRecords: [
-        makeRecord('2026-03-02', { maxTempC: 15 }),
-        makeRecord('2026-03-20', { maxTempC: 18 }),
+        makeRecord('2026-03-02', { maxTempC: 15, minTempC: 0 }),
+        makeRecord('2026-03-20', { maxTempC: 18, minTempC: 0 }),
       ],
       historicalPayloads: [
-        makePayload(2024, [makeRecord('2024-03-10', { maxTempC: 14 })]),
-        makePayload(2025, [makeRecord('2025-03-11', { maxTempC: 16 })]),
+        makePayload(2024, [makeRecord('2024-03-10', { maxTempC: 14, minTempC: -2 })]),
+        makePayload(2025, [makeRecord('2025-03-11', { maxTempC: 16, minTempC: 1 })]),
         makePayload(2026, [
-          makeRecord('2026-03-02', { maxTempC: 15 }),
-          makeRecord('2026-03-20', { maxTempC: 18 }),
+          makeRecord('2026-03-02', { maxTempC: 15, minTempC: 0 }),
+          makeRecord('2026-03-20', { maxTempC: 18, minTempC: 0 }),
         ]),
       ],
     })

@@ -5,7 +5,9 @@ import {
   buildAnnualOverviewExportSvg,
   downloadAnnualOverviewPng,
 } from '@/features/annualOverview/chart'
+import { buildAnnualOverviewMonthlyRecordsCardModel } from '@/features/annualOverview/monthlyRecords'
 import type { AnnualOverviewDataset } from '@/features/annualOverview/model'
+import type { AnnualClimatePayload, ClimateDateString, ClimateDay } from '@/types/weather'
 
 const dataset: AnnualOverviewDataset = {
   days: [
@@ -72,6 +74,50 @@ const dataset: AnnualOverviewDataset = {
   normalPeriodYears: [1995, 2025],
 }
 
+function makeRecord(
+  date: ClimateDateString,
+  overrides: Partial<ClimateDay> = {},
+): ClimateDay {
+  return {
+    date,
+    maxTempC: 10,
+    minTempC: 2,
+    meanTempC: 6,
+    rainfallMm: null,
+    status: 'finalised',
+    ...overrides,
+  }
+}
+
+function makePayload(year: number, records: readonly ClimateDay[]): AnnualClimatePayload {
+  return {
+    station: 'Wakefield',
+    year,
+    generatedAtUtc: null,
+    complete: year < 2026,
+    through: `${year}-12-31` as ClimateDateString,
+    observationCount: records.length,
+    units: { temperature: '°C', rainfall: 'mm', pressure: null, wind: null },
+    records,
+  }
+}
+
+const monthlyRecords = buildAnnualOverviewMonthlyRecordsCardModel({
+  year: 2026,
+  selectedYearRecords: [
+    makeRecord('2026-01-01', { maxTempC: 12 }),
+    makeRecord('2026-03-20', { maxTempC: 18 }),
+  ],
+  historicalPayloads: [
+    makePayload(1995, [makeRecord('1995-01-05', { maxTempC: 11 })]),
+    makePayload(2025, [makeRecord('2025-03-11', { maxTempC: 16 })]),
+    makePayload(2026, [
+      makeRecord('2026-01-01', { maxTempC: 12 }),
+      makeRecord('2026-03-20', { maxTempC: 18 }),
+    ]),
+  ],
+})
+
 describe('annual overview export', () => {
   beforeEach(() => {
     vi.useFakeTimers()
@@ -86,6 +132,7 @@ describe('annual overview export', () => {
     const svg = buildAnnualOverviewExportSvg({
       year: 2026,
       dataset,
+      monthlyRecords,
       subtitle:
         'Daily maximum & minimum vs. the 1995–2025 normal range and all-time daily records across the full year.',
       footnote:
@@ -106,6 +153,7 @@ describe('annual overview export', () => {
       'Shaded band shows the normal range between the average daily maximum and minimum, coloured by temperature.',
     )
     expect(svg).toContain('New daily records set in 2026')
+    expect(svg).toContain('Monthly records')
     expect(svg).toContain('fill="#f5f7f9"')
     expect(svg).toContain('Biggest margins')
     expect(svg).toContain('Stronger colour = bigger margin over previous record')
@@ -128,19 +176,22 @@ describe('annual overview export', () => {
 
     expect(chartTransformY).toBe(94)
     expect(footnoteY).toBe(chartTransformY + ANNUAL_OVERVIEW_CHART_HEIGHT + 28)
-    expect(cardMatches).toHaveLength(2)
+    expect(cardMatches).toHaveLength(3)
 
     const chartCardY = Number(cardMatches[0]?.[1] ?? Number.NaN)
     const chartCardHeight = Number(cardMatches[0]?.[2] ?? Number.NaN)
     const recordsCardY = Number(cardMatches[1]?.[1] ?? Number.NaN)
+    const monthlyRecordsCardY = Number(cardMatches[2]?.[1] ?? Number.NaN)
     expect(chartCardHeight).toBe(706)
     expect(recordsCardY).toBe(chartCardY + chartCardHeight + 20)
+    expect(monthlyRecordsCardY).toBeGreaterThan(recordsCardY)
   })
 
   it('supports exporting chart-only without record markers', () => {
     const svg = buildAnnualOverviewExportSvg({
       year: 2026,
       dataset,
+      monthlyRecords,
       subtitle: 'Short subtitle',
       footnote: 'Short footnote',
       recordSummary: 'Summary',
@@ -157,6 +208,7 @@ describe('annual overview export', () => {
     const svg = buildAnnualOverviewExportSvg({
       year: 2026,
       dataset,
+      monthlyRecords,
       subtitle: 'Short subtitle',
       footnote: 'Short footnote',
       recordSummary: 'Summary',
@@ -174,6 +226,7 @@ describe('annual overview export', () => {
     const svg = buildAnnualOverviewExportSvg({
       year: 2026,
       dataset,
+      monthlyRecords,
       subtitle: 'Short subtitle',
       footnote: 'Short footnote',
       recordSummary: 'Summary',

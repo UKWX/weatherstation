@@ -11,6 +11,7 @@ import { useSearchParams } from 'react-router-dom'
 import { Badge, ErrorState, ResponsiveChartContainer, Skeleton } from '@/components/ui'
 import { RAINFALL_START_DATE, TEMPERATURE_START_DATE } from '@/config/weather'
 import { AnnualOverviewRecordsCard } from '@/features/annualOverview/AnnualOverviewRecordsCard'
+import { AnnualOverviewMonthlyRecordsCard } from '@/features/annualOverview/AnnualOverviewMonthlyRecordsCard'
 import {
   ANNUAL_OVERVIEW_CHART_HEIGHT,
   ANNUAL_OVERVIEW_CHART_WIDTH,
@@ -27,6 +28,7 @@ import {
   xForDay,
   yForValue,
 } from '@/features/annualOverview/chart'
+import { buildAnnualOverviewMonthlyRecordsCardModel } from '@/features/annualOverview/monthlyRecords'
 import { formatAnnualOverviewPreviousRecordLabel } from '@/features/annualOverview/recordsCard'
 import {
   buildAnnualOverviewDataset,
@@ -222,11 +224,26 @@ export default function AnnualOverviewPage() {
     dataset.recordEvents.length,
     selectedYearQuery.data?.through ?? dataset.latestObservedDate,
   )
+  const dailyRecordDates = useMemo(
+    () => new Set(dataset.recordEvents.map((event) => event.date)),
+    [dataset.recordEvents],
+  )
+  const monthlyRecordsModel = useMemo(
+    () =>
+      buildAnnualOverviewMonthlyRecordsCardModel({
+        year: selectedYear,
+        selectedYearRecords: selectedYearQuery.data?.records ?? [],
+        historicalPayloads: loadedHistoricalPayloads,
+        linkedDailyRecordDates: dailyRecordDates,
+      }),
+    [dailyRecordDates, loadedHistoricalPayloads, selectedYear, selectedYearQuery.data?.records],
+  )
 
   const bandPath = buildNormalBandPath(dataset, geometry.yMin, geometry.yMax)
   const exportSvgMarkup = buildAnnualOverviewExportSvg({
     year: selectedYear,
     dataset,
+    monthlyRecords: monthlyRecordsModel,
     subtitle,
     footnote,
     recordSummary,
@@ -755,7 +772,9 @@ export default function AnnualOverviewPage() {
             year={selectedYear}
             rows={dataset.recordEvents}
             latestObservedDate={dataset.latestObservedDate}
+            linkedMonthlyRecordMonthsByDate={monthlyRecordsModel.linkedDailyRecordMonthsByDate}
           />
+          <AnnualOverviewMonthlyRecordsCard model={monthlyRecordsModel} />
         </>
       ) : null}
 

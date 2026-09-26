@@ -3,6 +3,7 @@ import { TableWrapper } from '@/components/ui'
 import {
   ANNUAL_OVERVIEW_RECORD_CARD_COLOR_BY_TYPE,
   buildAnnualOverviewRecordsCardModel,
+  formatLinkedMonthlyRecordText,
   formatAnnualOverviewPreviousRecordLabel,
   getAnnualOverviewRecordFillColor,
   getAnnualOverviewRecordTypeLabel,
@@ -20,14 +21,22 @@ export function AnnualOverviewRecordsCard({
   year,
   rows,
   latestObservedDate,
+  linkedMonthlyRecordMonthsByDate,
 }: {
   readonly year: number
   readonly rows: readonly AnnualOverviewRecordEvent[]
   readonly latestObservedDate: ClimateDateString | null
+  readonly linkedMonthlyRecordMonthsByDate?: ReadonlyMap<ClimateDateString, readonly string[]>
 }) {
   const model = useMemo(
-    () => buildAnnualOverviewRecordsCardModel({ year, rows, latestObservedDate }),
-    [year, rows, latestObservedDate],
+    () =>
+      buildAnnualOverviewRecordsCardModel({
+        year,
+        rows,
+        latestObservedDate,
+        linkedMonthlyRecordMonthsByDate,
+      }),
+    [year, rows, latestObservedDate, linkedMonthlyRecordMonthsByDate],
   )
   const [showAllRecords, setShowAllRecords] = useState(false)
   const [activeDateKey, setActiveDateKey] = useState<string | null>(null)
@@ -227,6 +236,10 @@ export function AnnualOverviewRecordsCard({
                       type="button"
                       className={`annual-overview-records-grid__cell annual-overview-records-grid__cell--record${
                         isActive ? ' is-active' : ''
+                      }${
+                        cell.group.linkedMonthlyRecordMonths != null
+                          ? ' annual-overview-records-grid__cell--linked-monthly'
+                          : ''
                       }`}
                       style={{
                         gridColumn: `${cell.day + 1} / span 1`,
@@ -426,6 +439,11 @@ export function AnnualOverviewRecordsCard({
               <div className="annual-overview-records-tooltip__detail">{block.margin}</div>
             </div>
           ))}
+          {activeGroup.linkedMonthlyRecordMonths != null ? (
+            <div className="annual-overview-records-tooltip__detail annual-overview-records-tooltip__detail--linked-monthly">
+              {formatLinkedMonthlyRecordText(activeGroup.linkedMonthlyRecordMonths)}
+            </div>
+          ) : null}
         </div>
       ) : null}
     </section>

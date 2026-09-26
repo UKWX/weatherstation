@@ -33,6 +33,7 @@ const MARGIN = {
   bottom: 82,
   left: 72,
 } as const
+const MONTH_HEADER_BASELINE_Y = MARGIN.top - 28
 
 const MONTH_NAMES = [
   'January',
@@ -286,7 +287,7 @@ export function buildAnnualOverviewExportSvg(input: {
     const chartY =
       legend.bottom +
       EXPORT_MONTH_HEADER_GAP_BELOW_LEGEND -
-      (MARGIN.top - 28)
+      MONTH_HEADER_BASELINE_Y
     const footnoteY = chartY + ANNUAL_OVERVIEW_CHART_HEIGHT + 28
     const chartCardHeight =
       footnoteY +
@@ -312,7 +313,7 @@ export function buildAnnualOverviewExportSvg(input: {
   ${monthBoundaries.map((month) => {
     const x = xForDay(month.startIndex, input.dataset.days.length)
     const labelX = (xForDay(month.startIndex, input.dataset.days.length) + xForDay(month.endIndex, input.dataset.days.length)) / 2
-    return `<g><line x1="${x}" x2="${x}" y1="${MARGIN.top - 18}" y2="${ANNUAL_OVERVIEW_CHART_HEIGHT - MARGIN.bottom}" stroke="${ANNUAL_OVERVIEW_COLORS.monthLine}" stroke-width="1"/><text x="${labelX}" y="${MARGIN.top - 28}" text-anchor="middle" font-size="12.5" font-weight="700" fill="${ANNUAL_OVERVIEW_COLORS.ink}">${month.shortLabel.toUpperCase()}</text></g>`
+    return `<g><line x1="${x}" x2="${x}" y1="${MARGIN.top - 18}" y2="${ANNUAL_OVERVIEW_CHART_HEIGHT - MARGIN.bottom}" stroke="${ANNUAL_OVERVIEW_COLORS.monthLine}" stroke-width="1"/><text x="${labelX}" y="${MONTH_HEADER_BASELINE_Y}" text-anchor="middle" font-size="12.5" font-weight="700" fill="${ANNUAL_OVERVIEW_COLORS.ink}">${month.shortLabel.toUpperCase()}</text></g>`
   }).join('')}
   ${bandPath == null ? '' : `<path d="${bandPath}" fill="url(#annual-normal-band)" fill-opacity="0.62"/>`}
   <path d="${buildLinePath(input.dataset, (day) => day.normalMaxC, geometry.yMin, geometry.yMax)}" fill="none" stroke="${ANNUAL_OVERVIEW_COLORS.bandEdge}" stroke-width="1" opacity="0.55"/>
@@ -637,13 +638,15 @@ function parseSvgSize(svgMarkup: string): { readonly width: number; readonly hei
 }
 
 function normalizeExportFootnote(footnote: string): string {
-  const marker = 'calendar day.'
-  const markerIndex = footnote.indexOf(marker)
-  if (markerIndex === -1) {
-    const fallback = footnote.trim()
-    return fallback.length > 0 ? `${EXPORT_FOOTNOTE_LEAD} ${fallback}` : EXPORT_FOOTNOTE_LEAD
+  let trailing = footnote.trim()
+  const oldLeadPatterns = [
+    /^Shaded band shows[^.]*, with record lines and new-record markers kept inside the export card\.\s*/i,
+    /^Shaded band shows[^.]*\.\s*/i,
+    /^Dashed lines mark[^.]*\.\s*/i,
+  ]
+  for (const pattern of oldLeadPatterns) {
+    trailing = trailing.replace(pattern, '').trim()
   }
-  const trailing = footnote.slice(markerIndex + marker.length).trim()
   return trailing.length > 0 ? `${EXPORT_FOOTNOTE_LEAD} ${trailing}` : EXPORT_FOOTNOTE_LEAD
 }
 

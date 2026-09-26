@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
+  ANNUAL_OVERVIEW_CHART_HEIGHT,
   ANNUAL_OVERVIEW_EXPORT_WIDTH,
   buildAnnualOverviewExportSvg,
   downloadAnnualOverviewPng,
@@ -104,12 +105,32 @@ describe('annual overview export', () => {
     expect(svg).toContain(
       'Shaded band shows the normal range between the average daily maximum and minimum, coloured by temperature.',
     )
-    expect(svg).toContain('<g transform="translate(40 94)">')
-    expect(svg).toContain('y="682"')
-    expect(svg).toContain('<rect x="32" y="758"')
     expect(svg).toContain('New daily records set in 2026')
     expect(svg).toContain('fill="#f5f7f9"')
     expect(svg).toContain('11.0°C (2025)')
+
+    const chartTransformY = Number(
+      svg.match(/<g transform="translate\(40 (\d+(?:\.\d+)?)\)">/)?.[1] ?? Number.NaN,
+    )
+    const footnoteY = Number(
+      svg.match(/<text x="56" y="(\d+(?:\.\d+)?)" font-size="11\.5" fill="#5b6773">/)?.[1] ??
+        Number.NaN,
+    )
+    const cardMatches = [
+      ...svg.matchAll(
+        /<rect x="32" y="(\d+(?:\.\d+)?)" width="1416" height="(\d+(?:\.\d+)?)" rx="16" fill="#ffffff" stroke="#e6e9ec"\/>/g,
+      ),
+    ]
+
+    expect(chartTransformY).toBe(94)
+    expect(footnoteY).toBe(chartTransformY + ANNUAL_OVERVIEW_CHART_HEIGHT + 28)
+    expect(cardMatches).toHaveLength(2)
+
+    const chartCardY = Number(cardMatches[0]?.[1] ?? Number.NaN)
+    const chartCardHeight = Number(cardMatches[0]?.[2] ?? Number.NaN)
+    const recordsCardY = Number(cardMatches[1]?.[1] ?? Number.NaN)
+    expect(chartCardHeight).toBe(706)
+    expect(recordsCardY).toBe(chartCardY + chartCardHeight + 20)
   })
 
   it('supports exporting chart-only without record markers', () => {

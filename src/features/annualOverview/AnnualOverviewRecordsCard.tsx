@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import { TableWrapper } from '@/components/ui'
 import {
   ANNUAL_OVERVIEW_RECORD_CARD_COLOR_BY_TYPE,
@@ -25,7 +25,10 @@ export function AnnualOverviewRecordsCard({
   readonly rows: readonly AnnualOverviewRecordEvent[]
   readonly latestObservedDate: ClimateDateString | null
 }) {
-  const model = buildAnnualOverviewRecordsCardModel({ year, rows, latestObservedDate })
+  const model = useMemo(
+    () => buildAnnualOverviewRecordsCardModel({ year, rows, latestObservedDate }),
+    [year, rows, latestObservedDate],
+  )
   const [showAllRecords, setShowAllRecords] = useState(false)
   const [activeDateKey, setActiveDateKey] = useState<string | null>(null)
   const [tooltipStyle, setTooltipStyle] = useState<CSSProperties>({ opacity: 0 })

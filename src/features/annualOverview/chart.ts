@@ -1,14 +1,12 @@
 import {
   buildAnnualOverviewRecordsCardModel,
+  buildAnnualOverviewRecordsSummaryText,
   ANNUAL_OVERVIEW_RECORD_CARD_COLOR_BY_TYPE,
   formatAnnualOverviewPreviousRecordLabel,
   getAnnualOverviewRecordFillColor,
   getAnnualOverviewRecordTypeLabel,
 } from '@/features/annualOverview/recordsCard'
-import {
-  compareClimateDates,
-  formatEuropeLondonDisplay,
-} from '@/lib/climate'
+import { formatEuropeLondonDisplay } from '@/lib/climate'
 import type {
   AnnualOverviewDataset,
   AnnualOverviewDay,
@@ -279,7 +277,10 @@ export function buildAnnualOverviewExportSvg(input: {
   const textWidth = contentWidth - EXPORT_CARD_PADDING_X * 2
   const subtitleLines = wrapText(EXPORT_SUBTITLE, 14, textWidth)
   const footnoteLines = wrapText(normalizeExportFootnote(input.footnote), 11.5, textWidth)
-  const recordsSummary = buildRecordsSummaryText(rows.length, input.dataset.latestObservedDate)
+  const recordsSummary = buildAnnualOverviewRecordsSummaryText(
+    rows.length,
+    input.dataset.latestObservedDate,
+  )
   const recordSummaryLines = wrapText(recordsSummary, 13, textWidth)
   const chartCardX = EXPORT_PAGE_PADDING
   let cursorY = EXPORT_PAGE_PADDING
@@ -509,7 +510,7 @@ function buildExportRecordsCardSvg(input: {
   readonly y: number
   readonly width: number
   readonly summaryLines: readonly string[]
-  readonly latestObservedDate: string | null
+  readonly latestObservedDate: AnnualOverviewDataset['latestObservedDate']
   readonly interactive: boolean
   readonly embedInteractiveScript: boolean
 }): { readonly markup: string; readonly height: number } {

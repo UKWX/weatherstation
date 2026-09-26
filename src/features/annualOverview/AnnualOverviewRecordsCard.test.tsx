@@ -64,7 +64,7 @@ describe('AnnualOverviewRecordsCard', () => {
 
     expect(screen.getByText('6 new all-time daily records for Wakefield through 31 Aug 2026')).toBeInTheDocument()
     expect(screen.getByText('Largest margin')).toBeInTheDocument()
-    expect(screen.getByText('+6.7°C')).toBeInTheDocument()
+    expect(screen.getAllByText('+6.7°C')).toHaveLength(2)
     expect(container.querySelectorAll('.annual-overview-records-grid__fill--split')).toHaveLength(2)
 
     const cell = screen.getByLabelText(
@@ -72,7 +72,7 @@ describe('AnnualOverviewRecordsCard', () => {
     )
     await user.tab()
     expect(cell).toHaveFocus()
-    expect(screen.getByText('03 Jan 2026')).toBeInTheDocument()
+    expect(screen.getAllByText('03 Jan 2026')).toHaveLength(2)
     expect(screen.getByText('Record high max: 34.6°C')).toBeInTheDocument()
     expect(screen.getByText('Previous record 27.9°C (2011)')).toBeInTheDocument()
     expect(screen.getByText('Beaten by 3.2°C')).toBeInTheDocument()
@@ -87,6 +87,6 @@ describe('AnnualOverviewRecordsCard', () => {
     await user.click(screen.getByRole('button', { name: 'Show all records' }))
     expect(screen.getByRole('button', { name: 'Hide all records' })).toBeInTheDocument()
     expect(screen.getByRole('table')).toBeInTheDocument()
-    expect(screen.getByText('11 June 2026')).toBeInTheDocument()
+    expect(screen.getAllByRole('row')).toHaveLength(rows.length + 1)
   })
 })

@@ -267,6 +267,7 @@ export function buildAnnualOverviewExportSvg(input: {
   readonly includeRecords?: boolean
   readonly showRecordOutlines?: boolean
   readonly interactiveRecords?: boolean
+  readonly embedInteractiveScript?: boolean
 }): string {
   const includeChart = input.includeChart ?? true
   const includeRecords = input.includeRecords ?? true
@@ -368,6 +369,7 @@ export function buildAnnualOverviewExportSvg(input: {
       summaryLines: recordSummaryLines,
       latestObservedDate: input.dataset.latestObservedDate,
       interactive: input.interactiveRecords ?? false,
+      embedInteractiveScript: input.embedInteractiveScript ?? false,
     })
     recordsMarkup = recordsCard.markup
     cursorY += recordsCard.height
@@ -516,6 +518,7 @@ function buildExportRecordsCardSvg(input: {
   readonly summaryLines: readonly string[]
   readonly latestObservedDate: string | null
   readonly interactive: boolean
+  readonly embedInteractiveScript: boolean
 }): { readonly markup: string; readonly height: number } {
   const contentX = input.x + EXPORT_CARD_PADDING_X
   const contentWidth = input.width
@@ -642,7 +645,7 @@ function buildExportRecordsCardSvg(input: {
   const legendNoteY = legendY + 20
 
   const topRecords = [...input.rows]
-    .sort((left, right) => right.marginC - left.marginC || compareClimateDates(left.date, right.date))
+    .sort((left, right) => right.marginC - left.marginC || compareClimateDates(right.date, left.date))
     .slice(0, 5)
   const listHeadingY = legendNoteY + 28
   const listStartY = listHeadingY + 24
@@ -686,6 +689,7 @@ function buildExportRecordsCardSvg(input: {
           cardY: input.y,
           cardWidth,
           cardHeight,
+          embedScript: input.embedInteractiveScript,
         })
       : ''
 
@@ -808,6 +812,7 @@ function buildRecordsTooltipSvg(input: {
   readonly cardY: number
   readonly cardWidth: number
   readonly cardHeight: number
+  readonly embedScript: boolean
 }): string {
   const gridId = `records-grid-${input.year}`
   const tooltipId = `records-tooltip-${input.year}`
@@ -832,7 +837,8 @@ function buildRecordsTooltipSvg(input: {
   )
   const tooltipDataJson = JSON.stringify(tooltipData).replaceAll('<', '\\u003c')
 
-  return `
+  const scriptMarkup = input.embedScript
+    ? `
   <rect id="${activeId}" visibility="hidden" fill="none" stroke="#1c2530" stroke-width="2" rx="2"/>
   <g id="${tooltipId}" visibility="hidden" pointer-events="none"></g>
   <script><![CDATA[
@@ -945,6 +951,10 @@ function buildRecordsTooltipSvg(input: {
       });
     })();
   ]]></script>`
+    : `
+  <rect id="${activeId}" visibility="hidden" fill="none" stroke="#1c2530" stroke-width="2" rx="2"/>
+  <g id="${tooltipId}" visibility="hidden" pointer-events="none"></g>`
+  return scriptMarkup
 }
 
 function formatPreviousRecordSummary(row: AnnualOverviewRecordEvent): string {

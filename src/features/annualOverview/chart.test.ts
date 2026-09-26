@@ -167,6 +167,22 @@ describe('annual overview export', () => {
 
     expect(svg).toContain('class="records-grid-cell--record"')
     expect(svg).toContain('id="records-tooltip-2026"')
+    expect(svg).not.toContain('<script><![CDATA[')
+  })
+
+  it('optionally embeds records-grid tooltip script for web-hosted SVG usage', () => {
+    const svg = buildAnnualOverviewExportSvg({
+      year: 2026,
+      dataset,
+      subtitle: 'Short subtitle',
+      footnote: 'Short footnote',
+      recordSummary: 'Summary',
+      includeChart: false,
+      includeRecords: true,
+      interactiveRecords: true,
+      embedInteractiveScript: true,
+    })
+
     expect(svg).toContain('<script><![CDATA[')
   })
 

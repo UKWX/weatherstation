@@ -21,6 +21,11 @@ const EXPORT_CARD_PADDING_Y = 24
 const EXPORT_CARD_GAP = 20
 const EXPORT_CARD_RADIUS = 16
 const EXPORT_CHART_OFFSET_X = (ANNUAL_OVERVIEW_EXPORT_WIDTH - ANNUAL_OVERVIEW_CHART_WIDTH) / 2
+const EXPORT_SUBTITLE = 'Daily maximum & minimum vs. the normal range and all-time daily records'
+const EXPORT_FOOTNOTE_LEAD =
+  'Shaded band shows the normal range between the average daily maximum and minimum, coloured by temperature. Dashed lines mark the all-time daily record maximum and minimum for each calendar day.'
+const EXPORT_LEGEND_TOP_GAP = 9
+const EXPORT_MONTH_HEADER_GAP_BELOW_LEGEND = 13
 
 const MARGIN = {
   top: 112,
@@ -28,6 +33,7 @@ const MARGIN = {
   bottom: 82,
   left: 72,
 } as const
+const MONTH_HEADER_BASELINE_Y = MARGIN.top - 28
 
 const MONTH_NAMES = [
   'January',
@@ -256,11 +262,11 @@ export function buildAnnualOverviewExportSvg(input: {
   const recordHighMaxPath = buildLinePath(input.dataset, (day) => day.recordHighMaxC, geometry.yMin, geometry.yMax)
   const recordLowMinPath = buildLinePath(input.dataset, (day) => day.recordLowMinC, geometry.yMin, geometry.yMax)
   const rows = input.dataset.recordEvents.length > 0 ? input.dataset.recordEvents : []
-  const title = `${input.year} Daily Temperature Data for Wakefield, United Kingdom`
+  const title = `${input.year} Daily Temperature Data for Wakefield`
   const contentWidth = ANNUAL_OVERVIEW_EXPORT_WIDTH - EXPORT_PAGE_PADDING * 2
   const textWidth = contentWidth - EXPORT_CARD_PADDING_X * 2
-  const subtitleLines = wrapText(input.subtitle, 14, textWidth)
-  const footnoteLines = wrapText(input.footnote, 11.5, textWidth)
+  const subtitleLines = wrapText(EXPORT_SUBTITLE, 14, textWidth)
+  const footnoteLines = wrapText(normalizeExportFootnote(input.footnote), 11.5, textWidth)
   const recordSummaryLines = wrapText(input.recordSummary, 13, textWidth)
   const chartCardX = EXPORT_PAGE_PADDING
   let cursorY = EXPORT_PAGE_PADDING
@@ -274,11 +280,14 @@ export function buildAnnualOverviewExportSvg(input: {
     const legend = buildLegendSvg({
       year: input.year,
       x: chartCardX + EXPORT_CARD_PADDING_X,
-      y: subtitleY + subtitleLines.length * 18 + 22,
+      y: subtitleY + subtitleLines.length * 18 + EXPORT_LEGEND_TOP_GAP,
       maxWidth: textWidth,
       showRecordOutlines,
     })
-    const chartY = legend.bottom + 18
+    const chartY =
+      legend.bottom +
+      EXPORT_MONTH_HEADER_GAP_BELOW_LEGEND -
+      MONTH_HEADER_BASELINE_Y
     const footnoteY = chartY + ANNUAL_OVERVIEW_CHART_HEIGHT + 28
     const chartCardHeight =
       footnoteY +
@@ -304,7 +313,7 @@ export function buildAnnualOverviewExportSvg(input: {
   ${monthBoundaries.map((month) => {
     const x = xForDay(month.startIndex, input.dataset.days.length)
     const labelX = (xForDay(month.startIndex, input.dataset.days.length) + xForDay(month.endIndex, input.dataset.days.length)) / 2
-    return `<g><line x1="${x}" x2="${x}" y1="${MARGIN.top - 18}" y2="${ANNUAL_OVERVIEW_CHART_HEIGHT - MARGIN.bottom}" stroke="${ANNUAL_OVERVIEW_COLORS.monthLine}" stroke-width="1"/><text x="${labelX}" y="${MARGIN.top - 28}" text-anchor="middle" font-size="12.5" font-weight="700" fill="${ANNUAL_OVERVIEW_COLORS.ink}">${month.shortLabel.toUpperCase()}</text></g>`
+    return `<g><line x1="${x}" x2="${x}" y1="${MARGIN.top - 18}" y2="${ANNUAL_OVERVIEW_CHART_HEIGHT - MARGIN.bottom}" stroke="${ANNUAL_OVERVIEW_COLORS.monthLine}" stroke-width="1"/><text x="${labelX}" y="${MONTH_HEADER_BASELINE_Y}" text-anchor="middle" font-size="12.5" font-weight="700" fill="${ANNUAL_OVERVIEW_COLORS.ink}">${month.shortLabel.toUpperCase()}</text></g>`
   }).join('')}
   ${bandPath == null ? '' : `<path d="${bandPath}" fill="url(#annual-normal-band)" fill-opacity="0.62"/>`}
   <path d="${buildLinePath(input.dataset, (day) => day.normalMaxC, geometry.yMin, geometry.yMax)}" fill="none" stroke="${ANNUAL_OVERVIEW_COLORS.bandEdge}" stroke-width="1" opacity="0.55"/>
@@ -359,7 +368,7 @@ export function buildAnnualOverviewExportSvg(input: {
   const contentHeight = cursorY + EXPORT_PAGE_PADDING
 
   return `<?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" width="${ANNUAL_OVERVIEW_EXPORT_WIDTH}" height="${contentHeight}" viewBox="0 0 ${ANNUAL_OVERVIEW_EXPORT_WIDTH} ${contentHeight}" role="img" aria-label="${escapeXml(`${input.year} Daily Temperature Data for Wakefield, United Kingdom`)}">
+<svg xmlns="http://www.w3.org/2000/svg" width="${ANNUAL_OVERVIEW_EXPORT_WIDTH}" height="${contentHeight}" viewBox="0 0 ${ANNUAL_OVERVIEW_EXPORT_WIDTH} ${contentHeight}" role="img" aria-label="${escapeXml(`${input.year} Daily Temperature Data for Wakefield`)}">
   <defs>
     <linearGradient id="annual-normal-band" x1="0" y1="${MARGIN.top}" x2="0" y2="${ANNUAL_OVERVIEW_CHART_HEIGHT - MARGIN.bottom}" gradientUnits="userSpaceOnUse">
       ${NORMAL_GRADIENT_STOPS.map((stop) => `<stop offset="${stop.offset}" stop-color="${stop.color}"/>`).join('')}
@@ -606,12 +615,39 @@ function estimateLegendItemWidth(label: string): number {
 function parseSvgSize(svgMarkup: string): { readonly width: number; readonly height: number } {
   const widthMatch = svgMarkup.match(/<svg[^>]*width="(\d+(?:\.\d+)?)"/)
   const heightMatch = svgMarkup.match(/<svg[^>]*height="(\d+(?:\.\d+)?)"/)
-  const width = Number(widthMatch?.[1] ?? ANNUAL_OVERVIEW_EXPORT_WIDTH)
-  const height = Number(heightMatch?.[1] ?? ANNUAL_OVERVIEW_CHART_HEIGHT)
+  const viewBoxMatch = svgMarkup.match(/<svg[^>]*viewBox="([^"]+)"/)
+  const viewBoxParts =
+    viewBoxMatch?.[1]
+      .trim()
+      .split(/\s+/)
+      .map((value) => Number(value)) ?? []
+  const fallbackWidth =
+    Number.isFinite(viewBoxParts[2]) && (viewBoxParts[2] ?? 0) > 0
+      ? (viewBoxParts[2] as number)
+      : ANNUAL_OVERVIEW_EXPORT_WIDTH
+  const fallbackHeight =
+    Number.isFinite(viewBoxParts[3]) && (viewBoxParts[3] ?? 0) > 0
+      ? (viewBoxParts[3] as number)
+      : ANNUAL_OVERVIEW_CHART_HEIGHT
+  const width = Number(widthMatch?.[1] ?? fallbackWidth)
+  const height = Number(heightMatch?.[1] ?? fallbackHeight)
   return {
     width: Number.isFinite(width) && width > 0 ? width : ANNUAL_OVERVIEW_EXPORT_WIDTH,
     height: Number.isFinite(height) && height > 0 ? height : ANNUAL_OVERVIEW_CHART_HEIGHT,
   }
+}
+
+function normalizeExportFootnote(footnote: string): string {
+  let trailing = footnote.trim()
+  const oldLeadPatterns = [
+    /^Shaded band shows[^.]*, with record lines and new-record markers kept inside the export card\.\s*/i,
+    /^Shaded band shows[^.]*\.\s*/i,
+    /^Dashed lines mark[^.]*\.\s*/i,
+  ]
+  for (const pattern of oldLeadPatterns) {
+    trailing = trailing.replace(pattern, '').trim()
+  }
+  return trailing.length > 0 ? `${EXPORT_FOOTNOTE_LEAD} ${trailing}` : EXPORT_FOOTNOTE_LEAD
 }
 
 function formatPreviousRecordExportLabel(row: AnnualOverviewRecordEvent): string {

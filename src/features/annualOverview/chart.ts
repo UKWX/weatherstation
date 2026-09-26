@@ -854,6 +854,8 @@ function buildRecordsTooltipSvg(input: {
       const clear = () => {
         while (tooltip.firstChild) tooltip.removeChild(tooltip.firstChild);
       };
+      /** @typedef {{ size?: number, fill?: string, weight?: number }} TextOptions */
+      /** @param {number} x @param {number} y @param {string} value @param {TextOptions} options */
       const addText = (x, y, value, options = {}) => {
         const node = document.createElementNS(ns, 'text');
         node.setAttribute('x', String(x));
@@ -864,6 +866,7 @@ function buildRecordsTooltipSvg(input: {
         node.textContent = value;
         tooltip.appendChild(node);
       };
+      /** @param {Element} cell */
       const show = (cell) => {
         const key = cell.getAttribute('data-record-date');
         if (!key || !Object.prototype.hasOwnProperty.call(tooltipData, key)) return;

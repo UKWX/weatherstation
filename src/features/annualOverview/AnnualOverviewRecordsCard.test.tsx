@@ -88,5 +88,9 @@ describe('AnnualOverviewRecordsCard', () => {
     expect(screen.getByRole('button', { name: 'Hide all records' })).toBeInTheDocument()
     expect(screen.getByRole('table')).toBeInTheDocument()
     expect(screen.getAllByRole('row')).toHaveLength(rows.length + 1)
+
+    await user.click(screen.getByRole('button', { name: 'Hide all records' }))
+    expect(screen.getByRole('button', { name: 'Show all records' })).toBeInTheDocument()
+    expect(screen.queryByRole('table')).not.toBeInTheDocument()
   })
 })

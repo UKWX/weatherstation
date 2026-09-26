@@ -257,8 +257,15 @@ export function AnnualOverviewRecordsCard({
                         activeInteractionModeRef.current = 'focus'
                         setActiveDateKey(cell.group?.dateKey ?? null)
                       }}
-                      onBlur={() => {
+                      onBlur={(event) => {
                         if (activeInteractionModeRef.current === 'focus') {
+                          if (
+                            event.relatedTarget instanceof Element &&
+                            event.relatedTarget.closest('[data-annual-overview-record-cell="true"]') !=
+                              null
+                          ) {
+                            return
+                          }
                           setActiveDateKey(null)
                           activeInteractionModeRef.current = null
                         }

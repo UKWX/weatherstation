@@ -42,7 +42,7 @@ export interface AnnualOverviewRecordCardDateGroup {
   readonly records: readonly AnnualOverviewRecordEvent[]
   readonly visualRecords: readonly AnnualOverviewRecordEvent[]
   readonly tooltipBlocks: readonly AnnualOverviewRecordCardTooltipBlock[]
-  readonly linkedMonthlyRecordMonth: string | null
+  readonly linkedMonthlyRecordMonths: readonly string[] | null
   readonly ariaLabel: string
 }
 
@@ -77,7 +77,7 @@ export function buildAnnualOverviewRecordsCardModel(input: {
   readonly year: number
   readonly rows: readonly AnnualOverviewRecordEvent[]
   readonly latestObservedDate: ClimateDateString | null
-  readonly linkedMonthlyRecordMonthsByDate?: ReadonlyMap<ClimateDateString, string>
+  readonly linkedMonthlyRecordMonthsByDate?: ReadonlyMap<ClimateDateString, readonly string[]>
 }): AnnualOverviewRecordCardModel {
   const typeCounts = getAnnualOverviewRecordTypeCounts(input.rows)
   const presentTypes = ANNUAL_OVERVIEW_RECORD_CARD_TYPE_ORDER.filter(
@@ -164,7 +164,7 @@ export function buildAnnualOverviewRecordsSummaryText(
 export function buildAnnualOverviewRecordGroups(
   year: number,
   rows: readonly AnnualOverviewRecordEvent[],
-  linkedMonthlyRecordMonthsByDate?: ReadonlyMap<ClimateDateString, string>,
+  linkedMonthlyRecordMonthsByDate?: ReadonlyMap<ClimateDateString, readonly string[]>,
 ): ReadonlyMap<string, AnnualOverviewRecordCardDateGroup> {
   const grouped = new Map<string, AnnualOverviewRecordEvent[]>()
   for (const row of rows) {
@@ -190,11 +190,8 @@ export function buildAnnualOverviewRecordGroups(
         year: 'numeric',
       })
       const tooltipBlocks = records.map((row) => buildAnnualOverviewRecordTooltipBlock(row))
-      const linkedMonthlyRecordMonth = linkedMonthlyRecordMonthsByDate?.get(date) ?? null
-      const linkedMonthlyRecordText =
-        linkedMonthlyRecordMonth != null
-          ? `Also a new monthly record for ${linkedMonthlyRecordMonth}`
-          : null
+      const linkedMonthlyRecordMonths = linkedMonthlyRecordMonthsByDate?.get(date) ?? null
+      const linkedMonthlyRecordText = formatLinkedMonthlyRecordText(linkedMonthlyRecordMonths)
       const ariaLabel = [displayDate, ...tooltipBlocks.map((block) => block.ariaLabel), linkedMonthlyRecordText]
         .filter((value): value is string => value != null)
         .join('. ')
@@ -208,7 +205,7 @@ export function buildAnnualOverviewRecordGroups(
           records,
           visualRecords: records.slice(0, 2),
           tooltipBlocks,
-          linkedMonthlyRecordMonth,
+          linkedMonthlyRecordMonths,
           ariaLabel,
         },
       ] as const
@@ -298,6 +295,18 @@ function parseMonthDayKey(dateKey: string): { readonly month: number; readonly d
     month: Number.isFinite(month) ? month : 1,
     day: Number.isFinite(day) ? day : 1,
   }
+}
+
+export function formatLinkedMonthlyRecordText(
+  months: readonly string[] | null | undefined,
+): string | null {
+  if (months == null || months.length === 0) {
+    return null
+  }
+  const labels = [...new Set(months)]
+  return labels.length === 1
+    ? `Also a new monthly record for ${labels[0]}`
+    : `Also new monthly records for ${labels.join(', ')}`
 }
 
 function hexToRgba(color: string, alpha: number): string {

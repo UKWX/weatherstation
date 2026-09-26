@@ -63,7 +63,7 @@ describe('AnnualOverviewRecordsCard', () => {
         year={2026}
         rows={rows}
         latestObservedDate="2026-08-31"
-        linkedMonthlyRecordMonthsByDate={new Map([['2026-01-03', 'January']])}
+        linkedMonthlyRecordMonthsByDate={new Map([['2026-01-03', ['January']]])}
       />,
     )
 

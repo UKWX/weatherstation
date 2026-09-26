@@ -88,7 +88,7 @@ export interface AnnualOverviewMonthlyRecordsCardModel {
   readonly footnote: string
   readonly highlights: readonly AnnualOverviewMonthlyRecordHighlight[]
   readonly rows: readonly AnnualOverviewMonthlyRecordRow[]
-  readonly linkedDailyRecordMonthsByDate: ReadonlyMap<ClimateDateString, string>
+  readonly linkedDailyRecordMonthsByDate: ReadonlyMap<ClimateDateString, readonly string[]>
 }
 
 type MonthlyExtremeAccumulator = {
@@ -255,15 +255,19 @@ export function buildAnnualOverviewMonthlyRecordsCardModel(input: {
     )
     .sort((left, right) => compareClimateDates(left.date, right.date) || left.month - right.month)
 
-  const linkedDailyRecordMonthsByDate = new Map<ClimateDateString, string>(
-    rows.flatMap((row) =>
-      row.cells.flatMap((cell) =>
-        cell.status === 'broken' && cell.displayDate != null
-          ? ([[cell.displayDate, cell.monthLabel]] as const)
-          : [],
-      ),
-    ),
-  )
+  const linkedDailyRecordMonthsByDate = new Map<ClimateDateString, string[]>()
+  for (const row of rows) {
+    for (const cell of row.cells) {
+      if (cell.status !== 'broken' || cell.displayDate == null) {
+        continue
+      }
+      const existing = linkedDailyRecordMonthsByDate.get(cell.displayDate) ?? []
+      if (!existing.includes(cell.monthLabel)) {
+        existing.push(cell.monthLabel)
+      }
+      linkedDailyRecordMonthsByDate.set(cell.displayDate, existing)
+    }
+  }
 
   const brokenCount = highlights.filter((highlight) => highlight.status === 'broken').length
   const equalledCount = highlights.filter((highlight) => highlight.status === 'equalled').length

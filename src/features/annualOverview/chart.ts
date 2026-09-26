@@ -2,6 +2,7 @@ import {
   buildAnnualOverviewRecordsCardModel,
   buildAnnualOverviewRecordsSummaryText,
   ANNUAL_OVERVIEW_RECORD_CARD_COLOR_BY_TYPE,
+  formatLinkedMonthlyRecordText,
   formatAnnualOverviewPreviousRecordLabel,
   getAnnualOverviewRecordFillColor,
   getAnnualOverviewRecordTypeLabel,
@@ -532,7 +533,7 @@ function buildExportRecordsCardSvg(input: {
   readonly width: number
   readonly summaryLines: readonly string[]
   readonly latestObservedDate: AnnualOverviewDataset['latestObservedDate']
-  readonly linkedMonthlyRecordMonthsByDate?: ReadonlyMap<ClimateDateString, string>
+  readonly linkedMonthlyRecordMonthsByDate?: ReadonlyMap<ClimateDateString, readonly string[]>
   readonly interactive: boolean
   readonly embedInteractiveScript: boolean
 }): { readonly markup: string; readonly height: number } {
@@ -604,7 +605,7 @@ function buildExportRecordsCardSvg(input: {
       <g ${input.interactive ? `class="records-grid-cell--record" data-record-date="${cell.dateKey}" data-cell-x="${cellX}" data-cell-y="${cellY}" data-cell-w="${cellWidth}" data-cell-h="${cellHeight}"` : ''}>
         <rect x="${cellX}" y="${cellY}" width="${cellWidth}" height="${cellHeight}" rx="2" fill="${getAnnualOverviewRecordFillColor(record.type, record.marginC)}" stroke="#e6e9ec" stroke-width="0.7"/>
         ${
-          cell.group.linkedMonthlyRecordMonth != null
+          cell.group.linkedMonthlyRecordMonths != null
             ? `<rect x="${cellX - 0.75}" y="${cellY - 0.75}" width="${cellWidth + 1.5}" height="${cellHeight + 1.5}" rx="2.75" fill="none" stroke="#1c2530" stroke-width="1.5"/>`
             : ''
         }
@@ -619,7 +620,7 @@ function buildExportRecordsCardSvg(input: {
       <path d="M ${cellX} ${cellY} L ${cellX + cellWidth} ${cellY} L ${cellX} ${cellY + cellHeight} Z" fill="${getAnnualOverviewRecordFillColor(first.type, first.marginC)}"/>
       <path d="M ${cellX + cellWidth} ${cellY} L ${cellX + cellWidth} ${cellY + cellHeight} L ${cellX} ${cellY + cellHeight} Z" fill="${getAnnualOverviewRecordFillColor(second.type, second.marginC)}"/>
       ${
-        cell.group.linkedMonthlyRecordMonth != null
+        cell.group.linkedMonthlyRecordMonths != null
           ? `<rect x="${cellX - 0.75}" y="${cellY - 0.75}" width="${cellWidth + 1.5}" height="${cellHeight + 1.5}" rx="2.75" fill="none" stroke="#1c2530" stroke-width="1.5"/>`
           : ''
       }
@@ -914,7 +915,7 @@ function buildRecordsTooltipSvg(input: {
       {
         date: group.displayDate,
         rows: group.tooltipBlocks,
-        linkedMonthlyRecordMonth: group.linkedMonthlyRecordMonth,
+        linkedMonthlyRecordText: formatLinkedMonthlyRecordText(group.linkedMonthlyRecordMonths),
       },
     ]),
   )
@@ -961,11 +962,11 @@ function buildRecordsTooltipSvg(input: {
         if (!key || !Object.prototype.hasOwnProperty.call(tooltipData, key)) return;
         const datum = tooltipData[key];
         const rows = datum.rows ?? [];
-        const linkedMonthlyRecordMonth = datum.linkedMonthlyRecordMonth ?? null;
+        const linkedMonthlyRecordText = datum.linkedMonthlyRecordText ?? null;
         clear();
         const headingHeight = 28;
         const rowHeight = 52;
-        const extraHeight = linkedMonthlyRecordMonth ? 22 : 0;
+        const extraHeight = linkedMonthlyRecordText ? 22 : 0;
         const tipHeight = headingHeight + rows.length * rowHeight + extraHeight + 12;
         const tipRect = document.createElementNS(ns, 'rect');
         tipRect.setAttribute('x', '0');
@@ -1000,8 +1001,8 @@ function buildRecordsTooltipSvg(input: {
           addText(12, blockTop + 34, row.previous, { size: 12, fill: '#5b6773' });
           addText(12, blockTop + 48, row.margin, { size: 12, fill: '#5b6773' });
         });
-        if (linkedMonthlyRecordMonth) {
-          addText(12, headingHeight + rows.length * rowHeight + 18, 'Also a new monthly record for ' + linkedMonthlyRecordMonth, { size: 12, fill: '#5b6773' });
+        if (linkedMonthlyRecordText) {
+          addText(12, headingHeight + rows.length * rowHeight + 18, linkedMonthlyRecordText, { size: 12, fill: '#5b6773' });
         }
 
         const x = Number(cell.getAttribute('data-cell-x') ?? 0);

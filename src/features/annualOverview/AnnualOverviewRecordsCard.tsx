@@ -3,6 +3,7 @@ import { TableWrapper } from '@/components/ui'
 import {
   ANNUAL_OVERVIEW_RECORD_CARD_COLOR_BY_TYPE,
   buildAnnualOverviewRecordsCardModel,
+  formatLinkedMonthlyRecordText,
   formatAnnualOverviewPreviousRecordLabel,
   getAnnualOverviewRecordFillColor,
   getAnnualOverviewRecordTypeLabel,
@@ -25,7 +26,7 @@ export function AnnualOverviewRecordsCard({
   readonly year: number
   readonly rows: readonly AnnualOverviewRecordEvent[]
   readonly latestObservedDate: ClimateDateString | null
-  readonly linkedMonthlyRecordMonthsByDate?: ReadonlyMap<ClimateDateString, string>
+  readonly linkedMonthlyRecordMonthsByDate?: ReadonlyMap<ClimateDateString, readonly string[]>
 }) {
   const model = useMemo(
     () =>
@@ -236,7 +237,7 @@ export function AnnualOverviewRecordsCard({
                       className={`annual-overview-records-grid__cell annual-overview-records-grid__cell--record${
                         isActive ? ' is-active' : ''
                       }${
-                        cell.group.linkedMonthlyRecordMonth != null
+                        cell.group.linkedMonthlyRecordMonths != null
                           ? ' annual-overview-records-grid__cell--linked-monthly'
                           : ''
                       }`}
@@ -438,9 +439,9 @@ export function AnnualOverviewRecordsCard({
               <div className="annual-overview-records-tooltip__detail">{block.margin}</div>
             </div>
           ))}
-          {activeGroup.linkedMonthlyRecordMonth != null ? (
+          {activeGroup.linkedMonthlyRecordMonths != null ? (
             <div className="annual-overview-records-tooltip__detail annual-overview-records-tooltip__detail--linked-monthly">
-              Also a new monthly record for {activeGroup.linkedMonthlyRecordMonth}
+              {formatLinkedMonthlyRecordText(activeGroup.linkedMonthlyRecordMonths)}
             </div>
           ) : null}
         </div>

@@ -101,6 +101,6 @@ describe('buildAnnualOverviewMonthlyRecordsCardModel', () => {
     expect(marchHighestMax?.yearLabel).toBe('2026')
     expect(marchHighestMax?.tooltipPrevious).toBe('Previous record 16.0°C (2025)')
     expect(model.highlights[0]?.description).toContain('Set 20 Mar')
-    expect(model.linkedDailyRecordMonthsByDate.get('2026-03-20')).toBe('March')
+    expect(model.linkedDailyRecordMonthsByDate.get('2026-03-20')).toEqual(['March'])
   })
 })

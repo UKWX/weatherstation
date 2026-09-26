@@ -88,7 +88,7 @@ describe('annual overview export', () => {
       subtitle:
         'Daily maximum & minimum vs. the 1995–2025 normal range and all-time daily records across the full year.',
       footnote:
-        'Shaded band shows the 1995–2025 normal range between the average daily maximum and minimum, coloured by temperature, with record lines and new-record markers kept inside the export card.',
+        'Shaded band shows the 1995–2025 normal range between the average daily maximum and minimum, coloured by temperature. Dashed lines mark the all-time daily record maximum and minimum for each calendar day. Outlined points are new all-time daily records set in 2026. Data year to date runs to 02 January 2026.',
       recordSummary:
         '1 new all-time daily record for Wakefield was set in 2026 through 02 January 2026 with the matching summary wrapped inside the export card.',
     })
@@ -96,6 +96,17 @@ describe('annual overview export', () => {
     expect(svg).toContain(`width="${ANNUAL_OVERVIEW_EXPORT_WIDTH}"`)
     expect(svg).toContain('<style>')
     expect(svg).toContain('<tspan')
+    expect(svg).toContain('2026 Daily Temperature Data for Wakefield')
+    expect(svg).not.toContain('Wakefield, United Kingdom')
+    expect(svg).toContain(
+      'Daily maximum &amp; minimum vs. the normal range and all-time daily records',
+    )
+    expect(svg).toContain(
+      'Shaded band shows the normal range between the average daily maximum and minimum, coloured by temperature.',
+    )
+    expect(svg).toContain('<g transform="translate(40 94)">')
+    expect(svg).toContain('y="682"')
+    expect(svg).toContain('<rect x="32" y="758"')
     expect(svg).toContain('New daily records set in 2026')
     expect(svg).toContain('fill="#f5f7f9"')
     expect(svg).toContain('11.0°C (2025)')

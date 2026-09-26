@@ -107,7 +107,11 @@ describe('annual overview export', () => {
     )
     expect(svg).toContain('New daily records set in 2026')
     expect(svg).toContain('fill="#f5f7f9"')
-    expect(svg).toContain('11.0°C (2025)')
+    expect(svg).toContain('Biggest margins')
+    expect(svg).toContain('Stronger colour = bigger margin over previous record')
+    expect(svg).toContain('was 11.0°C (2025)')
+    expect(svg).not.toContain('SELECTED-YEAR VALUE')
+    expect(svg).not.toContain('<script><![CDATA[')
 
     const chartTransformY = Number(
       svg.match(/<g transform="translate\(40 (\d+(?:\.\d+)?)\)">/)?.[1] ?? Number.NaN,
@@ -147,6 +151,39 @@ describe('annual overview export', () => {
 
     expect(svg).not.toContain('New daily records set in 2026')
     expect(svg).not.toContain('<circle')
+  })
+
+  it('includes records-grid tooltip hooks when interactivity is enabled', () => {
+    const svg = buildAnnualOverviewExportSvg({
+      year: 2026,
+      dataset,
+      subtitle: 'Short subtitle',
+      footnote: 'Short footnote',
+      recordSummary: 'Summary',
+      includeChart: false,
+      includeRecords: true,
+      interactiveRecords: true,
+    })
+
+    expect(svg).toContain('class="records-grid-cell--record"')
+    expect(svg).toContain('id="records-tooltip-2026"')
+    expect(svg).not.toContain('<script><![CDATA[')
+  })
+
+  it('optionally embeds records-grid tooltip script for web-hosted SVG usage', () => {
+    const svg = buildAnnualOverviewExportSvg({
+      year: 2026,
+      dataset,
+      subtitle: 'Short subtitle',
+      footnote: 'Short footnote',
+      recordSummary: 'Summary',
+      includeChart: false,
+      includeRecords: true,
+      interactiveRecords: true,
+      embedInteractiveScript: true,
+    })
+
+    expect(svg).toContain('<script><![CDATA[')
   })
 
   it('renders a PNG download from the generated SVG dimensions', async () => {

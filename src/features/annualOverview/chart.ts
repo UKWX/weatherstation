@@ -1,4 +1,9 @@
-import { formatEuropeLondonDisplay } from '@/lib/climate'
+import {
+  compareClimateDates,
+  daysInMonth,
+  formatEuropeLondonDisplay,
+  parseIsoClimateDate,
+} from '@/lib/climate'
 import type {
   AnnualOverviewDataset,
   AnnualOverviewDay,
@@ -26,6 +31,18 @@ const EXPORT_FOOTNOTE_LEAD =
   'Shaded band shows the normal range between the average daily maximum and minimum, coloured by temperature. Dashed lines mark the all-time daily record maximum and minimum for each calendar day.'
 const EXPORT_LEGEND_TOP_GAP = 9
 const EXPORT_MONTH_HEADER_GAP_BELOW_LEGEND = 13
+const RECORD_CARD_COLOR_BY_TYPE: Readonly<Record<AnnualOverviewRecordType, string>> = {
+  'record-high-max': '#c22b2b',
+  'record-high-min': '#d9951a',
+  'record-low-min': '#2453c9',
+  'record-low-max': '#6fa3d6',
+}
+const RECORD_CARD_TYPE_ORDER: readonly AnnualOverviewRecordType[] = [
+  'record-high-max',
+  'record-high-min',
+  'record-low-max',
+  'record-low-min',
+]
 
 const MARGIN = {
   top: 112,
@@ -249,6 +266,8 @@ export function buildAnnualOverviewExportSvg(input: {
   readonly includeChart?: boolean
   readonly includeRecords?: boolean
   readonly showRecordOutlines?: boolean
+  readonly interactiveRecords?: boolean
+  readonly embedInteractiveScript?: boolean
 }): string {
   const includeChart = input.includeChart ?? true
   const includeRecords = input.includeRecords ?? true
@@ -267,7 +286,8 @@ export function buildAnnualOverviewExportSvg(input: {
   const textWidth = contentWidth - EXPORT_CARD_PADDING_X * 2
   const subtitleLines = wrapText(EXPORT_SUBTITLE, 14, textWidth)
   const footnoteLines = wrapText(normalizeExportFootnote(input.footnote), 11.5, textWidth)
-  const recordSummaryLines = wrapText(input.recordSummary, 13, textWidth)
+  const recordsSummary = buildRecordsSummaryText(rows.length, input.dataset.latestObservedDate)
+  const recordSummaryLines = wrapText(recordsSummary, 13, textWidth)
   const chartCardX = EXPORT_PAGE_PADDING
   let cursorY = EXPORT_PAGE_PADDING
   let chartMarkup = ''
@@ -340,29 +360,19 @@ export function buildAnnualOverviewExportSvg(input: {
 
   if (includeRecords) {
     const recordsCardY = cursorY
-    const recordsTitleY = recordsCardY + 36
-    const recordsSummaryY = recordsTitleY + 26
-    const tableStartY = recordsSummaryY + Math.max(recordSummaryLines.length, 1) * 18 + 22
-    const table = buildExportTableSvg({
-      rows,
+    const recordsCard = buildExportRecordsCardSvg({
       year: input.year,
-      x: chartCardX + EXPORT_CARD_PADDING_X,
-      y: tableStartY,
+      rows,
+      x: chartCardX,
+      y: recordsCardY,
       width: textWidth,
+      summaryLines: recordSummaryLines,
+      latestObservedDate: input.dataset.latestObservedDate,
+      interactive: input.interactiveRecords ?? false,
+      embedInteractiveScript: input.embedInteractiveScript ?? false,
     })
-    const recordsCardHeight = table.height + (tableStartY - recordsCardY) + EXPORT_CARD_PADDING_Y
-    recordsMarkup = `
-  <rect x="${chartCardX}" y="${recordsCardY}" width="${contentWidth}" height="${recordsCardHeight}" rx="${EXPORT_CARD_RADIUS}" fill="${EXPORT_SURFACE}" stroke="${EXPORT_SURFACE_BORDER}"/>
-  <text x="${chartCardX + EXPORT_CARD_PADDING_X}" y="${recordsTitleY}" font-size="16" font-weight="700" fill="${ANNUAL_OVERVIEW_COLORS.ink}">${escapeXml(`New daily records set in ${input.year}`)}</text>
-  ${buildMultilineTextSvg(recordSummaryLines, {
-    x: chartCardX + EXPORT_CARD_PADDING_X,
-    y: recordsSummaryY,
-    fontSize: 13,
-    lineHeight: 18,
-    fill: ANNUAL_OVERVIEW_COLORS.sub,
-  })}
-  ${table.markup}`
-    cursorY += recordsCardHeight
+    recordsMarkup = recordsCard.markup
+    cursorY += recordsCard.height
   }
 
   const contentHeight = cursorY + EXPORT_PAGE_PADDING
@@ -499,71 +509,459 @@ function buildMarkerSvg(dataset: AnnualOverviewDataset, yMin: number, yMax: numb
     .join('')
 }
 
-function buildExportTableSvg(input: {
-  readonly rows: readonly AnnualOverviewRecordEvent[]
+function buildExportRecordsCardSvg(input: {
   readonly year: number
+  readonly rows: readonly AnnualOverviewRecordEvent[]
   readonly x: number
   readonly y: number
   readonly width: number
+  readonly summaryLines: readonly string[]
+  readonly latestObservedDate: string | null
+  readonly interactive: boolean
+  readonly embedInteractiveScript: boolean
 }): { readonly markup: string; readonly height: number } {
-  const columnOffsets = [0, 0.104, 0.338, 0.455, 0.579] as const
-  const colX = [
-    input.x + input.width * columnOffsets[0],
-    input.x + input.width * columnOffsets[1],
-    input.x + input.width * columnOffsets[2],
-    input.x + input.width * columnOffsets[3],
-    input.x + input.width * columnOffsets[4],
+  const contentX = input.x + EXPORT_CARD_PADDING_X
+  const contentWidth = input.width
+  const cardWidth = contentWidth + EXPORT_CARD_PADDING_X * 2
+  const cardTop = input.y
+  const titleY = cardTop + 36
+  const summaryY = titleY + 26
+  const summaryBottomY = summaryY + Math.max(input.summaryLines.length, 1) * 18
+  const tilesY = summaryBottomY + 18
+  const typeCounts = getRecordTypeCounts(input.rows)
+  const presentTypes = RECORD_CARD_TYPE_ORDER.filter((type) => (typeCounts.get(type) ?? 0) > 0)
+  const largestMargin = input.rows.reduce((max, row) => Math.max(max, row.marginC), 0)
+  const tiles = [
+    { key: 'total', label: 'New records', value: String(input.rows.length), color: null as string | null },
+    ...presentTypes.map((type) => ({
+      key: type,
+      label: getRecordTypeLabel(type),
+      value: String(typeCounts.get(type) ?? 0),
+      color: RECORD_CARD_COLOR_BY_TYPE[type],
+    })),
+    {
+      key: 'margin',
+      label: 'Largest margin',
+      value: `+${largestMargin.toFixed(1)}°C`,
+      color: null as string | null,
+    },
   ]
-
-  if (input.rows.length === 0) {
-    return {
-      markup: `<text x="${input.x}" y="${input.y}" font-size="13" fill="${ANNUAL_OVERVIEW_COLORS.sub}">${escapeXml(`No new all-time daily records were set in ${input.year}.`)}</text>`,
-      height: 20,
-    }
-  }
-
-  const startY = input.y
-  const dividerX2 = input.x + input.width
-  const tagWidth = Math.min(152, Math.max(136, input.width * 0.111))
-
-  const headers = ['Date', 'Record type', 'Selected-year value', 'Previous record', 'Margin']
-  const headerRow = headers
-    .map((header, index) => `<text x="${colX[index]}" y="${startY}" font-size="11.5" font-weight="600" fill="${ANNUAL_OVERVIEW_COLORS.sub}">${escapeXml(header.toUpperCase())}</text>`)
-    .join('')
-
-  const body = input.rows
-    .map((row, index) => {
-      const y = startY + 28 + index * 24
-      const color = getRecordMarkerColor(row.type)
+  const tileGap = 12
+  const tileHeight = 74
+  const tileWidth =
+    tiles.length > 0 ? (contentWidth - tileGap * (tiles.length - 1)) / tiles.length : contentWidth
+  const tilesMarkup = tiles
+    .map((tile, index) => {
+      const tileX = contentX + index * (tileWidth + tileGap)
+      const labelX = tileX + 14 + (tile.color == null ? 0 : 16)
+      const swatch = tile.color
+        ? `<rect x="${tileX + 14}" y="${tilesY + 14}" width="10" height="10" rx="5" fill="${tile.color}"/>`
+        : ''
       return `
-      <text x="${colX[0]}" y="${y}" font-size="12.5" fill="${ANNUAL_OVERVIEW_COLORS.ink}">${escapeXml(formatEuropeLondonDisplay(row.date, { day: '2-digit', month: 'short', year: 'numeric' }))}</text>
-      <rect x="${colX[1]}" y="${y - 12}" width="${tagWidth}" height="18" rx="9" fill="${color}"/>
-      <text x="${colX[1] + 10}" y="${y}" font-size="11" font-weight="700" fill="#ffffff">${escapeXml(getExportRecordLabel(row.type))}</text>
-      <text x="${colX[2]}" y="${y}" font-size="12.5" fill="${ANNUAL_OVERVIEW_COLORS.ink}">${row.currentValueC.toFixed(1)}°C</text>
-      <text x="${colX[3]}" y="${y}" font-size="12.5" fill="${ANNUAL_OVERVIEW_COLORS.ink}">${escapeXml(formatPreviousRecordExportLabel(row))}</text>
-      <text x="${colX[4]}" y="${y}" font-size="12.5" fill="${ANNUAL_OVERVIEW_COLORS.ink}">+${row.marginC.toFixed(1)}°C</text>
-      <line x1="${input.x}" x2="${dividerX2}" y1="${y + 8}" y2="${y + 8}" stroke="#eef1f3"/>
-      `
+      <g>
+        <rect x="${tileX}" y="${tilesY}" width="${tileWidth}" height="${tileHeight}" rx="8" fill="#f5f7f9"/>
+        ${swatch}
+        <text x="${labelX}" y="${tilesY + 24}" font-size="12" fill="#5b6773">${escapeXml(tile.label)}</text>
+        <text x="${tileX + 14}" y="${tilesY + 56}" font-size="24" font-weight="700" fill="#1c2530">${escapeXml(tile.value)}</text>
+      </g>`
     })
     .join('')
 
+  const monthLabelWidth = 34
+  const dayHeaderY = tilesY + tileHeight + 26
+  const cellGap = 2
+  const cellHeight = 16
+  const gridX = contentX + monthLabelWidth
+  const gridWidth = contentWidth - monthLabelWidth
+  const cellWidth = (gridWidth - cellGap * 30) / 31
+  const rowHeight = cellHeight + cellGap
+  const gridTop = dayHeaderY + 10
+  const latest = input.latestObservedDate != null ? parseIsoClimateDate(input.latestObservedDate) : null
+  const groupedRecords = groupRecordsByDate(input.rows)
+  const cellsMarkup = MONTH_SHORT.map((monthLabel, monthIndex) => {
+    const month = monthIndex + 1
+    const daysInThisMonth = daysInMonth(input.year, month)
+    const rowY = gridTop + monthIndex * rowHeight
+    const monthLabelMarkup = `<text x="${contentX}" y="${rowY + 12}" font-size="11" fill="#5b6773">${monthLabel}</text>`
+    const dayCells = Array.from({ length: 31 }, (_, dayIndex) => {
+      const day = dayIndex + 1
+      if (day > daysInThisMonth) {
+        return ''
+      }
+
+      const cellX = gridX + dayIndex * (cellWidth + cellGap)
+      const cellY = rowY
+      const dateKey = `${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`
+      const records = groupedRecords.get(dateKey) ?? []
+      const afterLatest =
+        latest != null && (month > latest.month || (month === latest.month && day > latest.day))
+      if (records.length === 0 || afterLatest) {
+        return `<rect x="${cellX}" y="${cellY}" width="${cellWidth}" height="${cellHeight}" rx="2" fill="#f5f7f9" stroke="#e6e9ec" stroke-width="0.7"/>`
+      }
+
+      const sortedRecords = [...records].sort(
+        (left, right) =>
+          RECORD_CARD_TYPE_ORDER.indexOf(left.type) - RECORD_CARD_TYPE_ORDER.indexOf(right.type),
+      )
+      const visualRecords = sortedRecords.slice(0, 2)
+      if (visualRecords.length === 1) {
+        const record = visualRecords[0]!
+        return `
+        <g ${input.interactive ? `class="records-grid-cell--record" data-record-date="${dateKey}" data-cell-x="${cellX}" data-cell-y="${cellY}" data-cell-w="${cellWidth}" data-cell-h="${cellHeight}"` : ''}>
+          <rect x="${cellX}" y="${cellY}" width="${cellWidth}" height="${cellHeight}" rx="2" fill="${hexToRgba(RECORD_CARD_COLOR_BY_TYPE[record.type], getRecordFillOpacity(record.marginC))}" stroke="#e6e9ec" stroke-width="0.7"/>
+        </g>`
+      }
+
+      const first = visualRecords[0]!
+      const second = visualRecords[1]!
+      return `
+      <g ${input.interactive ? `class="records-grid-cell--record" data-record-date="${dateKey}" data-cell-x="${cellX}" data-cell-y="${cellY}" data-cell-w="${cellWidth}" data-cell-h="${cellHeight}"` : ''}>
+        <rect x="${cellX}" y="${cellY}" width="${cellWidth}" height="${cellHeight}" rx="2" fill="#f5f7f9" stroke="#e6e9ec" stroke-width="0.7"/>
+        <path d="M ${cellX} ${cellY} L ${cellX + cellWidth} ${cellY} L ${cellX} ${cellY + cellHeight} Z" fill="${hexToRgba(RECORD_CARD_COLOR_BY_TYPE[first.type], getRecordFillOpacity(first.marginC))}"/>
+        <path d="M ${cellX + cellWidth} ${cellY} L ${cellX + cellWidth} ${cellY + cellHeight} L ${cellX} ${cellY + cellHeight} Z" fill="${hexToRgba(RECORD_CARD_COLOR_BY_TYPE[second.type], getRecordFillOpacity(second.marginC))}"/>
+      </g>`
+    }).join('')
+    return `<g>${monthLabelMarkup}${dayCells}</g>`
+  }).join('')
+
+  const dayNumberMarkup = [1, 5, 10, 15, 20, 25, 30]
+    .map((day) => {
+      const x = gridX + (day - 1) * (cellWidth + cellGap) + cellWidth / 2
+      return `<text x="${x}" y="${dayHeaderY}" text-anchor="middle" font-size="11" fill="#5b6773">${day}</text>`
+    })
+    .join('')
+
+  const legendTypes = presentTypes
+  const legendY = gridTop + rowHeight * 12 + 20
+  let legendCursorX = contentX
+  const legendMarkup = legendTypes
+    .map((type) => {
+      const label = getRecordTypeLabel(type)
+      const chunk = `<rect x="${legendCursorX}" y="${legendY - 9}" width="12" height="12" rx="3" fill="${RECORD_CARD_COLOR_BY_TYPE[type]}"/><text x="${legendCursorX + 18}" y="${legendY + 1}" font-size="11.5" fill="#1c2530">${escapeXml(label)}</text>`
+      legendCursorX += 34 + label.length * 6.5
+      return chunk
+    })
+    .join('')
+  const legendNoteY = legendY + 20
+
+  const topRecords = [...input.rows]
+    .sort((left, right) => right.marginC - left.marginC || compareClimateDates(right.date, left.date))
+    .slice(0, 5)
+  const listHeadingY = legendNoteY + 28
+  const listStartY = listHeadingY + 24
+  const dateX = contentX
+  const typeX = contentX + 118
+  const valueX = contentX + 350
+  const previousX = contentX + 452
+  const marginX = contentX + contentWidth
+  const listRowsMarkup =
+    topRecords.length === 0
+      ? `<text x="${contentX}" y="${listStartY}" font-size="12.5" fill="#5b6773">No records yet.</text>`
+      : topRecords
+          .map((row, index) => {
+            const y = listStartY + index * 34
+            const years = row.previousRecordYears.join(', ')
+            const previousText = years.length > 0
+              ? `was ${row.previousRecordC.toFixed(1)}°C (${years})`
+              : `was ${row.previousRecordC.toFixed(1)}°C`
+            return `
+            <g>
+              <text x="${dateX}" y="${y}" font-size="12.5" fill="#1c2530">${escapeXml(formatEuropeLondonDisplay(row.date, { day: '2-digit', month: 'short' }))}</text>
+              <rect x="${typeX}" y="${y - 9}" width="10" height="10" rx="5" fill="${RECORD_CARD_COLOR_BY_TYPE[row.type]}"/>
+              <text x="${typeX + 16}" y="${y}" font-size="12" fill="#1c2530">${escapeXml(getRecordTypeLabel(row.type))}</text>
+              <text x="${valueX}" y="${y}" font-size="12.5" fill="#1c2530">${row.currentValueC.toFixed(1)}°C</text>
+              <text x="${previousX}" y="${y}" font-size="12" fill="#5b6773">${escapeXml(previousText)}</text>
+              <text x="${marginX}" y="${y}" text-anchor="end" font-size="12.5" font-weight="700" fill="#1c2530">+${row.marginC.toFixed(1)}°C</text>
+              ${index < topRecords.length - 1 ? `<line x1="${contentX}" x2="${contentX + contentWidth}" y1="${y + 12}" y2="${y + 12}" stroke="#eef1f3"/>` : ''}
+            </g>`
+          })
+          .join('')
+
+  const listBottomY = topRecords.length === 0 ? listStartY : listStartY + (topRecords.length - 1) * 34 + 16
+  const contentBottomY = listBottomY
+  const cardHeight = contentBottomY - input.y + EXPORT_CARD_PADDING_Y
+  const tooltipMarkup =
+    input.interactive && groupedRecords.size > 0
+      ? buildRecordsTooltipSvg({
+          year: input.year,
+          groupedRecords,
+          cardX: input.x,
+          cardY: input.y,
+          cardWidth,
+          cardHeight,
+          embedScript: input.embedInteractiveScript,
+        })
+      : ''
+
   return {
-    markup: headerRow + body,
-    height: 36 + input.rows.length * 24,
+    markup: `
+  <rect x="${input.x}" y="${input.y}" width="${cardWidth}" height="${cardHeight}" rx="${EXPORT_CARD_RADIUS}" fill="${EXPORT_SURFACE}" stroke="${EXPORT_SURFACE_BORDER}"/>
+  <text x="${contentX}" y="${titleY}" font-size="16" font-weight="700" fill="${ANNUAL_OVERVIEW_COLORS.ink}">${escapeXml(`New daily records set in ${input.year}`)}</text>
+  ${buildMultilineTextSvg(input.summaryLines, {
+    x: contentX,
+    y: summaryY,
+    fontSize: 13,
+    lineHeight: 18,
+    fill: ANNUAL_OVERVIEW_COLORS.sub,
+  })}
+  ${tilesMarkup}
+  ${dayNumberMarkup}
+  <g id="records-grid-${input.year}">
+    ${cellsMarkup}
+  </g>
+  ${legendMarkup}
+  <text x="${contentX}" y="${legendNoteY}" font-size="11.5" fill="#5b6773">Stronger colour = bigger margin over previous record</text>
+  <text x="${contentX}" y="${listHeadingY}" font-size="14" font-weight="700" fill="#1c2530">Biggest margins</text>
+  ${listRowsMarkup}
+  ${tooltipMarkup}
+  `,
+    height: cardHeight,
   }
 }
 
-function getExportRecordLabel(type: AnnualOverviewRecordType): string {
+function buildRecordsSummaryText(count: number, latestObservedDate: string | null): string {
+  const throughText =
+    latestObservedDate == null
+      ? ''
+      : ` through ${formatEuropeLondonDisplay(latestObservedDate, { day: 'numeric', month: 'short', year: 'numeric' })}`
+  return `${count} new all-time daily records for Wakefield${throughText}`
+}
+
+function groupRecordsByDate(
+  rows: readonly AnnualOverviewRecordEvent[],
+): ReadonlyMap<string, readonly AnnualOverviewRecordEvent[]> {
+  const map = new Map<string, AnnualOverviewRecordEvent[]>()
+  for (const row of rows) {
+    const { month, day } = parseIsoClimateDate(row.date)
+    const key = `${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`
+    const existing = map.get(key) ?? []
+    existing.push(row)
+    map.set(key, existing)
+  }
+
+  return new Map(
+    [...map.entries()].map(([key, value]) => [
+      key,
+      [...value].sort(
+        (left, right) =>
+          RECORD_CARD_TYPE_ORDER.indexOf(left.type) - RECORD_CARD_TYPE_ORDER.indexOf(right.type),
+      ),
+    ]),
+  )
+}
+
+function getRecordTypeCounts(
+  rows: readonly AnnualOverviewRecordEvent[],
+): ReadonlyMap<AnnualOverviewRecordType, number> {
+  const counts = new Map<AnnualOverviewRecordType, number>()
+  for (const row of rows) {
+    counts.set(row.type, (counts.get(row.type) ?? 0) + 1)
+  }
+  return counts
+}
+
+function getRecordTypeLabel(type: AnnualOverviewRecordType): string {
   switch (type) {
     case 'record-high-max':
       return 'Record high maximum'
-    case 'record-low-max':
-      return 'Record low maximum'
     case 'record-high-min':
       return 'Record high minimum'
+    case 'record-low-max':
+      return 'Record low maximum'
     case 'record-low-min':
       return 'Record low minimum'
   }
+}
+
+function getRecordTooltipTypeLabel(type: AnnualOverviewRecordType): string {
+  switch (type) {
+    case 'record-high-max':
+      return 'Record high max'
+    case 'record-high-min':
+      return 'Record high min'
+    case 'record-low-max':
+      return 'Record low max'
+    case 'record-low-min':
+      return 'Record low min'
+  }
+}
+
+function getRecordFillOpacity(marginC: number): number {
+  return 0.45 + 0.55 * Math.min(Math.max(marginC, 0) / 4, 1)
+}
+
+function hexToRgba(color: string, alpha: number): string {
+  const normalized = color.replace('#', '')
+  const value =
+    normalized.length === 3
+      ? normalized
+          .split('')
+          .map((part) => `${part}${part}`)
+          .join('')
+      : normalized
+  const red = Number.parseInt(value.slice(0, 2), 16)
+  const green = Number.parseInt(value.slice(2, 4), 16)
+  const blue = Number.parseInt(value.slice(4, 6), 16)
+  return `rgba(${red}, ${green}, ${blue}, ${Math.max(0, Math.min(alpha, 1)).toFixed(3)})`
+}
+
+function buildRecordsTooltipSvg(input: {
+  readonly year: number
+  readonly groupedRecords: ReadonlyMap<string, readonly AnnualOverviewRecordEvent[]>
+  readonly cardX: number
+  readonly cardY: number
+  readonly cardWidth: number
+  readonly cardHeight: number
+  readonly embedScript: boolean
+}): string {
+  const gridId = `records-grid-${input.year}`
+  const tooltipId = `records-tooltip-${input.year}`
+  const activeId = `records-active-${input.year}`
+  const tooltipData = Object.fromEntries(
+    [...input.groupedRecords.entries()].map(([dateKey, rows]) => [
+      dateKey,
+      {
+        date: formatEuropeLondonDisplay(rows[0]?.date ?? `${input.year}-01-01`, {
+          day: '2-digit',
+          month: 'short',
+          year: 'numeric',
+        }),
+        rows: rows.map((row) => ({
+          title: `${getRecordTooltipTypeLabel(row.type)}: ${row.currentValueC.toFixed(1)}°C`,
+          previous: formatPreviousRecordSummary(row),
+          margin: `Beaten by ${row.marginC.toFixed(1)}°C`,
+          color: RECORD_CARD_COLOR_BY_TYPE[row.type],
+        })),
+      },
+    ]),
+  )
+  const tooltipDataJson = JSON.stringify(tooltipData).replaceAll('<', '\\u003c')
+
+  const scriptMarkup = input.embedScript
+    ? `
+  <rect id="${activeId}" visibility="hidden" fill="none" stroke="#1c2530" stroke-width="2" rx="2"/>
+  <g id="${tooltipId}" visibility="hidden" pointer-events="none"></g>
+  <script><![CDATA[
+    (() => {
+      const svg = document.currentScript?.ownerSVGElement;
+      if (!svg) return;
+      const tooltip = svg.getElementById('${tooltipId}');
+      const activeCell = svg.getElementById('${activeId}');
+      const grid = svg.getElementById('${gridId}');
+      const cells = svg.querySelectorAll('.records-grid-cell--record');
+      if (!(tooltip instanceof SVGGElement) || !(activeCell instanceof SVGRectElement) || !(grid instanceof SVGGElement) || cells.length === 0) return;
+      const tooltipData = ${tooltipDataJson};
+      const ns = 'http://www.w3.org/2000/svg';
+      const tooltipWidth = 250;
+      const hide = () => {
+        tooltip.setAttribute('visibility', 'hidden');
+        activeCell.setAttribute('visibility', 'hidden');
+      };
+      const clear = () => {
+        while (tooltip.firstChild) tooltip.removeChild(tooltip.firstChild);
+      };
+      /** @typedef {{ size?: number, fill?: string, weight?: number }} TextOptions */
+      /** @param {number} x @param {number} y @param {string} value @param {TextOptions} options */
+      const addText = (x, y, value, options = {}) => {
+        const node = document.createElementNS(ns, 'text');
+        node.setAttribute('x', String(x));
+        node.setAttribute('y', String(y));
+        node.setAttribute('font-size', String(options.size ?? 12));
+        node.setAttribute('fill', options.fill ?? '#1c2530');
+        if (options.weight) node.setAttribute('font-weight', String(options.weight));
+        node.textContent = value;
+        tooltip.appendChild(node);
+      };
+      /** @param {Element} cell */
+      const show = (cell) => {
+        const key = cell.getAttribute('data-record-date');
+        if (!key || !Object.prototype.hasOwnProperty.call(tooltipData, key)) return;
+        const datum = tooltipData[key];
+        const rows = datum.rows ?? [];
+        clear();
+        const headingHeight = 28;
+        const rowHeight = 52;
+        const tipHeight = headingHeight + rows.length * rowHeight + 12;
+        const tipRect = document.createElementNS(ns, 'rect');
+        tipRect.setAttribute('x', '0');
+        tipRect.setAttribute('y', '0');
+        tipRect.setAttribute('width', String(tooltipWidth));
+        tipRect.setAttribute('height', String(tipHeight));
+        tipRect.setAttribute('rx', '8');
+        tipRect.setAttribute('fill', '#ffffff');
+        tipRect.setAttribute('stroke', '#d5dbe1');
+        tooltip.appendChild(tipRect);
+        addText(12, 20, datum.date, { size: 13, weight: 700 });
+        rows.forEach((row, index) => {
+          const blockTop = headingHeight + index * rowHeight;
+          if (index > 0) {
+            const divider = document.createElementNS(ns, 'line');
+            divider.setAttribute('x1', '12');
+            divider.setAttribute('x2', String(tooltipWidth - 12));
+            divider.setAttribute('y1', String(blockTop));
+            divider.setAttribute('y2', String(blockTop));
+            divider.setAttribute('stroke', '#e6e9ec');
+            tooltip.appendChild(divider);
+          }
+          const swatch = document.createElementNS(ns, 'rect');
+          swatch.setAttribute('x', '12');
+          swatch.setAttribute('y', String(blockTop + 8));
+          swatch.setAttribute('width', '10');
+          swatch.setAttribute('height', '10');
+          swatch.setAttribute('rx', '5');
+          swatch.setAttribute('fill', row.color);
+          tooltip.appendChild(swatch);
+          addText(28, blockTop + 18, row.title, { size: 12.5, weight: 700 });
+          addText(12, blockTop + 34, row.previous, { size: 12, fill: '#5b6773' });
+          addText(12, blockTop + 48, row.margin, { size: 12, fill: '#5b6773' });
+        });
+
+        const x = Number(cell.getAttribute('data-cell-x') ?? 0);
+        const y = Number(cell.getAttribute('data-cell-y') ?? 0);
+        const width = Number(cell.getAttribute('data-cell-w') ?? 0);
+        const height = Number(cell.getAttribute('data-cell-h') ?? 0);
+        let tooltipX = x + width / 2 - tooltipWidth / 2;
+        const minX = ${input.cardX + EXPORT_CARD_PADDING_X};
+        const maxX = ${input.cardX + input.cardWidth - EXPORT_CARD_PADDING_X} - tooltipWidth;
+        tooltipX = Math.max(minX, Math.min(tooltipX, maxX));
+        let tooltipY = y + height + 8;
+        const maxBottom = ${input.cardY + input.cardHeight - EXPORT_CARD_PADDING_Y};
+        if (tooltipY + tipHeight > maxBottom) tooltipY = y - tipHeight - 8;
+
+        tooltip.setAttribute('transform', 'translate(' + tooltipX + ' ' + tooltipY + ')');
+        tooltip.setAttribute('visibility', 'visible');
+        activeCell.setAttribute('x', String(x - 1));
+        activeCell.setAttribute('y', String(y - 1));
+        activeCell.setAttribute('width', String(width + 2));
+        activeCell.setAttribute('height', String(height + 2));
+        activeCell.setAttribute('visibility', 'visible');
+      };
+
+      cells.forEach((cell) => {
+        cell.addEventListener('pointerenter', () => show(cell));
+        cell.addEventListener('click', (event) => {
+          event.stopPropagation();
+          show(cell);
+        });
+      });
+      grid.addEventListener('pointerleave', hide);
+      svg.addEventListener('click', (event) => {
+        if (!(event.target instanceof Element)) return;
+        if (event.target.closest('.records-grid-cell--record') == null) hide();
+      });
+    })();
+  ]]></script>`
+    : `
+  <rect id="${activeId}" visibility="hidden" fill="none" stroke="#1c2530" stroke-width="2" rx="2"/>
+  <g id="${tooltipId}" visibility="hidden" pointer-events="none"></g>`
+  return scriptMarkup
+}
+
+function formatPreviousRecordSummary(row: AnnualOverviewRecordEvent): string {
+  const years = row.previousRecordYears.join(', ')
+  return years.length > 0
+    ? `Previous record ${row.previousRecordC.toFixed(1)}°C (${years})`
+    : `Previous record ${row.previousRecordC.toFixed(1)}°C`
 }
 
 function buildMultilineTextSvg(
@@ -648,11 +1046,6 @@ function normalizeExportFootnote(footnote: string): string {
     trailing = trailing.replace(pattern, '').trim()
   }
   return trailing.length > 0 ? `${EXPORT_FOOTNOTE_LEAD} ${trailing}` : EXPORT_FOOTNOTE_LEAD
-}
-
-function formatPreviousRecordExportLabel(row: AnnualOverviewRecordEvent): string {
-  const years = row.previousRecordYears.join(', ')
-  return years.length > 0 ? `${row.previousRecordC.toFixed(1)}°C (${years})` : `${row.previousRecordC.toFixed(1)}°C`
 }
 
 async function loadSvgImage(svgMarkup: string): Promise<HTMLImageElement> {

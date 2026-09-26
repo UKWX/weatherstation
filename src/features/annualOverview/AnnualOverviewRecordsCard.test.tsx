@@ -59,7 +59,12 @@ describe('AnnualOverviewRecordsCard', () => {
   it('renders summary tiles, split record cells, and focus tooltip text', async () => {
     const user = userEvent.setup()
     const { container } = render(
-      <AnnualOverviewRecordsCard year={2026} rows={rows} latestObservedDate="2026-08-31" />,
+      <AnnualOverviewRecordsCard
+        year={2026}
+        rows={rows}
+        latestObservedDate="2026-08-31"
+        linkedMonthlyRecordMonthsByDate={new Map([['2026-01-03', 'January']])}
+      />,
     )
 
     expect(screen.getByText('6 new all-time daily records for Wakefield through 31 Aug 2026')).toBeInTheDocument()
@@ -78,6 +83,8 @@ describe('AnnualOverviewRecordsCard', () => {
     expect(screen.getByText('Record high max: 34.6°C')).toBeInTheDocument()
     expect(screen.getByText('Previous record 27.9°C (2011)')).toBeInTheDocument()
     expect(screen.getByText('Beaten by 3.2°C')).toBeInTheDocument()
+    expect(screen.getByText('Also a new monthly record for January')).toBeInTheDocument()
+    expect(container.querySelector('.annual-overview-records-grid__cell--linked-monthly')).not.toBeNull()
 
     await user.keyboard('{Escape}')
     expect(screen.queryByRole('tooltip')).not.toBeInTheDocument()

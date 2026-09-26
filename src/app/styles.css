@@ -1469,6 +1469,15 @@ th {
   outline-offset: 1px;
 }
 
+.annual-overview-records-grid__cell--linked-monthly::after {
+  content: "";
+  position: absolute;
+  inset: -1.5px;
+  border: 1.5px solid #1c2530;
+  border-radius: 0.28rem;
+  pointer-events: none;
+}
+
 .annual-overview-records-grid__fill {
   position: absolute;
   inset: 0;
@@ -1626,6 +1635,175 @@ th {
   font-size: 0.78rem;
 }
 
+.annual-overview-records-tooltip__detail--linked-monthly {
+  margin-top: 0.65rem;
+  padding-top: 0.65rem;
+  border-top: 1px solid #e6e9ec;
+}
+
+.annual-overview-monthly-records-card {
+  position: relative;
+}
+
+.annual-overview-monthly-records-card h2 {
+  margin-top: 0;
+  margin-bottom: 0.25rem;
+}
+
+.annual-overview-monthly-records-card > p {
+  margin-top: 0;
+  color: var(--text-muted);
+}
+
+.annual-overview-monthly-records__empty {
+  margin: 1rem 0 0;
+  color: var(--text-muted);
+}
+
+.annual-overview-monthly-records-highlights {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(12.5rem, 1fr));
+  gap: 0.625rem;
+  margin: 1rem 0 1.25rem;
+}
+
+.annual-overview-monthly-records-highlight {
+  border: 1.5px solid #e6e9ec;
+  border-radius: 0.5rem;
+  padding: 0.85rem;
+}
+
+.annual-overview-monthly-records-highlight--equalled {
+  border-style: dashed;
+}
+
+.annual-overview-monthly-records-highlight__label {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  color: #1c2530;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.annual-overview-monthly-records-highlight__swatch,
+.annual-overview-monthly-records-matrix__label-swatch {
+  width: 0.7rem;
+  height: 0.7rem;
+  border-radius: 999px;
+  flex: 0 0 auto;
+}
+
+.annual-overview-monthly-records-highlight__value {
+  margin-top: 0.55rem;
+  color: #1c2530;
+  font-size: 1.375rem;
+  font-weight: 700;
+}
+
+.annual-overview-monthly-records-highlight__detail {
+  margin-top: 0.35rem;
+  color: var(--text-muted);
+  font-size: 0.78rem;
+}
+
+.annual-overview-monthly-records-matrix-scroll {
+  overflow-x: auto;
+  margin-top: 0.25rem;
+  padding-bottom: 0.25rem;
+}
+
+.annual-overview-monthly-records-matrix-card {
+  min-width: max(100%, 40rem);
+}
+
+.annual-overview-monthly-records-matrix {
+  display: grid;
+  grid-template-columns: minmax(7.5rem, 9rem) repeat(12, minmax(3.2rem, 1fr));
+  gap: 0.5rem;
+  align-items: stretch;
+}
+
+.annual-overview-monthly-records-matrix__row {
+  display: contents;
+}
+
+.annual-overview-monthly-records-matrix__corner {
+  grid-column: 1;
+}
+
+.annual-overview-monthly-records-matrix__month {
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  text-align: center;
+}
+
+.annual-overview-monthly-records-matrix__label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  color: #1c2530;
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.annual-overview-monthly-records-matrix__cell {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  min-height: 3.25rem;
+  border: 1px solid #e6e9ec;
+  border-radius: 0.25rem;
+  appearance: none;
+  padding: 0.45rem 0.3rem;
+  background: #f5f7f9;
+  cursor: pointer;
+}
+
+.annual-overview-monthly-records-matrix__cell--broken {
+  border-width: 1.5px;
+}
+
+.annual-overview-monthly-records-matrix__cell--equalled {
+  border-width: 1.5px;
+  border-style: dashed;
+}
+
+.annual-overview-monthly-records-matrix__cell.is-active,
+.annual-overview-monthly-records-matrix__cell:focus-visible {
+  outline: 2px solid #1c2530;
+  outline-offset: 1px;
+}
+
+.annual-overview-monthly-records-matrix__value {
+  color: #1c2530;
+  font-size: 0.94rem;
+  line-height: 1.1;
+}
+
+.annual-overview-monthly-records-matrix__cell--broken .annual-overview-monthly-records-matrix__value {
+  font-weight: 700;
+}
+
+.annual-overview-monthly-records-matrix__year {
+  margin-top: 0.2rem;
+  color: var(--text-muted);
+  font-size: 0.625rem;
+  line-height: 1.2;
+  text-align: center;
+}
+
+.annual-overview-monthly-records__footnote {
+  margin: 1rem 0 0;
+  color: var(--text-muted);
+  font-size: 0.78rem;
+}
+
+.annual-overview-monthly-records-tooltip {
+  width: min(17rem, calc(100% - 2rem));
+}
+
 .annual-overview-record-tag {
   display: inline-flex;
   align-items: center;
@@ -1664,6 +1842,10 @@ th {
 
   .annual-overview-records-margins__margin {
     text-align: left;
+  }
+
+  .annual-overview-monthly-records-highlights {
+    grid-template-columns: 1fr;
   }
 }
 

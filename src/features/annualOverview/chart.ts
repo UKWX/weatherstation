@@ -6,6 +6,11 @@ import {
   getAnnualOverviewRecordFillColor,
   getAnnualOverviewRecordTypeLabel,
 } from '@/features/annualOverview/recordsCard'
+import {
+  getAnnualOverviewMonthlyRecordCellFill,
+  type AnnualOverviewMonthlyRecordCell,
+  type AnnualOverviewMonthlyRecordsCardModel,
+} from '@/features/annualOverview/monthlyRecords'
 import { formatEuropeLondonDisplay } from '@/lib/climate'
 import type {
   AnnualOverviewDataset,
@@ -14,6 +19,7 @@ import type {
   AnnualOverviewRecordType,
 } from '@/features/annualOverview/model'
 import type { AnnualOverviewRecordCardDateGroup } from '@/features/annualOverview/recordsCard'
+import type { ClimateDateString } from '@/types/weather'
 
 export const ANNUAL_OVERVIEW_CHART_WIDTH = 1400
 export const ANNUAL_OVERVIEW_CHART_HEIGHT = 560
@@ -251,6 +257,7 @@ export function getRecordMarkerColor(type: AnnualOverviewRecordType): string {
 export function buildAnnualOverviewExportSvg(input: {
   readonly year: number
   readonly dataset: AnnualOverviewDataset
+  readonly monthlyRecords?: AnnualOverviewMonthlyRecordsCardModel
   readonly subtitle: string
   readonly footnote: string
   readonly recordSummary: string
@@ -286,6 +293,7 @@ export function buildAnnualOverviewExportSvg(input: {
   let cursorY = EXPORT_PAGE_PADDING
   let chartMarkup = ''
   let recordsMarkup = ''
+  let monthlyRecordsMarkup = ''
 
   if (includeChart) {
     const chartCardY = cursorY
@@ -362,11 +370,23 @@ export function buildAnnualOverviewExportSvg(input: {
       width: textWidth,
       summaryLines: recordSummaryLines,
       latestObservedDate: input.dataset.latestObservedDate,
+      linkedMonthlyRecordMonthsByDate: input.monthlyRecords?.linkedDailyRecordMonthsByDate,
       interactive: input.interactiveRecords ?? false,
       embedInteractiveScript: input.embedInteractiveScript ?? false,
     })
     recordsMarkup = recordsCard.markup
-    cursorY += recordsCard.height
+    cursorY += recordsCard.height + (input.monthlyRecords != null ? EXPORT_CARD_GAP : 0)
+  }
+
+  if (includeRecords && input.monthlyRecords != null) {
+    const monthlyRecordsCard = buildExportMonthlyRecordsCardSvg({
+      model: input.monthlyRecords,
+      x: chartCardX,
+      y: cursorY,
+      width: textWidth,
+    })
+    monthlyRecordsMarkup = monthlyRecordsCard.markup
+    cursorY += monthlyRecordsCard.height
   }
 
   const contentHeight = cursorY + EXPORT_PAGE_PADDING
@@ -384,6 +404,7 @@ export function buildAnnualOverviewExportSvg(input: {
   <rect width="${ANNUAL_OVERVIEW_EXPORT_WIDTH}" height="${contentHeight}" fill="${EXPORT_PAGE_BACKGROUND}"/>
   ${chartMarkup}
   ${recordsMarkup}
+  ${monthlyRecordsMarkup}
 </svg>`
 }
 
@@ -511,6 +532,7 @@ function buildExportRecordsCardSvg(input: {
   readonly width: number
   readonly summaryLines: readonly string[]
   readonly latestObservedDate: AnnualOverviewDataset['latestObservedDate']
+  readonly linkedMonthlyRecordMonthsByDate?: ReadonlyMap<ClimateDateString, string>
   readonly interactive: boolean
   readonly embedInteractiveScript: boolean
 }): { readonly markup: string; readonly height: number } {
@@ -526,6 +548,7 @@ function buildExportRecordsCardSvg(input: {
     year: input.year,
     rows: input.rows,
     latestObservedDate: input.latestObservedDate,
+    linkedMonthlyRecordMonthsByDate: input.linkedMonthlyRecordMonthsByDate,
   })
   const tileGap = 12
   const tileHeight = 74
@@ -580,6 +603,11 @@ function buildExportRecordsCardSvg(input: {
           return `
       <g ${input.interactive ? `class="records-grid-cell--record" data-record-date="${cell.dateKey}" data-cell-x="${cellX}" data-cell-y="${cellY}" data-cell-w="${cellWidth}" data-cell-h="${cellHeight}"` : ''}>
         <rect x="${cellX}" y="${cellY}" width="${cellWidth}" height="${cellHeight}" rx="2" fill="${getAnnualOverviewRecordFillColor(record.type, record.marginC)}" stroke="#e6e9ec" stroke-width="0.7"/>
+        ${
+          cell.group.linkedMonthlyRecordMonth != null
+            ? `<rect x="${cellX - 0.75}" y="${cellY - 0.75}" width="${cellWidth + 1.5}" height="${cellHeight + 1.5}" rx="2.75" fill="none" stroke="#1c2530" stroke-width="1.5"/>`
+            : ''
+        }
       </g>`
         }
 
@@ -590,6 +618,11 @@ function buildExportRecordsCardSvg(input: {
       <rect x="${cellX}" y="${cellY}" width="${cellWidth}" height="${cellHeight}" rx="2" fill="#f5f7f9" stroke="#e6e9ec" stroke-width="0.7"/>
       <path d="M ${cellX} ${cellY} L ${cellX + cellWidth} ${cellY} L ${cellX} ${cellY + cellHeight} Z" fill="${getAnnualOverviewRecordFillColor(first.type, first.marginC)}"/>
       <path d="M ${cellX + cellWidth} ${cellY} L ${cellX + cellWidth} ${cellY + cellHeight} L ${cellX} ${cellY + cellHeight} Z" fill="${getAnnualOverviewRecordFillColor(second.type, second.marginC)}"/>
+      ${
+        cell.group.linkedMonthlyRecordMonth != null
+          ? `<rect x="${cellX - 0.75}" y="${cellY - 0.75}" width="${cellWidth + 1.5}" height="${cellHeight + 1.5}" rx="2.75" fill="none" stroke="#1c2530" stroke-width="1.5"/>`
+          : ''
+      }
     </g>`
       })
       .join('')
@@ -688,6 +721,181 @@ function buildExportRecordsCardSvg(input: {
   }
 }
 
+function buildExportMonthlyRecordsCardSvg(input: {
+  readonly model: AnnualOverviewMonthlyRecordsCardModel
+  readonly x: number
+  readonly y: number
+  readonly width: number
+}): { readonly markup: string; readonly height: number } {
+  const contentX = input.x + EXPORT_CARD_PADDING_X
+  const contentWidth = input.width
+  const cardWidth = contentWidth + EXPORT_CARD_PADDING_X * 2
+  const titleY = input.y + 36
+  const subtitleY = titleY + 26
+  const subtitleLines = wrapText(input.model.subtitle, 13, contentWidth)
+  const subtitleBottomY = subtitleY + Math.max(subtitleLines.length - 1, 0) * 18
+  const highlightsTop = subtitleBottomY + 22
+  const highlightGap = 10
+  const minHighlightWidth = 200
+  const highlightColumns = Math.max(1, Math.floor((contentWidth + highlightGap) / (minHighlightWidth + highlightGap)))
+  const highlightWidth =
+    (contentWidth - highlightGap * Math.max(0, highlightColumns - 1)) / highlightColumns
+  const highlightSpecs = input.model.highlights.map((highlight, index) => {
+    const column = index % highlightColumns
+    const row = Math.floor(index / highlightColumns)
+    const x = contentX + column * (highlightWidth + highlightGap)
+    const labelLines = wrapText(highlight.lineLabel, 12, highlightWidth - 28)
+    const detailLines = wrapText(highlight.description, 12, highlightWidth - 28)
+    const height = Math.max(84, 74 + Math.max(detailLines.length - 1, 0) * 15)
+    return {
+      highlight,
+      row,
+      column,
+      x,
+      labelLines,
+      detailLines,
+      height,
+    }
+  })
+  const highlightHeightsByRow = new Map<number, number>()
+  for (const block of highlightSpecs) {
+    highlightHeightsByRow.set(block.row, Math.max(highlightHeightsByRow.get(block.row) ?? 0, block.height))
+  }
+  const normalizedHighlightBlocks = highlightSpecs.map((block) => {
+    const y =
+      highlightsTop +
+      Array.from({ length: block.row }, (_, rowIndex) => (highlightHeightsByRow.get(rowIndex) ?? 84) + highlightGap).reduce(
+        (sum, value) => sum + value,
+        0,
+      )
+    const textBottomY = y + 22 + Math.max(block.labelLines.length - 1, 0) * 15
+    const detailY = y + 68
+    return {
+      ...block,
+      y,
+      markup: `
+      <g>
+        <rect x="${block.x}" y="${y}" width="${highlightWidth}" height="${block.height}" rx="8" fill="${getAnnualOverviewMonthlyRecordCellFill(block.highlight.type, 0.08)}" stroke="${block.highlight.color}" stroke-width="1.5" ${block.highlight.status === 'equalled' ? 'stroke-dasharray="5 4"' : ''}/>
+        <circle cx="${block.x + 14}" cy="${y + 18}" r="5" fill="${block.highlight.color}"/>
+        ${buildMultilineTextSvg(block.labelLines, {
+          x: block.x + 26,
+          y: textBottomY,
+          fontSize: 12,
+          lineHeight: 15,
+          fill: ANNUAL_OVERVIEW_COLORS.ink,
+        }).replace('<text ', '<text font-weight="700" ')}
+        <text x="${block.x + 14}" y="${y + 52}" font-size="22" font-weight="700" fill="${ANNUAL_OVERVIEW_COLORS.ink}">${escapeXml(block.highlight.valueLabel)}</text>
+        ${buildMultilineTextSvg(block.detailLines, {
+          x: block.x + 14,
+          y: detailY,
+          fontSize: 12,
+          lineHeight: 15,
+          fill: ANNUAL_OVERVIEW_COLORS.sub,
+        })}
+      </g>`,
+    }
+  })
+  const highlightsBottomY =
+    normalizedHighlightBlocks.length > 0
+      ? Math.max(...normalizedHighlightBlocks.map((block) => block.y + block.height))
+      : highlightsTop + 16
+  const emptyHighlightsMarkup =
+    input.model.highlights.length === 0
+      ? `<text x="${contentX}" y="${highlightsTop + 4}" font-size="12.5" fill="#5b6773">No monthly records broken yet in ${input.model.year}</text>`
+      : ''
+
+  const matrixTop = highlightsBottomY + 28
+  const rowLabelWidth = 118
+  const cellGap = 8
+  const cellWidth = (contentWidth - rowLabelWidth - cellGap * 11) / 12
+  const headerY = matrixTop
+  const matrixRowTop = headerY + 16
+  const rowHeight = 58
+  const monthHeaders = input.model.rows[0]?.cells
+    .map((cell, index) => {
+      const x = contentX + rowLabelWidth + index * (cellWidth + cellGap) + cellWidth / 2
+      return `<text x="${x}" y="${headerY}" text-anchor="middle" font-size="11.5" fill="#5b6773">${cell.monthShortLabel}</text>`
+    })
+    .join('') ?? ''
+  const matrixMarkup = input.model.rows
+    .map((row, rowIndex) => {
+      const rowY = matrixRowTop + rowIndex * rowHeight
+      const labelY = rowY + 22
+      const labelMarkup = `
+      <circle cx="${contentX + 6}" cy="${rowY + 17}" r="5" fill="${row.color}"/>
+      <text x="${contentX + 18}" y="${labelY}" font-size="12" font-weight="700" fill="#1c2530">${escapeXml(row.label)}</text>`
+      const cellsMarkup = row.cells
+        .map((cell, cellIndex) => buildExportMonthlyMatrixCell({
+          cell,
+          x: contentX + rowLabelWidth + cellIndex * (cellWidth + cellGap),
+          y: rowY,
+          width: cellWidth,
+          height: 48,
+        }))
+        .join('')
+      return `<g>${labelMarkup}${cellsMarkup}</g>`
+    })
+    .join('')
+  const matrixBottomY = matrixRowTop + input.model.rows.length * rowHeight
+  const footnoteY = matrixBottomY + 18
+  const footnoteLines = wrapText(input.model.footnote, 11.5, contentWidth)
+  const cardHeight =
+    footnoteY +
+    Math.max(footnoteLines.length, 1) * 16 -
+    input.y +
+    EXPORT_CARD_PADDING_Y
+
+  return {
+    markup: `
+  <rect x="${input.x}" y="${input.y}" width="${cardWidth}" height="${cardHeight}" rx="${EXPORT_CARD_RADIUS}" fill="${EXPORT_SURFACE}" stroke="${EXPORT_SURFACE_BORDER}"/>
+  <text x="${contentX}" y="${titleY}" font-size="16" font-weight="700" fill="${ANNUAL_OVERVIEW_COLORS.ink}">Monthly records</text>
+  ${buildMultilineTextSvg(subtitleLines, {
+    x: contentX,
+    y: subtitleY,
+    fontSize: 13,
+    lineHeight: 18,
+    fill: ANNUAL_OVERVIEW_COLORS.sub,
+  })}
+  ${emptyHighlightsMarkup}
+  ${normalizedHighlightBlocks.map((block) => block.markup).join('')}
+  ${monthHeaders}
+  ${matrixMarkup}
+  ${buildMultilineTextSvg(footnoteLines, {
+    x: contentX,
+    y: footnoteY,
+    fontSize: 11.5,
+    lineHeight: 16,
+    fill: ANNUAL_OVERVIEW_COLORS.sub,
+  })}
+  `,
+    height: cardHeight,
+  }
+}
+
+function buildExportMonthlyMatrixCell(input: {
+  readonly cell: AnnualOverviewMonthlyRecordCell
+  readonly x: number
+  readonly y: number
+  readonly width: number
+  readonly height: number
+}): string {
+  const stroke = input.cell.status === 'historical' ? '#e6e9ec' : input.cell.color
+  const fill =
+    input.cell.status === 'historical'
+      ? '#f5f7f9'
+      : getAnnualOverviewMonthlyRecordCellFill(
+          input.cell.type,
+          input.cell.status === 'broken' ? 0.1 : 0.08,
+        )
+  const valueWeight = input.cell.status === 'broken' ? 700 : 600
+  return `
+  <g>
+    <rect x="${input.x}" y="${input.y}" width="${input.width}" height="${input.height}" rx="4" fill="${fill}" stroke="${stroke}" stroke-width="${input.cell.status === 'historical' ? 1 : 1.5}" ${input.cell.status === 'equalled' ? 'stroke-dasharray="5 4"' : ''}/>
+    <text x="${input.x + input.width / 2}" y="${input.y + 21}" text-anchor="middle" font-size="13.5" font-weight="${valueWeight}" fill="#1c2530">${escapeXml(input.cell.valueLabel)}</text>
+    <text x="${input.x + input.width / 2}" y="${input.y + 36}" text-anchor="middle" font-size="10" fill="#5b6773">${escapeXml(input.cell.yearLabel)}</text>
+  </g>`
+}
+
 function buildRecordsTooltipSvg(input: {
   readonly year: number
   readonly groupedRecords: ReadonlyMap<string, AnnualOverviewRecordCardDateGroup>
@@ -706,6 +914,7 @@ function buildRecordsTooltipSvg(input: {
       {
         date: group.displayDate,
         rows: group.tooltipBlocks,
+        linkedMonthlyRecordMonth: group.linkedMonthlyRecordMonth,
       },
     ]),
   )
@@ -752,10 +961,12 @@ function buildRecordsTooltipSvg(input: {
         if (!key || !Object.prototype.hasOwnProperty.call(tooltipData, key)) return;
         const datum = tooltipData[key];
         const rows = datum.rows ?? [];
+        const linkedMonthlyRecordMonth = datum.linkedMonthlyRecordMonth ?? null;
         clear();
         const headingHeight = 28;
         const rowHeight = 52;
-        const tipHeight = headingHeight + rows.length * rowHeight + 12;
+        const extraHeight = linkedMonthlyRecordMonth ? 22 : 0;
+        const tipHeight = headingHeight + rows.length * rowHeight + extraHeight + 12;
         const tipRect = document.createElementNS(ns, 'rect');
         tipRect.setAttribute('x', '0');
         tipRect.setAttribute('y', '0');
@@ -789,6 +1000,9 @@ function buildRecordsTooltipSvg(input: {
           addText(12, blockTop + 34, row.previous, { size: 12, fill: '#5b6773' });
           addText(12, blockTop + 48, row.margin, { size: 12, fill: '#5b6773' });
         });
+        if (linkedMonthlyRecordMonth) {
+          addText(12, headingHeight + rows.length * rowHeight + 18, 'Also a new monthly record for ' + linkedMonthlyRecordMonth, { size: 12, fill: '#5b6773' });
+        }
 
         const x = Number(cell.getAttribute('data-cell-x') ?? 0);
         const y = Number(cell.getAttribute('data-cell-y') ?? 0);

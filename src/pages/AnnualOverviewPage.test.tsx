@@ -38,8 +38,8 @@ const payloads = new Map<number, AnnualClimatePayload>([
   [1995, makePayload(1995, [makeRecord('1995-01-01'), makeRecord('1995-03-01')])],
   [2000, makePayload(2000, [makeRecord('2000-02-29'), makeRecord('2000-03-01')])],
   [2024, makePayload(2024, [makeRecord('2024-03-02', { maxTempC: 14, minTempC: 6 })])],
-  [2025, makePayload(2025, [makeRecord('2025-03-02', { maxTempC: 15, minTempC: 7 })])],
-  [2026, makePayload(2026, [makeRecord('2026-03-02', { maxTempC: 18, minTempC: 9 })])],
+  [2025, makePayload(2025, [makeRecord('2025-03-02', { maxTempC: 15, minTempC: 7 }), makeRecord('2025-01-05', { maxTempC: 11 })])],
+  [2026, makePayload(2026, [makeRecord('2026-03-02', { maxTempC: 18, minTempC: 9 }), makeRecord('2026-01-12', { maxTempC: 13 })])],
 ])
 
 vi.mock('@/hooks/useCurrentClimateYear', () => ({
@@ -111,6 +111,7 @@ describe('AnnualOverviewPage', () => {
     expect(screen.getByRole('button', { name: 'Export PNG' })).toBeInTheDocument()
     expect(screen.getByRole('tab', { name: 'Rainfall accumulation' })).toBeInTheDocument()
     expect(screen.getByText('15.0°C (2025)')).toBeInTheDocument()
+    expect(screen.getByText('Monthly records')).toBeInTheDocument()
   })
 
   it('supports historical year selection from the query string', () => {

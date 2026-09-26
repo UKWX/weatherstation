@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react'
+import { fireEvent, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it } from 'vitest'
 import { AnnualOverviewRecordsCard } from '@/features/annualOverview/AnnualOverviewRecordsCard'
@@ -72,10 +72,22 @@ describe('AnnualOverviewRecordsCard', () => {
     )
     await user.tab()
     expect(cell).toHaveFocus()
+    expect(await screen.findByRole('tooltip')).toBeInTheDocument()
+    expect(cell).toHaveAttribute('aria-describedby', 'annual-overview-records-tooltip-2026-01-03')
     expect(screen.getAllByText('03 Jan 2026')).toHaveLength(2)
     expect(screen.getByText('Record high max: 34.6°C')).toBeInTheDocument()
     expect(screen.getByText('Previous record 27.9°C (2011)')).toBeInTheDocument()
     expect(screen.getByText('Beaten by 3.2°C')).toBeInTheDocument()
+
+    await user.keyboard('{Escape}')
+    expect(screen.queryByRole('tooltip')).not.toBeInTheDocument()
+
+    cell.blur()
+    fireEvent.focus(cell)
+    expect(await screen.findByRole('tooltip')).toBeInTheDocument()
+
+    fireEvent.pointerDown(document.body)
+    expect(screen.queryByRole('tooltip')).not.toBeInTheDocument()
   })
 
   it('keeps the full records table collapsed until toggled open', async () => {

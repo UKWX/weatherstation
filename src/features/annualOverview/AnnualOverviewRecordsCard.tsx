@@ -41,6 +41,8 @@ export function AnnualOverviewRecordsCard({
 
   const activeGroup =
     activeDateKey != null ? (model.groupedRecords.get(activeDateKey) ?? null) : null
+  const tooltipId =
+    activeGroup == null ? undefined : `annual-overview-records-tooltip-${year}-${activeGroup.dateKey}`
 
   useEffect(() => {
     setShowAllRecords(false)
@@ -233,6 +235,7 @@ export function AnnualOverviewRecordsCard({
                       data-annual-overview-record-cell="true"
                       data-record-date={cell.group.dateKey}
                       aria-label={cell.group.ariaLabel}
+                      aria-describedby={isActive ? tooltipId : undefined}
                       tabIndex={0}
                       onPointerDown={(event) => {
                         lastPointerTypeRef.current = event.pointerType
@@ -399,7 +402,9 @@ export function AnnualOverviewRecordsCard({
 
       {activeGroup != null ? (
         <div
+          id={tooltipId}
           ref={tooltipRef}
+          role="tooltip"
           className="annual-overview-records-tooltip"
           style={tooltipReady ? tooltipStyle : { ...tooltipStyle, visibility: 'hidden' }}
         >

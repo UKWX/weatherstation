@@ -9,7 +9,7 @@ import {
   collectTiedValues,
 } from '@/lib/climate'
 import { RAIN_DAY_THRESHOLD_MM, RAINFALL_START_DATE } from '@/config/weather'
-import { RAIN_MONTHLY_NORMALS_MM, monthNormal } from '@/features/normals/rainfallNormals'
+import { ANNUAL_RAIN_NORMAL_MM, monthNormal } from '@/features/normals/rainfallNormals'
 import type {
   ClimateDateString,
   ClimateDay,
@@ -153,7 +153,7 @@ export function buildAnnualSummary(
   const normalMaxC = calculateSafeAverage(monthlyNormals.map((n) => n.meanMaxTempC))
   const normalMinC = calculateSafeAverage(monthlyNormals.map((n) => n.meanMinTempC))
   const normalMeanC = calculateSafeAverage(monthlyNormals.map((n) => n.meanTempC))
-  const normalRainfallMm = RAIN_MONTHLY_NORMALS_MM.reduce((sum, value) => sum + value, 0)
+  const normalRainfallMm = ANNUAL_RAIN_NORMAL_MM
 
   const coverage: PeriodCoverage = calculateAnnualCompleteness(year, records, options)
   const temperatureAnomalyValid =

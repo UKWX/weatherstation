@@ -3,6 +3,7 @@ import type { ClimateDateString } from '@/types/weather'
 
 export const RAIN_NORMAL_PERIOD = '1991–2020'
 export const RAIN_MONTHLY_NORMALS_MM = [53.5, 47.3, 43.4, 46.2, 43.3, 64.8, 54.7, 60.1, 53.1, 65.9, 59.2, 65.9] as const
+export const ANNUAL_RAIN_NORMAL_MM = 657.4
 
 function cumulativeMonthlyNormals(): number[] {
   const values: number[] = [0]

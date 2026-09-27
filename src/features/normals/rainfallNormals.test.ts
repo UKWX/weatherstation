@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  ANNUAL_RAIN_NORMAL_MM,
   dailyCumulativeNormal,
   dailyNormalRain,
   monthNormal,
@@ -21,7 +22,8 @@ describe('rainfallNormals', () => {
   it('exposes the fixed rainfall normal period and monthly values', () => {
     expect(RAIN_NORMAL_PERIOD).toBe('1991–2020')
     expect(RAIN_MONTHLY_NORMALS_MM).toHaveLength(12)
-    expect(RAIN_MONTHLY_NORMALS_MM.reduce((sum, value) => sum + value, 0)).toBeCloseTo(657.4, 6)
+    expect(ANNUAL_RAIN_NORMAL_MM).toBeCloseTo(657.4, 6)
+    expect(RAIN_MONTHLY_NORMALS_MM.reduce((sum, value) => sum + value, 0)).toBeCloseTo(ANNUAL_RAIN_NORMAL_MM, 6)
   })
 
   it('returns one cumulative value per day for common and leap years', () => {
@@ -37,6 +39,15 @@ describe('rainfallNormals', () => {
       total += value
       expect(cumulative[monthEndIndex(year, index + 1)]).toBeCloseTo(total, 1)
     })
+  })
+
+  it('preserves leap-year month boundaries and smooth interior values', () => {
+    const leap = dailyCumulativeNormal(2024)
+    expect(leap[59]).toBeCloseTo(100.8, 1)
+    expect(leap[60]).toBeGreaterThanOrEqual(leap[59]!)
+    expect(leap[120]).toBeCloseTo(190.4, 1)
+    expect(leap[14]).toBeGreaterThan(0)
+    expect(leap[14]).toBeLessThan(53.5)
   })
 
   it('is non-decreasing and ends at the annual total', () => {

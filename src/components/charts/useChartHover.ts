@@ -77,18 +77,22 @@ export function useChartHover({
         if (count <= 0) {
           return
         }
+        const rect = event.currentTarget.getBoundingClientRect()
+        const toClientX = (index: number) =>
+          rect.left + (count <= 1 ? rect.width / 2 : (index / (count - 1)) * rect.width)
+        const clientY = rect.top + rect.height / 2
         if (event.key === 'ArrowLeft') {
           event.preventDefault()
           setState((current) => {
             const activeIndex = Math.max(0, (current.activeIndex ?? 0) - 1)
-            return { ...current, activeIndex }
+            return { activeIndex, clientX: toClientX(activeIndex), clientY }
           })
         }
         if (event.key === 'ArrowRight') {
           event.preventDefault()
           setState((current) => {
             const activeIndex = Math.min(count - 1, (current.activeIndex ?? -1) + 1)
-            return { ...current, activeIndex }
+            return { activeIndex, clientX: toClientX(activeIndex), clientY }
           })
         }
         if (event.key === 'Escape') {
@@ -96,9 +100,14 @@ export function useChartHover({
           clear()
         }
       },
-      onFocus: () => {
+      onFocus: (event: React.FocusEvent<SVGRectElement>) => {
         if (count > 0) {
-          setState((current) => ({ ...current, activeIndex: current.activeIndex ?? 0 }))
+          const rect = event.currentTarget.getBoundingClientRect()
+          setState((current) => ({
+            activeIndex: current.activeIndex ?? 0,
+            clientX: rect.left + (count <= 1 ? rect.width / 2 : ((current.activeIndex ?? 0) / (count - 1)) * rect.width),
+            clientY: rect.top + rect.height / 2,
+          }))
         }
       },
       onBlur: () => clear(),

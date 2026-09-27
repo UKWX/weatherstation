@@ -7,9 +7,27 @@ function triggerDownload(url: string, filename: string): void {
   document.body.removeChild(anchor)
 }
 
+function inlineComputedStyles(source: Element, target: Element): void {
+  const computed = window.getComputedStyle(source)
+  const style = Array.from(computed)
+    .map((property) => `${property}: ${computed.getPropertyValue(property)};`)
+    .join(' ')
+  target.setAttribute('style', style)
+
+  const sourceChildren = Array.from(source.children)
+  const targetChildren = Array.from(target.children)
+  sourceChildren.forEach((child, index) => {
+    const targetChild = targetChildren[index]
+    if (targetChild != null) {
+      inlineComputedStyles(child, targetChild)
+    }
+  })
+}
+
 export function serializeChartSvg(svg: SVGSVGElement): { readonly markup: string; readonly width: number; readonly height: number } {
   const clone = svg.cloneNode(true) as SVGSVGElement
   clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg')
+  inlineComputedStyles(svg, clone)
   clone.querySelectorAll('[data-export-ignore="true"]').forEach((node) => node.remove())
   const viewBoxWidth = clone.viewBox.baseVal.width || Number(clone.getAttribute('width')) || svg.clientWidth || 960
   const viewBoxHeight = clone.viewBox.baseVal.height || Number(clone.getAttribute('height')) || svg.clientHeight || 420

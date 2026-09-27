@@ -292,22 +292,6 @@ export function OverviewChart({
   )
 
   const hover = useChartHover({ count: n, containerRef: canvasRef })
-
-  if (points.length === 0 || enabledSeries.length === 0) {
-    return (
-      <ResponsiveChartContainer size="page">
-        <div className="chart-frame">
-          <p>No observations available for the selected range and series.</p>
-        </div>
-      </ResponsiveChartContainer>
-    )
-  }
-
-  const xTickIndices = computeXTickIndices(n)
-  const leftAxis = enabledAxes[0]
-  const leftScale = leftAxis != null ? axisScales[leftAxis] : undefined
-  const leftTicks = leftScale != null ? niceTicks(leftScale.min, leftScale.max) : []
-
   const hoveredX = hover.activeIndex != null ? xForIndex(hover.activeIndex) : null
   const hoveredPoint = hover.activeIndex != null ? points[hover.activeIndex] : null
 
@@ -331,6 +315,21 @@ export function OverviewChart({
     )
     setTooltipStyle({ left: position.left, top: position.top, opacity: 1 })
   }, [hover.activeIndex, hover.clientX, hover.clientY])
+
+  if (points.length === 0 || enabledSeries.length === 0) {
+    return (
+      <ResponsiveChartContainer size="page">
+        <div className="chart-frame">
+          <p>No observations available for the selected range and series.</p>
+        </div>
+      </ResponsiveChartContainer>
+    )
+  }
+
+  const xTickIndices = computeXTickIndices(n)
+  const leftAxis = enabledAxes[0]
+  const leftScale = leftAxis != null ? axisScales[leftAxis] : undefined
+  const leftTicks = leftScale != null ? niceTicks(leftScale.min, leftScale.max) : []
 
   return (
     <ResponsiveChartContainer size="page">

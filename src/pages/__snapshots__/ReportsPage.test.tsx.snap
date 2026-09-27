@@ -110,7 +110,7 @@ exports[`ReportsPage > renders annual report snapshot 1`] = `
       <dd>
         442.3 mm
          (
-        73.7%
+        67.3%
          avg)
       </dd>
     </div>
@@ -483,7 +483,7 @@ exports[`ReportsPage > renders annual report snapshot 1`] = `
       Deterministic written summary
     </h3>
     <p>
-      2024 annual report. Mean temperature +11.3 °C (-2.2°C vs 1991–2020). Rainfall 442.3 mm (73.7% of normal). Year is not provisional. Coverage is complete.
+      2024 annual report. Mean temperature +11.3 °C (-2.2°C vs 1991–2020). Rainfall 442.3 mm (67.3% of normal). Year is not provisional. Coverage is complete.
     </p>
   </section>
   <section
@@ -501,7 +501,7 @@ Mean min 5.9 °C (-3.1°C avg)
 Mean temp 11.3 °C (-2.2°C avg)
 Highest max 25.5 °C (31 Jan, 31 Mar, 31 May, 31 Jul, 31 Aug, 31 Oct, 31 Dec)
 Lowest min 2.3 °C (1 Jan, 1 Feb, 1 Mar, 1 Apr, 1 May, 1 Jun, 1 Jul, 1 Aug, 1 Sept, 1 Oct, 1 Nov, 1 Dec)
-Rainfall 442.3 mm (73.7% avg)
+Rainfall 442.3 mm (67.3% avg)
 Rain days (&gt;0.1 mm) 270
 Wettest day 3.1 mm (31 Jan, 31 Mar, 31 May, 31 Jul, 31 Aug, 31 Oct, 31 Dec)
 Temperature ranking #1 of 2
@@ -641,7 +641,7 @@ exports[`ReportsPage > renders monthly report snapshot and compact output 1`] = 
         Rainfall percentage
       </dt>
       <dd>
-        70.6%
+        54.5%
       </dd>
     </div>
     <div>
@@ -747,7 +747,7 @@ exports[`ReportsPage > renders monthly report snapshot and compact output 1`] = 
       Deterministic written summary
     </h3>
     <p>
-      June 2024 monthly report. TMax 25.0 °C; TMin 2.3 °C. Mean temperature 11.2 °C (-2.3°C vs 1991–2020). Rainfall 35.3 mm (70.6% of normal); rain days above 0.1 mm: 22. Coverage 30/30 temperature days valid and 30 rainfall days valid. Report is not provisional. Coverage is complete.
+      June 2024 monthly report. TMax 25.0 °C; TMin 2.3 °C. Mean temperature 11.2 °C (-2.3°C vs 1991–2020). Rainfall 35.3 mm (54.5% of normal); rain days above 0.1 mm: 22. Coverage 30/30 temperature days valid and 30 rainfall days valid. Report is not provisional. Coverage is complete.
     </p>
   </section>
   <section
@@ -765,7 +765,7 @@ TMin 2.3 °C (1 Jun)
 TMean 11.2 °C (-2.3°C avg)
 Mean max 17.8 °C (-0.3°C avg)
 Mean min 5.9 °C (-3.1°C avg)
-Rainfall 35.3 mm (70.6% avg)
+Rainfall 35.3 mm (54.5% avg)
 Rain days (&gt;0.1 mm) 22
 Wettest day 3.0 mm (30 Jun)
 Annual rainfall 218.1 mm

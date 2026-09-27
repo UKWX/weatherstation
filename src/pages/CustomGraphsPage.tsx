@@ -316,6 +316,28 @@ function GraphPanel({
     [filteredSeries],
   )
   const hover = useChartHover({ count: hoverTimestamps.length, containerRef: canvasRef })
+  const hoveredTimestamp = hover.activeIndex != null ? hoverTimestamps[hover.activeIndex] ?? null : null
+
+  useLayoutEffect(() => {
+    if (
+      hoveredTimestamp == null ||
+      hover.clientX == null ||
+      hover.clientY == null ||
+      canvasRef.current == null ||
+      tooltipRef.current == null
+    ) {
+      setTooltipStyle({ opacity: 0 })
+      return
+    }
+    const position = positionTooltip(
+      hover.clientX,
+      hover.clientY,
+      tooltipRef.current.offsetWidth,
+      tooltipRef.current.offsetHeight,
+      canvasRef.current.getBoundingClientRect(),
+    )
+    setTooltipStyle({ left: position.left, top: position.top, opacity: 1 })
+  }, [hover.clientX, hover.clientY, hoveredTimestamp])
 
   if (filteredSeries.length === 0 || valueDomain.length === 0) {
     return (
@@ -340,7 +362,6 @@ function GraphPanel({
     CHART_MARGIN.top + plotHeight - ((value - yMin) / Math.max(1, yMax - yMin)) * plotHeight
   const xTickPoints = buildXAxisTicks(filteredSeries[0]!.points)
   const zeroY = yScale(Math.max(0, yMin))
-  const hoveredTimestamp = hover.activeIndex != null ? hoverTimestamps[hover.activeIndex] ?? null : null
   const hoveredValues = hoveredTimestamp == null
     ? []
     : visibleSeries.map((entry) => ({
@@ -353,27 +374,6 @@ function GraphPanel({
             ?.points.find((point) => point.timestamp === hoveredTimestamp)
             ?.value ?? null,
       }))
-
-  useLayoutEffect(() => {
-    if (
-      hoveredTimestamp == null ||
-      hover.clientX == null ||
-      hover.clientY == null ||
-      canvasRef.current == null ||
-      tooltipRef.current == null
-    ) {
-      setTooltipStyle({ opacity: 0 })
-      return
-    }
-    const position = positionTooltip(
-      hover.clientX,
-      hover.clientY,
-      tooltipRef.current.offsetWidth,
-      tooltipRef.current.offsetHeight,
-      canvasRef.current.getBoundingClientRect(),
-    )
-    setTooltipStyle({ left: position.left, top: position.top, opacity: 1 })
-  }, [hover.clientX, hover.clientY, hoveredTimestamp])
 
   return (
     <section className="card custom-graphs-chart-card">

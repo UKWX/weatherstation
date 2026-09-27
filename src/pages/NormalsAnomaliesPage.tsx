@@ -15,6 +15,7 @@ import {
   MONTHLY_NORMAL_BASELINE,
   WEATHER_UNITS,
 } from '@/config/weather'
+import { RAIN_NORMAL_PERIOD } from '@/features/normals/rainfallNormals'
 import {
   buildAnnualQuickRangesForYear,
   buildAnnualTemperatureRows,
@@ -729,7 +730,7 @@ function MonthlyRainfallSection({
     <section className="card normals-section" aria-labelledby="normals-monthly-rain-heading">
       <div className="archive-card-heading">
         <h2 id="normals-monthly-rain-heading">Monthly rainfall — {year}</h2>
-        <span className="archive-baseline-note">Normal baseline: {MONTHLY_NORMAL_BASELINE}</span>
+        <span className="archive-baseline-note">Normal baseline: {RAIN_NORMAL_PERIOD}</span>
       </div>
 
       {hasAnyIncomplete && (
@@ -737,7 +738,7 @@ function MonthlyRainfallSection({
       )}
 
       <ChartLegend items={[
-        { color: chartTokens.series.reference, label: `Normal (${MONTHLY_NORMAL_BASELINE})` },
+        { color: chartTokens.series.reference, label: `Normal (${RAIN_NORMAL_PERIOD})` },
         { color: chartTokens.series.observed, label: `${year} observed` },
       ]} />
 

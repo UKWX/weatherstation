@@ -1,4 +1,7 @@
-import { useCallback, useRef, useState } from 'react'
+import { useCallback, useLayoutEffect, useRef, useState, type CSSProperties } from 'react'
+import { ChartTooltip } from '@/components/charts/ChartTooltip'
+import { positionTooltip } from '@/components/charts/positionTooltip'
+import { useChartHover } from '@/components/charts/useChartHover'
 import { EUROPE_LONDON_TIMEZONE } from '@/config/weather'
 import { ResponsiveChartContainer, chartTokens } from '@/components/ui'
 
@@ -199,7 +202,9 @@ export function LiveLineChart({
   secondary,
 }: LiveLineChartProps) {
   const svgRef = useRef<SVGSVGElement>(null)
-  const [hoveredIndex, setHoveredIndex] = useState<number | null>(null)
+  const canvasRef = useRef<HTMLDivElement>(null)
+  const tooltipRef = useRef<HTMLDivElement>(null)
+  const [tooltipStyle, setTooltipStyle] = useState<CSSProperties>({ opacity: 0 })
 
   // Collect all non-null values for Y scale
   const allValues: number[] = []
@@ -234,21 +239,10 @@ export function LiveLineChart({
     .sort((a, b) => a - b)
     .map((t) => ({ timestamp: t }))
 
-  const handlePointerMove = useCallback(
-    (e: React.PointerEvent<SVGRectElement>) => {
-      const rect = e.currentTarget.getBoundingClientRect()
-      const ratio = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width))
-      const t = tMin + ratio * (tMax - tMin)
-      if (allTimestamps.length === 0) return
-      setHoveredIndex(findNearestIndex(allTimestamps, t))
-    },
-    [tMin, tMax, allTimestamps],
-  )
-
-  const handlePointerLeave = useCallback(() => setHoveredIndex(null), [])
+  const hover = useChartHover({ count: allTimestamps.length, containerRef: canvasRef })
 
   const hoveredTimestamp =
-    hoveredIndex != null ? allTimestamps[hoveredIndex]?.timestamp : null
+    hover.activeIndex != null ? allTimestamps[hover.activeIndex]?.timestamp : null
   const hoveredX = hoveredTimestamp != null ? toX(hoveredTimestamp) : null
 
   // Determine displayed values for the data panel
@@ -276,6 +270,27 @@ export function LiveLineChart({
     if (v == null) return '—'
     return `${v.toFixed(1)} ${unit}`
   }
+
+  useLayoutEffect(() => {
+    if (
+      hover.activeIndex == null ||
+      hover.clientX == null ||
+      hover.clientY == null ||
+      canvasRef.current == null ||
+      tooltipRef.current == null
+    ) {
+      setTooltipStyle({ opacity: 0 })
+      return
+    }
+    const position = positionTooltip(
+      hover.clientX,
+      hover.clientY,
+      tooltipRef.current.offsetWidth,
+      tooltipRef.current.offsetHeight,
+      canvasRef.current.getBoundingClientRect(),
+    )
+    setTooltipStyle({ left: position.left, top: position.top, opacity: 1 })
+  }, [hover.activeIndex, hover.clientX, hover.clientY])
 
   if (!hasData) {
     return (
@@ -307,10 +322,11 @@ export function LiveLineChart({
 
       {/* SVG chart */}
       <ResponsiveChartContainer size="compact" minWidth={280} className="live-chart-svg-wrapper">
+        <div ref={canvasRef} className="chart-kit-canvas">
         <svg
           ref={svgRef}
           viewBox={`0 0 ${SVG_W} ${SVG_H}`}
-          className="live-chart-svg"
+          className="live-chart-svg chart-kit-svg"
           role="img"
           aria-label={`${title} chart from ${fmtTimeDetailed(tMin)} to ${fmtTimeDetailed(tMax)}`}
         >
@@ -430,30 +446,52 @@ export function LiveLineChart({
             width={PLOT_W}
             height={PLOT_H}
             fill="transparent"
-            onPointerMove={handlePointerMove}
-            onPointerLeave={handlePointerLeave}
-            style={{ touchAction: 'none' }}
+            onPointerMove={(event) => {
+              const rect = event.currentTarget.getBoundingClientRect()
+              const ratio = Math.max(0, Math.min(1, (event.clientX - rect.left) / rect.width))
+              const t = tMin + ratio * (tMax - tMin)
+              if (allTimestamps.length === 0) return
+              hover.setHover(findNearestIndex(allTimestamps, t), event.clientX, event.clientY)
+            }}
+            onPointerDown={(event) => {
+              const rect = event.currentTarget.getBoundingClientRect()
+              const ratio = Math.max(0, Math.min(1, (event.clientX - rect.left) / rect.width))
+              const t = tMin + ratio * (tMax - tMin)
+              if (allTimestamps.length === 0) return
+              hover.setHover(findNearestIndex(allTimestamps, t), event.clientX, event.clientY)
+            }}
+            onPointerLeave={hover.overlayProps.onPointerLeave}
+            style={hover.overlayProps.style}
             aria-hidden="true"
+            tabIndex={hover.overlayProps.tabIndex}
+            onKeyDown={hover.overlayProps.onKeyDown}
+            onFocus={hover.overlayProps.onFocus}
+            onBlur={hover.overlayProps.onBlur}
           />
         </svg>
+        {panelTimeLabel != null && hoveredTimestamp != null ? (
+          <div ref={tooltipRef} style={tooltipStyle}>
+            <ChartTooltip
+              title={panelTimeLabel}
+              rows={[
+                {
+                  label: primary.label,
+                  value: fmtVal(panelPrimaryValue),
+                  accentColor: primary.color,
+                },
+                ...(secondary
+                  ? [{
+                      label: secondary.label,
+                      value: fmtVal(panelSecondaryValue),
+                      accentColor: secondary.color,
+                    }]
+                  : []),
+              ]}
+            />
+          </div>
+        ) : null}
+        </div>
       </ResponsiveChartContainer>
-
-      {/* Data panel – rendered below chart, never clips on mobile */}
-      <div className="live-chart-data-panel" aria-live="polite" aria-atomic="true">
-        {panelTimeLabel != null && (
-          <>
-            <span className="live-chart-data-time">{panelTimeLabel}</span>
-            <span className="live-chart-data-value" style={{ color: primary.color }}>
-              {primary.label}: {fmtVal(panelPrimaryValue)}
-            </span>
-            {secondary && (
-              <span className="live-chart-data-value" style={{ color: secondary.color }}>
-                {secondary.label}: {fmtVal(panelSecondaryValue)}
-              </span>
-            )}
-          </>
-        )}
-      </div>
     </article>
   )
 }

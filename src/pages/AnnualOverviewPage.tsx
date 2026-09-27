@@ -52,6 +52,10 @@ import {
   parseIsoClimateDate,
   toClimateDateString,
 } from '@/lib/climate'
+import {
+  dailyCumulativeNormal,
+  RAIN_NORMAL_PERIOD,
+} from '@/features/normals/rainfallNormals'
 import type { AnnualClimatePayload, ClimateDateString, ClimateDay, MonthlyNormal } from '@/types/weather'
 
 const YEAR_PARAM_PATTERN = /^\d{4}$/
@@ -1050,10 +1054,10 @@ const RainfallComparisonChart = forwardRef<SVGSVGElement, {
         items={[
           ...series.map((entry) => ({ label: String(entry.year), color: entry.color, dashed: false })),
           ...(averageValues != null
-            ? [{ label: '1991–2020 avg', color: ANNUAL_OVERVIEW_COLORS.sub, dashed: true }]
+            ? [{ label: `${RAIN_NORMAL_PERIOD} avg`, color: ANNUAL_OVERVIEW_COLORS.sub, dashed: true }]
             : []),
         ]}
-        note="Each line shows cumulative rainfall through the selected dates. Dashed line is the 1991–2020 average."
+        note={`Each line shows cumulative rainfall through the selected dates. Dashed line is the ${RAIN_NORMAL_PERIOD} average.`}
       />
       {series.length === 0 && averageValues == null ? (
         <EmptyChartMessage message="Select at least one rainfall year." />
@@ -1500,38 +1504,14 @@ function buildRainfallSeries(
 function buildRainfallAverageValues(
   year: number,
   days: readonly AnnualOverviewDay[],
-  monthlyNormals: readonly MonthlyNormal[],
+  _monthlyNormals: readonly MonthlyNormal[],
 ): readonly (number | null)[] | null {
-  if (monthlyNormals.length === 0) {
-    return null
-  }
-
-  const rainfallByMonth = new Map<number, number>()
-  for (const normal of monthlyNormals) {
-    if (normal.rainfallMm == null) {
-      continue
-    }
-    rainfallByMonth.set(normal.month, normal.rainfallMm)
-  }
-
-  if (rainfallByMonth.size === 0) {
-    return null
-  }
-
-  const cumulativeByKey = new Map<string, number>()
-  let runningTotal = 0
-  for (let month = 1; month <= 12; month += 1) {
-    const monthLength = new Date(year, month, 0).getDate()
-    const monthTotal = rainfallByMonth.get(month) ?? 0
-    const dailyContribution = monthTotal / monthLength
-    for (let day = 1; day <= monthLength; day += 1) {
-      runningTotal += dailyContribution
-      const key = `${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`
-      cumulativeByKey.set(key, runningTotal)
-    }
-  }
-
-  return days.map((day) => cumulativeByKey.get(day.dateKey) ?? null)
+  const cumulative = dailyCumulativeNormal(year)
+  let dayOfYear = 0
+  return days.map(() => {
+    dayOfYear += 1
+    return cumulative[dayOfYear - 1] ?? null
+  })
 }
 
 function buildTemperatureSeries(

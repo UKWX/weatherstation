@@ -193,17 +193,18 @@ describe('buildMonthlyRainfallRows', () => {
     const rows = buildMonthlyRainfallRows(2024, summaries, normals)
     const june = rows.find((r) => r.month === 6)!
     expect(june.observedMm).toBe(75)
-    expect(june.normalMm).toBe(50)
-    expect(june.percentageOfNormal).toBeCloseTo(150)
-    expect(june.differenceMm).toBeCloseTo(25)
+    expect(june.normalMm).toBe(64.8)
+    expect(june.percentageOfNormal).toBeCloseTo((75 / 64.8) * 100)
+    expect(june.differenceMm).toBeCloseTo(10.2)
   })
 
-  it('returns null percentage when normal is zero', () => {
+  it('uses the fixed 1991–2020 normal instead of the supplied monthly normal', () => {
     const summaries = [makeSummary(2024, 6, { rainfallTotalMm: 10 })]
     const normals = [makeMonthlyNormal(6, { rainfallMm: 0 })]
     const rows = buildMonthlyRainfallRows(2024, summaries, normals)
     const june = rows.find((r) => r.month === 6)!
-    expect(june.percentageOfNormal).toBeNull()
+    expect(june.normalMm).toBe(64.8)
+    expect(june.percentageOfNormal).toBeCloseTo((10 / 64.8) * 100)
   })
 
   it('marks months before rainfall availability as unavailable', () => {
@@ -225,12 +226,12 @@ describe('buildMonthlyRainfallRows', () => {
     expect(june.percentageOfNormal).toBeNull()
   })
 
-  it('returns null when monthly normal is absent', () => {
+  it('still returns the fixed monthly normal when monthly-normal data is absent', () => {
     const summaries = [makeSummary(2024, 6, { rainfallTotalMm: 50 })]
     const rows = buildMonthlyRainfallRows(2024, summaries, [])
     const june = rows.find((r) => r.month === 6)!
-    expect(june.normalMm).toBeNull()
-    expect(june.percentageOfNormal).toBeNull()
+    expect(june.normalMm).toBe(64.8)
+    expect(june.percentageOfNormal).toBeCloseTo((50 / 64.8) * 100)
   })
 
   it('marks incomplete periods', () => {

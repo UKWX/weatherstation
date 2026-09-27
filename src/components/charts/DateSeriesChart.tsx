@@ -1,5 +1,8 @@
-import type { ReactNode } from 'react'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import type { CSSProperties, ReactNode } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { ChartTooltip } from '@/components/charts/ChartTooltip'
+import { positionTooltip } from '@/components/charts/positionTooltip'
+import { useChartHover } from '@/components/charts/useChartHover'
 import { chartTokens } from '@/components/ui/chartTokens'
 
 const SVG_W = 900
@@ -106,6 +109,8 @@ export function DateSeriesChart({
   tooltipRenderer,
 }: DateSeriesChartProps) {
   const svgRef = useRef<SVGSVGElement>(null)
+  const canvasRef = useRef<HTMLDivElement>(null)
+  const tooltipRef = useRef<HTMLDivElement>(null)
   const plotWidth = SVG_W - MARGIN.left - MARGIN.right
   const plotHeight = SVG_H - MARGIN.top - MARGIN.bottom
   const fullDomain = useMemo(
@@ -119,12 +124,11 @@ export function DateSeriesChart({
     [rows],
   )
   const [domain, setDomain] = useState(fullDomain)
-  const [hoveredIndex, setHoveredIndex] = useState<number | null>(null)
   const [brush, setBrush] = useState<{ startX: number; currentX: number } | null>(null)
+  const [tooltipStyle, setTooltipStyle] = useState<CSSProperties>({ opacity: 0 })
 
   useEffect(() => {
     setDomain(fullDomain)
-    setHoveredIndex(null)
     setBrush(null)
   }, [fullDomain])
 
@@ -160,13 +164,40 @@ export function DateSeriesChart({
   })
   const formatTick = xTickFormatter ?? ((timestamp: number) => new Date(timestamp).toISOString())
 
+  const hover = useChartHover({ count: filteredRows.length, containerRef: canvasRef })
   const hoveredRow =
-    hoveredIndex != null && filteredRows[hoveredIndex] != null ? filteredRows[hoveredIndex]! : null
+    hover.activeIndex != null && filteredRows[hover.activeIndex] != null ? filteredRows[hover.activeIndex]! : null
   const hoveredX = hoveredRow != null ? xScale(hoveredRow.timestamp) : null
   const isZoomed =
     domain != null &&
     fullDomain != null &&
     (domain.start !== fullDomain.start || domain.end !== fullDomain.end)
+
+  useLayoutEffect(() => {
+    if (
+      hover.activeIndex == null ||
+      hover.clientX == null ||
+      hover.clientY == null ||
+      canvasRef.current == null ||
+      tooltipRef.current == null
+    ) {
+      setTooltipStyle({ opacity: 0 })
+      return
+    }
+
+    const position = positionTooltip(
+      hover.clientX,
+      hover.clientY,
+      tooltipRef.current.offsetWidth,
+      tooltipRef.current.offsetHeight,
+      canvasRef.current.getBoundingClientRect(),
+    )
+    setTooltipStyle({
+      left: position.left,
+      top: position.top,
+      opacity: 1,
+    })
+  }, [hover.activeIndex, hover.clientX, hover.clientY])
 
   if (effectiveDomain == null || filteredRows.length === 0 || values.length === 0) {
     return <p className="normals-no-data">No chart data available.</p>
@@ -197,11 +228,11 @@ export function DateSeriesChart({
         </div>
       )}
 
-      <div className="date-series-chart__canvas">
+      <div ref={canvasRef} className="date-series-chart__canvas chart-kit-canvas">
         <svg
           ref={svgRef}
           viewBox={`0 0 ${SVG_W} ${SVG_H}`}
-          className="date-series-chart__svg"
+          className="date-series-chart__svg chart-kit-svg"
           role="img"
           aria-label={ariaLabel}
         >
@@ -342,21 +373,20 @@ export function DateSeriesChart({
               const ratio = Math.max(0, Math.min(1, (event.clientX - rect.left) / rect.width))
               const svgX = MARGIN.left + plotWidth * ratio
               setBrush({ startX: svgX, currentX: svgX })
+              hover.overlayProps.onPointerDown(event)
             }}
             onPointerMove={(event) => {
               const rect = event.currentTarget.getBoundingClientRect()
               const ratio = Math.max(0, Math.min(1, (event.clientX - rect.left) / rect.width))
               const timestamp = effectiveDomain.start + spanMs * ratio
-              setHoveredIndex(findNearestRowIndex(filteredRows, timestamp))
+              hover.setHover(findNearestRowIndex(filteredRows, timestamp), event.clientX, event.clientY)
               setBrush((current) =>
                 current == null
                   ? null
                   : { ...current, currentX: MARGIN.left + plotWidth * ratio },
               )
             }}
-            onPointerLeave={() => {
-              setHoveredIndex(null)
-            }}
+            onPointerLeave={hover.overlayProps.onPointerLeave}
             onPointerUp={() => {
               if (brush == null) return
               const startRatio = (brush.startX - MARGIN.left) / plotWidth
@@ -374,31 +404,29 @@ export function DateSeriesChart({
             }}
             style={{ touchAction: 'none' }}
             aria-hidden="true"
+            tabIndex={hover.overlayProps.tabIndex}
+            onKeyDown={hover.overlayProps.onKeyDown}
+            onFocus={hover.overlayProps.onFocus}
+            onBlur={hover.overlayProps.onBlur}
           />
         </svg>
 
         {hoveredRow != null && (
-          <div
-            className="date-series-chart__tooltip"
-            style={{
-              left: `${Math.max(10, Math.min(((hoveredX ?? MARGIN.left) / SVG_W) * 100, 90))}%`,
-            }}
-          >
+          <div ref={tooltipRef} style={tooltipStyle}>
             {tooltipRenderer != null ? (
-              tooltipRenderer(hoveredRow, series, unit)
+              <div className="chart-kit-tooltip">
+                {tooltipRenderer(hoveredRow, series, unit)}
+              </div>
             ) : (
-              <>
-                <strong>{hoveredRow.label}</strong>
-                {hoveredRow.provisional ? <div>Provisional</div> : null}
-                {series.map((entry) => {
-                  const value = hoveredRow.values[entry.key]
-                  return (
-                    <div key={entry.key} style={{ color: entry.color }}>
-                      {entry.label}: {value == null ? 'Missing' : `${value.toFixed(1)} ${unit}`}
-                    </div>
-                  )
-                })}
-              </>
+              <ChartTooltip
+                title={hoveredRow.label}
+                rows={series.map((entry) => ({
+                  label: entry.label,
+                  value: hoveredRow.values[entry.key] == null ? 'Missing' : `${hoveredRow.values[entry.key]!.toFixed(1)} ${unit}`,
+                  accentColor: entry.color,
+                }))}
+                footer={hoveredRow.provisional ? 'Provisional' : undefined}
+              />
             )}
           </div>
         )}

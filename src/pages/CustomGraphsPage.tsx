@@ -1,11 +1,14 @@
 import {
   useCallback,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
   type ChangeEvent,
+  type CSSProperties,
 } from 'react'
+import { ChartTooltip, downloadChartSvg, positionTooltip, useChartHover } from '@/components/charts'
 import {
   ErrorState,
   IncompleteDataWarning,
@@ -260,6 +263,7 @@ function GraphPanel({
   ranges,
   domain,
   onDownloadPng,
+  onDownloadSvg,
 }: {
   readonly title: string
   readonly subtitle: string
@@ -267,9 +271,12 @@ function GraphPanel({
   readonly ranges: readonly TemperatureRangeSeries[]
   readonly domain: { start: number; end: number }
   readonly onDownloadPng: (svg: SVGSVGElement) => void
+  readonly onDownloadSvg: (svg: SVGSVGElement) => void
 }) {
   const svgRef = useRef<SVGSVGElement>(null)
-  const [hoveredTimestamp, setHoveredTimestamp] = useState<number | null>(null)
+  const canvasRef = useRef<HTMLDivElement>(null)
+  const tooltipRef = useRef<HTMLDivElement>(null)
+  const [tooltipStyle, setTooltipStyle] = useState<CSSProperties>({ opacity: 0 })
   const visibleSeries = series.filter((entry) => !entry.hidden)
   const filteredSeries = visibleSeries
     .map((entry) => ({
@@ -308,6 +315,7 @@ function GraphPanel({
         .sort((left, right) => left - right),
     [filteredSeries],
   )
+  const hover = useChartHover({ count: hoverTimestamps.length, containerRef: canvasRef })
 
   if (filteredSeries.length === 0 || valueDomain.length === 0) {
     return (
@@ -332,6 +340,7 @@ function GraphPanel({
     CHART_MARGIN.top + plotHeight - ((value - yMin) / Math.max(1, yMax - yMin)) * plotHeight
   const xTickPoints = buildXAxisTicks(filteredSeries[0]!.points)
   const zeroY = yScale(Math.max(0, yMin))
+  const hoveredTimestamp = hover.activeIndex != null ? hoverTimestamps[hover.activeIndex] ?? null : null
   const hoveredValues = hoveredTimestamp == null
     ? []
     : visibleSeries.map((entry) => ({
@@ -345,6 +354,27 @@ function GraphPanel({
             ?.value ?? null,
       }))
 
+  useLayoutEffect(() => {
+    if (
+      hoveredTimestamp == null ||
+      hover.clientX == null ||
+      hover.clientY == null ||
+      canvasRef.current == null ||
+      tooltipRef.current == null
+    ) {
+      setTooltipStyle({ opacity: 0 })
+      return
+    }
+    const position = positionTooltip(
+      hover.clientX,
+      hover.clientY,
+      tooltipRef.current.offsetWidth,
+      tooltipRef.current.offsetHeight,
+      canvasRef.current.getBoundingClientRect(),
+    )
+    setTooltipStyle({ left: position.left, top: position.top, opacity: 1 })
+  }, [hover.clientX, hover.clientY, hoveredTimestamp])
+
   return (
     <section className="card custom-graphs-chart-card">
       <div className="custom-graphs-chart-header">
@@ -352,6 +382,17 @@ function GraphPanel({
           <h3>{title}</h3>
           <p>{subtitle}</p>
         </div>
+        <button
+          type="button"
+          className="button button-ghost"
+          onClick={() => {
+            if (svgRef.current != null) {
+              onDownloadSvg(svgRef.current)
+            }
+          }}
+        >
+          Export SVG
+        </button>
         <button
           type="button"
           className="button button-ghost"
@@ -365,10 +406,11 @@ function GraphPanel({
         </button>
       </div>
       <ResponsiveChartContainer size="detail">
+        <div ref={canvasRef} className="chart-kit-canvas">
         <svg
           ref={svgRef}
           viewBox={`0 0 ${SVG_W} ${SVG_H}`}
-          className="custom-graphs-svg"
+          className="custom-graphs-svg chart-kit-svg"
           role="img"
           aria-label={`${title} chart. ${subtitle}`}
         >
@@ -491,7 +533,7 @@ function GraphPanel({
             width={plotWidth}
             height={plotHeight}
             fill="transparent"
-            onPointerLeave={() => setHoveredTimestamp(null)}
+            onPointerLeave={hover.overlayProps.onPointerLeave}
             onPointerMove={(event) => {
               if (hoverTimestamps.length === 0) return
               const rect = event.currentTarget.getBoundingClientRect()
@@ -506,9 +548,29 @@ function GraphPanel({
                   bestDiff = diff
                 }
               }
-              setHoveredTimestamp(best)
+              hover.setHover(hoverTimestamps.indexOf(best), event.clientX, event.clientY)
             }}
-            style={{ touchAction: 'none' }}
+            onPointerDown={(event) => {
+              if (hoverTimestamps.length === 0) return
+              const rect = event.currentTarget.getBoundingClientRect()
+              const ratio = Math.max(0, Math.min(1, (event.clientX - rect.left) / rect.width))
+              const timestamp = domain.start + (domain.end - domain.start) * ratio
+              let best = hoverTimestamps[0]!
+              let bestDiff = Math.abs(best - timestamp)
+              for (const candidate of hoverTimestamps) {
+                const diff = Math.abs(candidate - timestamp)
+                if (diff < bestDiff) {
+                  best = candidate
+                  bestDiff = diff
+                }
+              }
+              hover.setHover(hoverTimestamps.indexOf(best), event.clientX, event.clientY)
+            }}
+            style={hover.overlayProps.style}
+            tabIndex={hover.overlayProps.tabIndex}
+            onKeyDown={hover.overlayProps.onKeyDown}
+            onFocus={hover.overlayProps.onFocus}
+            onBlur={hover.overlayProps.onBlur}
           />
           {hoveredTimestamp != null ? (
             <line
@@ -521,21 +583,20 @@ function GraphPanel({
             />
           ) : null}
         </svg>
-      </ResponsiveChartContainer>
-      <div className="live-chart-data-panel" aria-live="polite" aria-atomic="true">
         {hoveredTimestamp != null ? (
-          <>
-            <span className="live-chart-data-time">
-              {formatLondonDateTimeDisplay(hoveredTimestamp)}
-            </span>
-            {hoveredValues.map((entry) => (
-              <span key={entry.label} className="live-chart-data-value" style={{ color: entry.color }}>
-                {entry.label}: {entry.value == null ? 'Missing' : `${entry.value.toFixed(1)} ${entry.unit}`}
-              </span>
-            ))}
-          </>
+          <div ref={tooltipRef} style={tooltipStyle}>
+            <ChartTooltip
+              title={formatLondonDateTimeDisplay(hoveredTimestamp)}
+              rows={hoveredValues.map((entry) => ({
+                label: entry.label,
+                value: entry.value == null ? 'Missing' : `${entry.value.toFixed(1)} ${entry.unit}`,
+                accentColor: entry.color,
+              }))}
+            />
+          </div>
         ) : null}
-      </div>
+        </div>
+      </ResponsiveChartContainer>
       <ul className="custom-graphs-inline-legend" aria-label={`${title} visible series`}>
         {visibleSeries.map((entry) => (
           <li key={entry.id}>
@@ -891,6 +952,9 @@ export default function CustomGraphsPage() {
   const handlePngDownload = async (svg: SVGSVGElement) => {
     await downloadSvgAsPng(svg, 'custom-graph-export.png')
   }
+  const handleSvgDownload = (svg: SVGSVGElement) => {
+    downloadChartSvg(svg, 'custom-graph-export.svg')
+  }
 
   const loadingClimate =
     appliedPlan != null && !appliedPlan.usesMinuteArchive && (annualQueriesLoading || dailyNormalsQuery.isLoading || monthlyNormalsQuery.isLoading)
@@ -1201,6 +1265,7 @@ export default function CustomGraphsPage() {
                   ranges={entry.ranges}
                   domain={effectiveDomain}
                   onDownloadPng={handlePngDownload}
+                  onDownloadSvg={handleSvgDownload}
                 />
               ))
             : null}

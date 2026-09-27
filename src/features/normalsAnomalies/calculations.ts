@@ -5,6 +5,7 @@ import {
   calculateTemperatureAnomaly,
 } from '@/lib/climate'
 import { RAINFALL_START_DATE } from '@/config/weather'
+import { monthNormal } from '@/features/normals/rainfallNormals'
 import type {
   ClimateDateString,
   ClimateDay,
@@ -145,15 +146,14 @@ export interface MonthlyRainfallRow {
 export function buildMonthlyRainfallRows(
   year: number,
   summaries: readonly MonthlySummary[],
-  monthlyNormals: readonly MonthlyNormal[],
+  _monthlyNormals: readonly MonthlyNormal[],
 ): readonly MonthlyRainfallRow[] {
   return MONTH_NAMES.map((name, idx) => {
     const m = idx + 1
     const s = summaries.find((s) => s.month === m) ?? null
-    const normal = monthlyNormals.find((n) => n.month === m) ?? null
     const rainfallUnavailable = isRainfallUnavailableForMonth(year, m)
     const observedMm = rainfallUnavailable ? null : (s?.rainfallTotalMm ?? null)
-    const normalMm = normal?.rainfallMm ?? null
+    const normalMm = monthNormal(idx)
     const coverage = s?.coverage ?? null
     const validDays = coverage?.rainfall?.valid ?? 0
     const expectedDays = coverage?.expectedDays ?? daysInMonthOf(year, m)

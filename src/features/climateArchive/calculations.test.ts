@@ -214,8 +214,8 @@ describe('buildMonthlySummary', () => {
     expect(summary.meanMinTempAnomalyC).toBeCloseTo(4)
     // Mean = 20, normal = 16 → anomaly = +4
     expect(summary.meanTempAnomalyC).toBeCloseTo(4)
-    // Rainfall total = 30 days × 2.5 = 75, normal = 50 → 150%
-    expect(summary.rainfallPercentageOfNormal).toBeCloseTo(150)
+    // Rainfall total = 30 days × 2.5 = 75, fixed June normal = 64.8
+    expect(summary.rainfallPercentageOfNormal).toBeCloseTo((75 / 64.8) * 100)
   })
 
   it('marks current month as provisional', () => {

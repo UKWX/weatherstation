@@ -56,7 +56,8 @@ describe('LiveLineChart', () => {
     const { container, overlay } = renderChart()
 
     fireEvent.pointerMove(overlay!, { clientX: 94, clientY: 90 })
-    expect(container.querySelector('.live-chart-data-panel')?.textContent).toContain('Primary: 0.0 °C')
+    expect(container.querySelector('.chart-kit-tooltip')?.textContent).toContain('Primary')
+    expect(container.querySelector('.chart-kit-tooltip')?.textContent).toContain('0.0 °C')
   })
 
 })

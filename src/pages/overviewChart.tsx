@@ -1,6 +1,9 @@
-import { useCallback, useMemo, useRef, useState, type PointerEvent } from 'react'
+import { useCallback, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
+import { ChartTooltip } from '@/components/charts/ChartTooltip'
+import { positionTooltip } from '@/components/charts/positionTooltip'
+import { useChartHover } from '@/components/charts/useChartHover'
 import { EUROPE_LONDON_TIMEZONE } from '@/config/weather'
-import { ResponsiveChartContainer } from '@/components/ui'
+import { ResponsiveChartContainer, VisuallyHidden } from '@/components/ui'
 import type { RecentObservation } from '@/types/weather'
 
 export type OverviewChartType = 'line' | 'area' | 'bar' | 'scatter'
@@ -195,7 +198,9 @@ export function OverviewChart({
   height = 320,
 }: OverviewChartProps) {
   const svgRef = useRef<SVGSVGElement | null>(null)
-  const [hoveredIndex, setHoveredIndex] = useState<number | null>(null)
+  const canvasRef = useRef<HTMLDivElement | null>(null)
+  const tooltipRef = useRef<HTMLDivElement | null>(null)
+  const [tooltipStyle, setTooltipStyle] = useState<CSSProperties>({ opacity: 0 })
 
   const enabledAxes = useMemo(() => {
     const axes = Array.from(new Set(enabledSeries.map((series) => series.axis)))
@@ -286,20 +291,40 @@ export function OverviewChart({
     [],
   )
 
-  const handlePointerMove = useCallback(
-    (event: PointerEvent<SVGRectElement>) => {
-      if (n === 0) {
-        return
-      }
-      const rect = event.currentTarget.getBoundingClientRect()
-      const ratio = Math.max(0, Math.min(1, (event.clientX - rect.left) / rect.width))
-      const index = Math.round(ratio * (n - 1))
-      setHoveredIndex(Math.max(0, Math.min(n - 1, index)))
-    },
-    [n],
-  )
+  const hover = useChartHover({ count: n, containerRef: canvasRef })
+  const hoveredX = hover.activeIndex != null ? xForIndex(hover.activeIndex) : null
+  const hoveredPoint = hover.activeIndex != null ? points[hover.activeIndex] : null
+  const liveSummary =
+    hoveredPoint == null
+      ? null
+      : [
+          tooltipFormatter.format(hoveredPoint.t),
+          ...enabledSeries.map((series) => {
+            const value = hoveredPoint.values[series.id]
+            return `${series.label}: ${value == null ? '—' : `${value.toFixed(1)} ${series.unit}`}`
+          }),
+        ].join('. ')
 
-  const handlePointerLeave = useCallback(() => setHoveredIndex(null), [])
+  useLayoutEffect(() => {
+    if (
+      hover.activeIndex == null ||
+      hover.clientX == null ||
+      hover.clientY == null ||
+      canvasRef.current == null ||
+      tooltipRef.current == null
+    ) {
+      setTooltipStyle({ opacity: 0 })
+      return
+    }
+    const position = positionTooltip(
+      hover.clientX,
+      hover.clientY,
+      tooltipRef.current.offsetWidth,
+      tooltipRef.current.offsetHeight,
+      canvasRef.current.getBoundingClientRect(),
+    )
+    setTooltipStyle({ left: position.left, top: position.top, opacity: 1 })
+  }, [hover.activeIndex, hover.clientX, hover.clientY])
 
   if (points.length === 0 || enabledSeries.length === 0) {
     return (
@@ -316,14 +341,12 @@ export function OverviewChart({
   const leftScale = leftAxis != null ? axisScales[leftAxis] : undefined
   const leftTicks = leftScale != null ? niceTicks(leftScale.min, leftScale.max) : []
 
-  const hoveredX = hoveredIndex != null ? xForIndex(hoveredIndex) : null
-  const hoveredPoint = hoveredIndex != null ? points[hoveredIndex] : null
-
   return (
     <ResponsiveChartContainer size="page">
+      <div ref={canvasRef} className="chart-kit-canvas">
       <svg
         ref={svgRef}
-        className="overview-chart-svg"
+        className="overview-chart-svg chart-kit-svg"
         viewBox={`0 0 ${SVG_W} ${SVG_H}`}
         role="img"
         aria-label="Overview weather chart"
@@ -451,19 +474,6 @@ export function OverviewChart({
               x2={hoveredX}
               y2={margin.top + plotH}
             />
-            <ChartTooltip
-              x={hoveredX}
-              plotLeft={margin.left}
-              plotRight={margin.left + plotW}
-              top={margin.top}
-              timeLabel={tooltipFormatter.format(hoveredPoint.t)}
-              rows={enabledSeries.map((series) => ({
-                label: series.label,
-                color: series.color,
-                value: hoveredPoint.values[series.id],
-                unit: series.unit,
-              }))}
-            />
           </>
         ) : null}
 
@@ -474,11 +484,30 @@ export function OverviewChart({
           width={plotW}
           height={plotH}
           fill="transparent"
-          onPointerMove={handlePointerMove}
-          onPointerLeave={handlePointerLeave}
-          style={{ touchAction: 'none' }}
+          onPointerMove={hover.overlayProps.onPointerMove}
+          onPointerDown={hover.overlayProps.onPointerDown}
+          onPointerLeave={hover.overlayProps.onPointerLeave}
+          style={hover.overlayProps.style}
+          tabIndex={hover.overlayProps.tabIndex}
+          onKeyDown={hover.overlayProps.onKeyDown}
+          onFocus={hover.overlayProps.onFocus}
+          onBlur={hover.overlayProps.onBlur}
         />
       </svg>
+      {hoveredPoint != null ? (
+        <div ref={tooltipRef} style={tooltipStyle}>
+          <ChartTooltip
+            title={tooltipFormatter.format(hoveredPoint.t)}
+            rows={enabledSeries.map((series) => ({
+              label: series.label,
+              value: hoveredPoint.values[series.id] == null ? '—' : `${hoveredPoint.values[series.id]!.toFixed(1)} ${series.unit}`,
+              accentColor: series.color,
+            }))}
+          />
+        </div>
+      ) : null}
+      {liveSummary != null ? <VisuallyHidden><span aria-live="polite">{liveSummary}</span></VisuallyHidden> : null}
+      </div>
     </ResponsiveChartContainer>
   )
 }
@@ -625,81 +654,4 @@ function buildAreaPath(
   const first = points[0]
   const last = points[points.length - 1]
   return `${line} L ${last.x.toFixed(2)} ${baselineY.toFixed(2)} L ${first.x.toFixed(2)} ${baselineY.toFixed(2)} Z`
-}
-
-function ChartTooltip({
-  x,
-  plotLeft,
-  plotRight,
-  top,
-  timeLabel,
-  rows,
-}: {
-  readonly x: number
-  readonly plotLeft: number
-  readonly plotRight: number
-  readonly top: number
-  readonly timeLabel: string
-  readonly rows: ReadonlyArray<{
-    label: string
-    color: string
-    value: number | null
-    unit: string
-  }>
-}) {
-  const boxWidth = 168
-  const rowHeight = 15
-  const boxHeight = 20 + rows.length * rowHeight
-  const preferRight = x + 12 + boxWidth <= plotRight
-  const boxX = preferRight ? x + 12 : Math.max(plotLeft, x - 12 - boxWidth)
-  const boxY = top + 6
-
-  return (
-    <g pointerEvents="none">
-      <rect
-        x={boxX}
-        y={boxY}
-        width={boxWidth}
-        height={boxHeight}
-        rx={6}
-        fill="var(--chart-tooltip-background)"
-        stroke="var(--chart-tooltip-border)"
-      />
-      <text
-        x={boxX + 8}
-        y={boxY + 15}
-        fill="var(--chart-tooltip-text)"
-        fontSize={11}
-        fontWeight={700}
-      >
-        {timeLabel}
-      </text>
-      {rows.map((row, index) => {
-        const rowY = boxY + 20 + (index + 1) * rowHeight - 4
-        return (
-          <g key={row.label}>
-            <circle cx={boxX + 12} cy={rowY - 4} r={3.5} fill={row.color} />
-            <text
-              x={boxX + 20}
-              y={rowY}
-              fill="var(--chart-tooltip-text)"
-              fontSize={10.5}
-            >
-              {row.label}
-            </text>
-            <text
-              x={boxX + boxWidth - 8}
-              y={rowY}
-              fill="var(--chart-tooltip-text)"
-              fontSize={10.5}
-              fontWeight={700}
-              textAnchor="end"
-            >
-              {row.value == null ? '—' : `${row.value.toFixed(1)} ${row.unit}`}
-            </text>
-          </g>
-        )
-      })}
-    </g>
-  )
 }

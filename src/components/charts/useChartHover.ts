@@ -66,10 +66,8 @@ export function useChartHover({
     () => ({
       onPointerMove: setFromEvent,
       onPointerDown: setFromEvent,
-      onPointerLeave: (event: ReactPointerEvent<SVGRectElement>) => {
-        if (event.pointerType === 'mouse') {
-          clear()
-        }
+      onPointerLeave: () => {
+        clear()
       },
       style: { touchAction: 'none' } as const,
       tabIndex: 0,

@@ -3,7 +3,7 @@ import { ChartTooltip } from '@/components/charts/ChartTooltip'
 import { positionTooltip } from '@/components/charts/positionTooltip'
 import { useChartHover } from '@/components/charts/useChartHover'
 import { EUROPE_LONDON_TIMEZONE } from '@/config/weather'
-import { ResponsiveChartContainer } from '@/components/ui'
+import { ResponsiveChartContainer, VisuallyHidden } from '@/components/ui'
 import type { RecentObservation } from '@/types/weather'
 
 export type OverviewChartType = 'line' | 'area' | 'bar' | 'scatter'
@@ -294,6 +294,16 @@ export function OverviewChart({
   const hover = useChartHover({ count: n, containerRef: canvasRef })
   const hoveredX = hover.activeIndex != null ? xForIndex(hover.activeIndex) : null
   const hoveredPoint = hover.activeIndex != null ? points[hover.activeIndex] : null
+  const liveSummary =
+    hoveredPoint == null
+      ? null
+      : [
+          tooltipFormatter.format(hoveredPoint.t),
+          ...enabledSeries.map((series) => {
+            const value = hoveredPoint.values[series.id]
+            return `${series.label}: ${value == null ? '—' : `${value.toFixed(1)} ${series.unit}`}`
+          }),
+        ].join('. ')
 
   useLayoutEffect(() => {
     if (
@@ -496,6 +506,7 @@ export function OverviewChart({
           />
         </div>
       ) : null}
+      {liveSummary != null ? <VisuallyHidden><span aria-live="polite">{liveSummary}</span></VisuallyHidden> : null}
       </div>
     </ResponsiveChartContainer>
   )

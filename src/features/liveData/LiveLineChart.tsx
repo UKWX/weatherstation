@@ -3,7 +3,7 @@ import { ChartTooltip } from '@/components/charts/ChartTooltip'
 import { positionTooltip } from '@/components/charts/positionTooltip'
 import { useChartHover } from '@/components/charts/useChartHover'
 import { EUROPE_LONDON_TIMEZONE } from '@/config/weather'
-import { ResponsiveChartContainer, chartTokens } from '@/components/ui'
+import { ResponsiveChartContainer, VisuallyHidden, chartTokens } from '@/components/ui'
 
 // ---------- SVG layout constants ----------
 const SVG_W = 600
@@ -265,6 +265,10 @@ export function LiveLineChart({
         ? fmtTimeDetailed(displayTimestamp)
         : `Latest (${fmtTime(displayTimestamp)})`
       : null
+  const liveSummary =
+    panelTimeLabel == null
+      ? null
+      : [panelTimeLabel, `${primary.label}: ${fmtVal(panelPrimaryValue)}`, ...(secondary ? [`${secondary.label}: ${fmtVal(panelSecondaryValue)}`] : [])].join('. ')
 
   function fmtVal(v: number | null): string {
     if (v == null) return '—'
@@ -490,6 +494,7 @@ export function LiveLineChart({
             />
           </div>
         ) : null}
+        {liveSummary != null ? <VisuallyHidden><span aria-live="polite">{liveSummary}</span></VisuallyHidden> : null}
         </div>
       </ResponsiveChartContainer>
     </article>

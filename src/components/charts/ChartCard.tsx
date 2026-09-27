@@ -32,6 +32,8 @@ export function ChartCard({
   readonly headerAside?: ReactNode
   readonly children: ReactNode
 }) {
+  const canExport = svgRef?.current != null
+
   return (
     <section className="card chart-kit-card">
       <div className="chart-kit-card__header">
@@ -56,10 +58,28 @@ export function ChartCard({
           ) : <span />}
           {exportable && svgRef != null && svgFilename != null && pngFilename != null ? (
             <div className="chart-kit-card__actions">
-              <button type="button" className="button" onClick={() => downloadChartSvg(svgRef.current!, svgFilename)}>
+              <button
+                type="button"
+                className="button"
+                disabled={!canExport}
+                onClick={() => {
+                  if (svgRef.current != null) {
+                    downloadChartSvg(svgRef.current, svgFilename)
+                  }
+                }}
+              >
                 Download SVG
               </button>
-              <button type="button" className="button button-outline" onClick={() => void downloadChartPng(svgRef.current!, pngFilename)}>
+              <button
+                type="button"
+                className="button button-outline"
+                disabled={!canExport}
+                onClick={() => {
+                  if (svgRef.current != null) {
+                    void downloadChartPng(svgRef.current, pngFilename)
+                  }
+                }}
+              >
                 Download PNG
               </button>
             </div>

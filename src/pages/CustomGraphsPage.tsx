@@ -374,6 +374,13 @@ function GraphPanel({
             ?.points.find((point) => point.timestamp === hoveredTimestamp)
             ?.value ?? null,
       }))
+  const liveSummary =
+    hoveredTimestamp == null
+      ? null
+      : [
+         formatLondonDateTimeDisplay(hoveredTimestamp),
+         ...hoveredValues.map((entry) => `${entry.label}: ${entry.value == null ? 'Missing' : `${entry.value.toFixed(1)} ${entry.unit}`}`),
+       ].join('. ')
 
   return (
     <section className="card custom-graphs-chart-card">
@@ -595,6 +602,7 @@ function GraphPanel({
             />
           </div>
         ) : null}
+        {liveSummary != null ? <VisuallyHidden><span aria-live="polite">{liveSummary}</span></VisuallyHidden> : null}
         </div>
       </ResponsiveChartContainer>
       <ul className="custom-graphs-inline-legend" aria-label={`${title} visible series`}>

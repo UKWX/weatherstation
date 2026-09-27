@@ -139,8 +139,8 @@ describe('AnnualOverviewPage', () => {
     renderPage()
 
     await user.click(screen.getByRole('tab', { name: 'Rainfall accumulation' }))
-    expect(screen.getByRole('heading', { name: 'Rainfall accumulation by year' })).toBeInTheDocument()
-    expect(screen.getByText('1991–2020 avg')).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Rainfall accumulation' })).toBeInTheDocument()
+    expect(screen.getByText('Average total (1991–2020)')).toBeInTheDocument()
 
     await user.click(screen.getByRole('tab', { name: 'Temperature comparison' }))
     expect(screen.getByRole('heading', { name: 'Temperature comparison by year' })).toBeInTheDocument()

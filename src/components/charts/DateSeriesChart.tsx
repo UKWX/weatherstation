@@ -1,13 +1,16 @@
 import type { CSSProperties, ReactNode } from 'react'
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { ChartCard, type ChartLegendItem } from '@/components/charts/ChartCard'
 import { ChartTooltip } from '@/components/charts/ChartTooltip'
+import { chartTheme } from '@/components/charts/chartTheme'
 import { positionTooltip } from '@/components/charts/positionTooltip'
 import { useChartHover } from '@/components/charts/useChartHover'
+import { VisuallyHidden } from '@/components/ui'
 import { chartTokens } from '@/components/ui/chartTokens'
 
-const SVG_W = 900
-const SVG_H = 420
-const MARGIN = { top: 18, right: 28, bottom: 62, left: 64 } as const
+const SVG_W = chartTheme.exportWidth
+const SVG_H = chartTheme.logicalHeight
+const MARGIN = chartTheme.margins
 
 export interface DateSeriesChartRow {
   readonly timestamp: number
@@ -30,6 +33,13 @@ export interface DateSeriesChartPreset {
 }
 
 interface DateSeriesChartProps {
+  readonly title?: ReactNode
+  readonly subtitle?: ReactNode
+  readonly footnote?: ReactNode
+  readonly svgFilename?: string
+  readonly pngFilename?: string
+  readonly minWidth?: number
+  readonly exportable?: boolean
   readonly rows: readonly DateSeriesChartRow[]
   readonly series: readonly DateSeriesChartSeries[]
   readonly unit: string
@@ -99,6 +109,13 @@ function findNearestRowIndex(rows: readonly DateSeriesChartRow[], target: number
 }
 
 export function DateSeriesChart({
+  title,
+  subtitle,
+  footnote,
+  svgFilename,
+  pngFilename,
+  minWidth = 1150,
+  exportable = svgFilename != null && pngFilename != null,
   rows,
   series,
   unit,
@@ -172,6 +189,24 @@ export function DateSeriesChart({
     domain != null &&
     fullDomain != null &&
     (domain.start !== fullDomain.start || domain.end !== fullDomain.end)
+  const legend = useMemo<readonly ChartLegendItem[]>(
+    () =>
+      series.map((entry) => ({
+        label: entry.label,
+        swatch: (
+          <span
+            className="chart-kit-swatch"
+            style={{
+              background: entry.dashed ? 'transparent' : entry.color,
+              borderColor: entry.color,
+              borderStyle: entry.dashed ? 'dashed' : 'solid',
+            }}
+            aria-hidden="true"
+          />
+        ),
+      })),
+    [series],
+  )
 
   useLayoutEffect(() => {
     if (
@@ -203,7 +238,16 @@ export function DateSeriesChart({
     return <p className="normals-no-data">No chart data available.</p>
   }
 
-  return (
+  const hoveredSummary =
+    hoveredRow == null
+      ? null
+      : [
+          hoveredRow.label,
+          ...series.map((entry) => `${entry.label}: ${hoveredRow.values[entry.key] == null ? 'Missing' : `${hoveredRow.values[entry.key]!.toFixed(1)} ${unit}`}`),
+          ...(hoveredRow.provisional ? ['Provisional'] : []),
+        ].join('. ')
+
+  const chartBody = (
     <div className="responsive-chart-fill date-series-chart">
       {(presets.length > 0 || isZoomed) && (
         <div className="date-series-chart__controls">
@@ -340,6 +384,7 @@ export function DateSeriesChart({
 
           {hoveredX != null && (
             <line
+              data-export-ignore="true"
               x1={hoveredX}
               x2={hoveredX}
               y1={MARGIN.top}
@@ -351,6 +396,7 @@ export function DateSeriesChart({
 
           {brush != null && (
             <rect
+              data-export-ignore="true"
               x={Math.min(brush.startX, brush.currentX)}
               y={MARGIN.top}
               width={Math.abs(brush.currentX - brush.startX)}
@@ -363,6 +409,7 @@ export function DateSeriesChart({
           )}
 
           <rect
+            data-export-ignore="true"
             x={MARGIN.left}
             y={MARGIN.top}
             width={plotWidth}
@@ -430,7 +477,32 @@ export function DateSeriesChart({
             )}
           </div>
         )}
+        {hoveredSummary != null ? (
+          <VisuallyHidden>
+            <span aria-live="polite">{hoveredSummary}</span>
+          </VisuallyHidden>
+        ) : null}
       </div>
     </div>
   )
+
+  if (title != null) {
+    return (
+      <ChartCard
+        title={title}
+        subtitle={subtitle}
+        legend={legend}
+        footnote={footnote}
+        svgRef={svgRef}
+        svgFilename={svgFilename}
+        pngFilename={pngFilename}
+        minWidth={minWidth}
+        exportable={exportable}
+      >
+        {chartBody}
+      </ChartCard>
+    )
+  }
+
+  return chartBody
 }

@@ -1240,6 +1240,19 @@ th {
   gap: 0.35rem;
 }
 
+.annual-overview-rainfall-tiles {
+  margin-top: 1rem;
+}
+
+.annual-overview-rainfall-table {
+  margin-top: 1.25rem;
+}
+
+.annual-overview-rainfall-table h3 {
+  margin: 0 0 0.75rem;
+  font-size: 1rem;
+}
+
 .annual-overview-swatch {
   display: inline-block;
   width: 1.4rem;

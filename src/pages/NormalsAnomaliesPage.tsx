@@ -56,6 +56,7 @@ import type {
   MonthlySummary,
   MonthlyNormal,
 } from '@/types/weather'
+import { ClimateStatsCharts } from '@/features/climateStats/ClimateStatsCharts'
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -1203,6 +1204,14 @@ export default function NormalsAnomaliesPage() {
       <MonthlyTempAnomaliesSection year={year} summaries={summaries} />
 
       <MonthlyRainfallSection year={year} summaries={summaries} monthlyNormals={monthlyNormals} />
+
+      <ClimateStatsCharts
+        year={year}
+        records={yearRecords}
+        summaries={summaries}
+        dailyNormals={dailyNormals}
+        monthlyNormals={monthlyNormals}
+      />
 
       <YtdContextSection year={year} summaries={summaries} monthlyNormals={monthlyNormals} />
 

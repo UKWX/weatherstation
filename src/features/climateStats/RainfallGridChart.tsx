@@ -10,7 +10,7 @@ const cellWidth = 69
 const rowHeight = 39
 function blend(color: string, intensity: number): string {
   const rgb = color.match(/\w\w/g)?.map((part) => parseInt(part, 16)) ?? [255, 255, 255]
-  return `rgb(${rgb.map((channel) => Math.round(245 + (channel - 245) * Math.min(1, intensity))).join(',')})`
+  return `rgb(${rgb.map((channel, index) => Math.round([245, 247, 249][index]! + (channel - [245, 247, 249][index]!) * Math.min(1, intensity))).join(',')})`
 }
 export function RainfallGridChart({ records, currentYear }: { readonly records: readonly ClimateDay[]; readonly currentYear: number }) {
   const svgRef = useRef<SVGSVGElement>(null)
@@ -20,6 +20,7 @@ export function RainfallGridChart({ records, currentYear }: { readonly records: 
   const cells = buildRainfallGrid(records, 2020, currentYear)
   const height = 100 + years.length * rowHeight
   const selected = active && active.month < 13 ? cells.find((cell) => cell.year === active.year && cell.month === active.month) : null
+  const wettest = active && active.month < 13 ? records.filter((record) => record.date.startsWith(`${active.year}-${String(active.month).padStart(2, '0')}-`) && record.rainfallMm != null).sort((a, b) => (b.rainfallMm ?? 0) - (a.rainfallMm ?? 0))[0] : null
   const latest = records.filter((record) => record.rainfallMm != null && record.date.startsWith(String(currentYear))).map((record) => record.date).sort().at(-1)
   function paint(percent: number | null): string { return percent == null ? '#f5f7f9' : blend(percent >= 100 ? '#2f5fa8' : '#c98a3a', percent >= 100 ? (percent - 100) / 150 : (100 - percent) / 100) }
   return <div ref={containerRef} style={{ position: 'relative', minWidth: 0 }}>
@@ -35,7 +36,8 @@ export function RainfallGridChart({ records, currentYear }: { readonly records: 
           return <g key={year}><text x={65} y={58 + index * rowHeight} textAnchor="end" fontSize="13" fill="#1c2530">{year}</text>
             {Array.from({ length: 13 }, (_, m) => {
               const cell = yearCells[m]
-              const pct = m === 12 ? (sum > 0 ? yearPercent : null) : cell?.percent ?? null
+              const yearComplete = yearCells.every((entry) => entry.totalMm != null && records.filter((row) => row.date.startsWith(`${year}-${String(entry.month).padStart(2, '0')}-`) && row.rainfallMm != null).length >= Math.ceil(new Date(Date.UTC(year, entry.month, 0)).getUTCDate() * .9))
+              const pct = m === 12 ? (sum > 0 && (year === currentYear || yearComplete) ? yearPercent : null) : cell?.percent ?? null
               const x = 78 + m * cellWidth
               const y = 39 + index * rowHeight
               const observations = records.filter((row) => row.date.startsWith(`${year}-${String(m + 1).padStart(2, '0')}`) && row.rainfallMm != null).length
@@ -54,10 +56,12 @@ export function RainfallGridChart({ records, currentYear }: { readonly records: 
       </svg> : <p>No rainfall observations available.</p>}
     </ChartCard>
     {active && containerRef.current ? <ChartTooltip title={`${months[active.month - 1] ?? 'Year'} ${active.year}`} rows={[
-      { label: 'Rainfall', value: `${selected?.totalMm.toFixed(1) ?? '—'} mm` },
+      { label: 'Rainfall', value: `${selected?.totalMm?.toFixed(1) ?? '—'} mm` },
       { label: '1991–2020 average', value: `${RAIN_MONTHLY_NORMALS_MM[active.month - 1] ?? ANNUAL_RAIN_NORMAL_MM} mm` },
       { label: 'Of average', value: `${Math.round(selected?.percent ?? 0)}%` },
       { label: 'Rain days', value: selected?.rainDays ?? '—' },
+      { label: 'Wettest day', value: wettest ? `${wettest.rainfallMm?.toFixed(1)} mm (${wettest.date})` : '—' },
+      ...(selected && active.month < 13 && records.filter((row) => row.date.startsWith(`${active.year}-${String(active.month).padStart(2, '0')}-`) && row.rainfallMm != null).length < Math.ceil(new Date(Date.UTC(active.year, active.month, 0)).getUTCDate() * .9) ? [{ label: 'Coverage', value: `Partial month (${records.filter((row) => row.date.startsWith(`${active.year}-${String(active.month).padStart(2, '0')}-`) && row.rainfallMm != null).length} of ${new Date(Date.UTC(active.year, active.month, 0)).getUTCDate()} days)` }] : []),
     ]} style={{ position: 'absolute', ...positionTooltip(active.x, active.y, 230, 160, containerRef.current.getBoundingClientRect()) }} /> : null}
   </div>
 }

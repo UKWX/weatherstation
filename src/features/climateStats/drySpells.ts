@@ -8,7 +8,8 @@ export interface DrySpell {
 }
 
 export function buildDrySpells(records: readonly ClimateDay[], minimum = 5): readonly DrySpell[] {
-  const sorted = [...records].sort((a, b) => a.date.localeCompare(b.date))
+  const sorted = [...new Map(records.map((record) => [record.date, record])).values()]
+    .sort((a, b) => a.date.localeCompare(b.date))
   const spells: DrySpell[] = []
   let start: string | null = null
   let end: string | null = null

@@ -13,3 +13,8 @@ export function buildOnThisDayRows(records: readonly ClimateDay[], month: number
     }))
     .sort((a, b) => a.year - b.year)
 }
+
+export function rankOnThisDay(values: readonly number[], value: number, descending = true): number {
+  return 1 + values.filter((candidate) =>
+    Number.isFinite(candidate) && (descending ? candidate > value : candidate < value)).length
+}

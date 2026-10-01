@@ -1,5 +1,7 @@
 import { useMemo, useState } from 'react'
 import { RainfallGridChart } from '@/features/climateStats/RainfallGridChart'
+import { TemperatureAnomalyGridChart } from '@/features/climateStats/TemperatureAnomalyGridChart'
+import { WarmWetQuadrantChart } from '@/features/climateStats/WarmWetQuadrantChart'
 import { DateSeriesChart } from '@/components/charts/DateSeriesChart'
 import {
   Badge,
@@ -1205,9 +1207,11 @@ export default function NormalsAnomaliesPage() {
       />
 
       <MonthlyTempAnomaliesSection year={year} summaries={summaries} />
+      <TemperatureAnomalyGridChart records={historyRecords} currentYear={latestYear} />
 
       <MonthlyRainfallSection year={year} summaries={summaries} monthlyNormals={monthlyNormals} />
       <RainfallGridChart records={historyRecords} currentYear={latestYear} />
+      <WarmWetQuadrantChart records={historyRecords} currentYear={latestYear} />
 
       <ClimateStatsCharts
         year={year}

@@ -1,5 +1,6 @@
 import { useEffect, useMemo } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
+import { TodayEveryYearChart } from '@/features/climateStats/TodayEveryYearChart'
 import { Badge, ErrorState, ResponsiveChartContainer, Skeleton, TableWrapper, VisuallyHidden } from '@/components/ui'
 import { WEATHER_UNITS } from '@/config/weather'
 import {
@@ -155,6 +156,7 @@ export default function OnThisDayPage() {
   )
   const annualQueries = useAnnualClimateQueries(availableYears)
   const annualPayloads = annualQueries.map((query) => query.data)
+  const historyRecords = annualPayloads.flatMap((payload) => payload?.records ?? [])
   const anyAnnualLoading = annualQueries.some((query) => query.isLoading && query.data == null)
   const annualError = annualQueries.find((query) => query.error != null && query.data == null)
   const data = useMemo(
@@ -292,6 +294,7 @@ export default function OnThisDayPage() {
         </div>
         <TemperatureHistoryChart rows={data.chartRows} />
       </section>
+      <TodayEveryYearChart records={historyRecords} month={month} day={day} currentYear={availableYears.at(-1) ?? new Date().getFullYear()} />
 
       <section className="card">
         <div className="archive-card-heading">

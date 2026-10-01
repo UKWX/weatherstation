@@ -7,6 +7,8 @@ import {
 } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { RainfallYearOnYearChart } from '@/features/climateStats/RainfallYearOnYearChart'
+import { MonthlySpreadChart } from '@/features/climateStats/MonthlySpreadChart'
+import { DrySpellsChart } from '@/features/climateStats/DrySpellsChart'
 import {
   Badge,
   ErrorState,
@@ -552,12 +554,8 @@ function CoverageSummary({
 
 function AnnualTrendCharts({
   trendData,
-  historyRecords,
-  currentYear,
 }: {
   readonly trendData: ReturnType<typeof buildAnnualTrendData>
-  readonly historyRecords: readonly ClimateDay[]
-  readonly currentYear: number
 }) {
   if (trendData.points.length === 0) {
     return <p className="archive-obs-note">No annual trend data available.</p>
@@ -871,6 +869,8 @@ function AnnualView({
   monthlyNormals,
   onSelectMonth,
   trendData,
+  historyRecords,
+  currentYear,
 }: {
   readonly summary: AnnualSummaryType
   readonly year: number
@@ -880,6 +880,8 @@ function AnnualView({
   readonly monthlyNormals: readonly { month: number; meanTempC: number | null; meanMaxTempC: number | null; meanMinTempC: number | null }[]
   readonly onSelectMonth: (month: number) => void
   readonly trendData: ReturnType<typeof buildAnnualTrendData>
+  readonly historyRecords: readonly ClimateDay[]
+  readonly currentYear: number
 }) {
   const rainfallYearAvailable = isRainfallAvailableForYear(year)
   const rainfallYearComplete = rainfallYearAvailable && summary.coverage.rainfall.complete
@@ -1031,13 +1033,15 @@ function AnnualView({
               label="Rainfall"
             />
           )}
-          <RainfallYearOnYearChart records={historyRecords} currentYear={currentYear} />
         </div>
 
         <p className="archive-obs-note">
           Valid observations: {payload.observationCount ?? summary.coverage.maxTemperature.valid}.
         </p>
       </section>
+      <RainfallYearOnYearChart records={historyRecords} currentYear={currentYear} />
+      <DrySpellsChart records={historyRecords} currentYear={currentYear} />
+      <MonthlySpreadChart records={historyRecords} currentYear={currentYear} />
 
       <section className="card" aria-labelledby="monthly-breakdown-title">
         <h2 id="monthly-breakdown-title">Monthly breakdown</h2>

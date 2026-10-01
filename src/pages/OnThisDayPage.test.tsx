@@ -156,6 +156,7 @@ describe('OnThisDayPage', () => {
     })
     expect(screen.getByText(/across 2 available years/i)).toBeInTheDocument()
     expect(screen.getByText(/does not provide a daily normal/i)).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Today vs every year' })).toBeInTheDocument()
   })
 
   it('shows tied highest max years and archive links', async () => {

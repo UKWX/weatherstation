@@ -17,22 +17,22 @@ describe('temperature anomaly grid', () => {
 
   it('uses paired daily temperatures, a 90% calendar-day threshold, and leap years', () => {
     const february = Array.from({ length: 27 }, (_, index) =>
-      day(`2024-02-${String(index + 1).padStart(2, '0')}`, 12, 2))
+      day(`2024-02-${String(index + 1).padStart(2, '0')}` as ClimateDay['date'], 12, 2))
     const cells = buildTemperatureAnomalyGrid([...february, day('2024-02-28', null, 2)], 2024, 2024)
     expect(cells[1]).toMatchObject({
       meanC: 7, anomalyC: 7 - TEMP_MONTHLY_NORMALS_C.mean[1], complete: true,
     })
     expect(buildTemperatureAnomalyGrid(february.slice(0, 26), 2024, 2024)[1]).toMatchObject({
-      complete: false, anomalyC: null, meanC: 7,
+      complete: false, anomalyC: 7 - TEMP_MONTHLY_NORMALS_C.mean[1], meanC: 7,
     })
   })
 
   it('does not count duplicate days or provisional months as complete', () => {
     const days = Array.from({ length: 28 }, (_, index) =>
-      day(`2023-02-${String(index + 1).padStart(2, '0')}`, 10, 0))
+      day(`2023-02-${String(index + 1).padStart(2, '0')}` as ClimateDay['date'], 10, 0))
     expect(buildTemperatureAnomalyGrid([...days, day('2023-02-01', 10, 0, 'provisional')], 2023, 2023)[1])
-      .toMatchObject({ complete: false, anomalyC: null })
+      .toMatchObject({ complete: false, anomalyC: 5 - TEMP_MONTHLY_NORMALS_C.mean[1] })
     expect(buildTemperatureAnomalyGrid([...days.slice(0, 24), ...days.slice(0, 4)], 2023, 2023)[1])
-      .toMatchObject({ complete: false, anomalyC: null })
+      .toMatchObject({ complete: false, anomalyC: 5 - TEMP_MONTHLY_NORMALS_C.mean[1] })
   })
 })

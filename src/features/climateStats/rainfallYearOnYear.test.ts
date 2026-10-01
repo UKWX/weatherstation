@@ -28,4 +28,14 @@ describe('year-on-year cumulative rainfall', () => {
       { year: 2020, date: '2020-05-03', totalMm: 1 },
     ])
   })
+
+  it('counts each date only once and carries accumulated rainfall across a year boundary only within the same year', () => {
+    expect(buildCumulativeRainfall([
+      day('2023-12-31', 9), day('2024-01-01', 1), day('2024-01-01', 2),
+      day('2024-01-02', 3),
+    ], 2024)).toEqual([
+      { year: 2024, date: '2024-01-01', totalMm: 2 },
+      { year: 2024, date: '2024-01-02', totalMm: 5 },
+    ])
+  })
 })

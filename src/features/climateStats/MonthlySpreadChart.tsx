@@ -1,4 +1,4 @@
-import { useRef } from 'react'
+import { useRef, useState } from 'react'
 import { ChartCard } from '@/components/charts/ChartCard'
 import { chartTheme, MONTH_SHORT } from '@/components/charts/chartTheme'
 import type { ClimateDay } from '@/types/weather'
@@ -15,13 +15,19 @@ const COL = (W - LEFT - 35) / 12
 const MAX_COLOR = chartTheme.colors.actualMax
 const MIN_COLOR = chartTheme.colors.actualMin
 
-export function MonthlySpreadChart({ records }: { readonly records: readonly ClimateDay[] }) {
+export function MonthlySpreadChart({ records, currentYear }: {
+  readonly records: readonly ClimateDay[]
+  readonly currentYear: number
+}) {
   const svgRef = useRef<SVGSVGElement>(null)
+  const [selectedYear, setSelectedYear] = useState(currentYear)
   const { containerRef, hover, handlers, Tooltip } = useClimateChartHover()
+  const eligibleRecords = records.filter((record) => Number(record.date.slice(0, 4)) <= currentYear)
+  const selectedRecords = eligibleRecords.filter((record) => Number(record.date.slice(0, 4)) === selectedYear)
   const groups = MONTH_SHORT.map((label, index) => ({
     label,
-    max: summarizeMonthlySpread(records, index + 1),
-    min: summarizeMonthlySpread(records, index + 1, true),
+    max: summarizeMonthlySpread(eligibleRecords, index + 1),
+    min: summarizeMonthlySpread(eligibleRecords, index + 1, true),
   }))
   const values = groups.flatMap((group) => [group.max?.min, group.max?.max, group.min?.min, group.min?.max])
     .filter((v): v is number => v != null && Number.isFinite(v))
@@ -48,11 +54,20 @@ export function MonthlySpreadChart({ records }: { readonly records: readonly Cli
 
   return (
     <ChartCard title="Monthly spread" subtitle="Distribution of daily highs and lows for each calendar month since 1995."
-      footnote="Boxes: 25th–75th percentiles; centre: median; whiskers: 5th–95th percentiles; dots: extremes."
+      footnote="Boxes: 25th–75th percentiles; centre: median; whiskers: 5th–95th percentiles; end dots: all-time records. Small dots: selected year's daily observations."
+      headerAside={
+        <label>Compare year{' '}
+          <select value={selectedYear} onChange={(event) => setSelectedYear(Number(event.target.value))}>
+            {Array.from({ length: Math.max(1, currentYear - 1994) }, (_, i) => 1995 + i).map((year) =>
+              <option key={year} value={year}>{year}</option>)}
+          </select>
+        </label>
+      }
       svgRef={svgRef} svgFilename="monthly-temperature-spread.svg" pngFilename="monthly-temperature-spread.png"
       minWidth={800} legend={[
         { label: 'Daily high', swatch: legendSwatch(MAX_COLOR) },
         { label: 'Daily low', swatch: legendSwatch(MIN_COLOR) },
+        { label: `${selectedYear} daily values`, swatch: legendSwatch(chartTheme.colors.ink) },
       ]}>
       {values.length === 0 ? <p className="normals-no-data">No chart data available.</p> : (
         <div ref={containerRef} className="chart-kit-canvas" style={{ position: 'relative' }}>
@@ -77,6 +92,20 @@ export function MonthlySpreadChart({ records }: { readonly records: readonly Cli
                     fill={chartTheme.colors.sub} fontSize={chartTheme.fontSizes.monthHeader}>{group.label}</text>
                   {group.max != null && box(group.max, center - 19, MAX_COLOR, 'max')}
                   {group.min != null && box(group.min, center + 19, MIN_COLOR, 'min')}
+                  {selectedRecords.filter((record) => Number(record.date.slice(5, 7)) === i + 1).map((record) => (
+                    <g key={record.date} pointerEvents="none">
+                      {record.maxTempC != null && Number.isFinite(record.maxTempC) && (
+                        <circle cx={center - 19 + (Number(record.date.slice(8, 10)) - 16) * 0.6}
+                          cy={y(record.maxTempC)} r={2.5} fill={record.status === 'finalised' ? MAX_COLOR : '#fff'}
+                          stroke={MAX_COLOR} />
+                      )}
+                      {record.minTempC != null && Number.isFinite(record.minTempC) && (
+                        <circle cx={center + 19 + (Number(record.date.slice(8, 10)) - 16) * 0.6}
+                          cy={y(record.minTempC)} r={2.5} fill={record.status === 'finalised' ? MIN_COLOR : '#fff'}
+                          stroke={MIN_COLOR} />
+                      )}
+                    </g>
+                  ))}
                   {[group.max, group.min].map((summary, series) => summary != null && (
                     <rect key={series} x={center + (series === 0 ? -38 : 0)} y={TOP}
                       width={38} height={PLOT_H} fill="transparent"
@@ -98,7 +127,7 @@ export function MonthlySpreadChart({ records }: { readonly records: readonly Cli
                 { label: '75th percentile', value: temperatureLabel(active[activeSeries].p75) },
                 { label: '95th percentile', value: temperatureLabel(active[activeSeries].p95) },
                 { label: 'Maximum', value: temperatureLabel(active[activeSeries].max) },
-              ]} />
+              ]} footer={`${selectedYear} daily observations are overlaid as small dots; hollow dots are provisional.`} />
           )}
         </div>
       )}

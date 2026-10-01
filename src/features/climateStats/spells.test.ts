@@ -33,4 +33,13 @@ describe('temperature spells', () => {
     expect(longestWarmSpell([day('2024-01-01', 25, 0)])?.ongoing).toBe(true)
     expect(longestWarmSpell([day('2024-01-01', null, 0)])).toBeNull()
   })
+
+  it('counts each calendar date once and does not mistake duplicate records for extra days', () => {
+    const rows = [
+      day('2024-01-01', 25, -1), day('2024-01-01', 25, -1),
+      day('2024-01-02', 25, -1),
+    ]
+    expect(longestWarmSpell(rows)?.length).toBe(2)
+    expect(longestFrostSpell(rows)?.length).toBe(2)
+  })
 })

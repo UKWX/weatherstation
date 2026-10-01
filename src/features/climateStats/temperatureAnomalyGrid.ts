@@ -32,10 +32,12 @@ export function buildTemperatureAnomalyGrid(
       )
       const expected = new Date(Date.UTC(year, month, 0)).getUTCDate()
       const meanC = values.length ? values.reduce((a, b) => a + b, 0) / values.length : null
+      const now = new Date()
       const complete = values.length >= Math.ceil(expected * 0.9) &&
-        days.every((day) => day.status === 'finalised')
+        days.every((day) => day.status === 'finalised') &&
+        (year < now.getUTCFullYear() || year === now.getUTCFullYear() && month < now.getUTCMonth() + 1)
       const normal = TEMP_MONTHLY_NORMALS_C.mean[month - 1] ?? null
-      cells.push({ year, month, meanC, complete, anomalyC: complete && meanC != null && normal != null ? meanC - normal : null })
+      cells.push({ year, month, meanC, complete, anomalyC: meanC != null && normal != null ? meanC - normal : null })
     }
   }
   return cells

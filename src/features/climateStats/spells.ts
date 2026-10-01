@@ -8,7 +8,8 @@ export interface Spell {
 }
 
 function longest(records: readonly ClimateDay[], predicate: (record: ClimateDay) => boolean): Spell | null {
-  const sorted = [...records].sort((a, b) => a.date.localeCompare(b.date))
+  const sorted = [...new Map(records.map((record) => [record.date, record])).values()]
+    .sort((a, b) => a.date.localeCompare(b.date))
   let best: Spell | null = null
   let start: string | null = null
   let end: string | null = null

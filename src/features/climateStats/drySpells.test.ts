@@ -30,4 +30,10 @@ describe('dry spells', () => {
     expect(buildDrySpells(rows)).toEqual([])
     expect(buildDrySpells([])).toEqual([])
   })
+
+  it('does not double-count repeated dates', () => {
+    expect(buildDrySpells([
+      day('2024-01-01', 0), day('2024-01-01', 0), day('2024-01-02', 0.1),
+    ], 2)).toEqual([{ length: 2, startDate: '2024-01-01', endDate: '2024-01-02' }])
+  })
 })

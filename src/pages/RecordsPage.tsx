@@ -1,5 +1,6 @@
 import { useMemo, type ChangeEvent } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
+import { WarmFrostSpellsChart } from '@/features/climateStats/WarmFrostSpellsChart'
 import { Badge, ErrorState, ProvisionalBadge, Skeleton, TableWrapper } from '@/components/ui'
 import {
   useClimateArchiveIndexQuery,
@@ -1540,6 +1541,7 @@ export default function RecordsPage() {
   }, [yearQueries])
 
   const monthlyNormalsData = monthlyNormalsQuery.data?.months
+  const historyRecords = loadedPayloads.flatMap((payload) => payload.records)
 
   const index = useMemo(
     () => {
@@ -1596,6 +1598,7 @@ export default function RecordsPage() {
       {availableYears.length > 0 && loadedCount < availableYears.length ? (
         <LoadingProgress loaded={loadedCount} total={availableYears.length} />
       ) : null}
+      <WarmFrostSpellsChart records={historyRecords} currentYear={availableYears.at(-1) ?? new Date().getFullYear()} />
 
       <div className="card">
         {tab === 'overview' && <OverviewTab index={index} />}

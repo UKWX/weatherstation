@@ -33,6 +33,7 @@ import {
 } from '@/features/liveData/liveDataUtils'
 import type { ChartDataPoint } from '@/features/liveData/LiveLineChart'
 import { LiveLineChart } from '@/features/liveData/LiveLineChart'
+import { LiveTodayRank } from '@/features/climateStats/LiveTodayRank'
 
 const LIVE_REFRESH_MS = 60_000
 const EMPTY_OBSERVATIONS: readonly RecentObservation[] = []
@@ -468,6 +469,7 @@ export default function LiveDataPage() {
           isOffline={isOffline}
         />
       </div>
+      <LiveTodayRank maxSoFar={filteredObservations.reduce<number | null>((max, observation) => observation.temperatureC == null ? max : Math.max(max ?? observation.temperatureC, observation.temperatureC), null)} />
 
       {/* ── Charts ── */}
       {filteredObservations.length === 0 ? (

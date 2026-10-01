@@ -17,7 +17,7 @@ interface ClimateStatsChartsProps {
   readonly records: readonly ClimateDay[]
   readonly summaries: readonly MonthlySummary[]
   readonly dailyNormals: readonly DailyNormal[]
-  readonly monthlyNormals: readonly MonthlyNormal[]
+  readonly monthlyNormals: readonly (Pick<MonthlyNormal, 'month' | 'meanMaxTempC' | 'meanMinTempC' | 'meanTempC'> & Partial<Pick<MonthlyNormal, 'rainfallMm'>>)[]
 }
 
 function monthlyRows(

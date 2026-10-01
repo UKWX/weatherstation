@@ -112,7 +112,7 @@ export const CLIMATE_STATS_MONTH_LABELS = [
 
 export function buildMonthlyTemperatureStats(
   summaries: readonly MonthlySummary[],
-  normals: readonly MonthlyNormal[],
+  normals: readonly Pick<MonthlyNormal, 'month' | 'meanMaxTempC' | 'meanMinTempC' | 'meanTempC'>[],
 ): readonly MonthlyTemperatureStatsRow[] {
   return CLIMATE_STATS_MONTH_LABELS.map((label, index) => {
     const month = index + 1
@@ -165,7 +165,7 @@ export function buildDailyTemperatureStats(
 export function buildMonthlyRainfallStats(
   year: number,
   summaries: readonly MonthlySummary[],
-  normals: readonly MonthlyNormal[],
+  normals: readonly (Pick<MonthlyNormal, 'month'> & Partial<Pick<MonthlyNormal, 'rainfallMm'>>)[],
 ): readonly MonthlyRainfallStatsRow[] {
   return CLIMATE_STATS_MONTH_LABELS.map((label, index) => {
     const month = index + 1

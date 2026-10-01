@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { RainfallGridChart } from '@/features/climateStats/RainfallGridChart'
 import { DateSeriesChart } from '@/components/charts/DateSeriesChart'
 import {
   Badge,
@@ -1110,6 +1111,8 @@ export default function NormalsAnomaliesPage() {
   const year = selectedYear ?? latestYear
 
   const annualQuery = useAnnualClimateQuery(year)
+  const historyQueries = useAnnualClimateQueries(availableYears)
+  const historyRecords = historyQueries.flatMap((query) => query.data?.records ?? [])
 
   const dailyNormals = dailyNormalsQuery.data?.records ?? EMPTY_NORMALS
   const monthlyNormals = monthlyNormalsQuery.data?.months ?? EMPTY_MONTHLY_NORMALS
@@ -1204,6 +1207,7 @@ export default function NormalsAnomaliesPage() {
       <MonthlyTempAnomaliesSection year={year} summaries={summaries} />
 
       <MonthlyRainfallSection year={year} summaries={summaries} monthlyNormals={monthlyNormals} />
+      <RainfallGridChart records={historyRecords} currentYear={latestYear} />
 
       <ClimateStatsCharts
         year={year}

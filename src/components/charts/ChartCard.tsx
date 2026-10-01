@@ -1,4 +1,5 @@
 import type { ReactNode, RefObject } from 'react'
+import { useRef } from 'react'
 import { ResponsiveChartContainer } from '@/components/ui'
 import { downloadChartPng, downloadChartSvg } from '@/components/charts/exportChart'
 
@@ -32,8 +33,9 @@ export function ChartCard({
   readonly headerAside?: ReactNode
   readonly children: ReactNode
 }) {
+  const cardRef = useRef<HTMLElement>(null)
   return (
-    <section className="card chart-kit-card">
+    <section ref={cardRef} className="card chart-kit-card">
       <div className="chart-kit-card__header">
         <div>
           <h2 className="chart-kit-card__title">{title}</h2>
@@ -61,7 +63,7 @@ export function ChartCard({
                 className="button"
                 onClick={() => {
                   if (svgRef.current != null) {
-                    downloadChartSvg(svgRef.current, svgFilename)
+                    downloadChartSvg(svgRef.current, svgFilename, cardRef.current ?? undefined)
                   }
                 }}
               >
@@ -72,7 +74,7 @@ export function ChartCard({
                 className="button button-outline"
                 onClick={() => {
                   if (svgRef.current != null) {
-                    void downloadChartPng(svgRef.current, pngFilename)
+                    void downloadChartPng(svgRef.current, pngFilename, cardRef.current ?? undefined)
                   }
                 }}
               >

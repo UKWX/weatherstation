@@ -6,6 +6,7 @@ import {
   type ChangeEvent,
 } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
+import { RainfallYearOnYearChart } from '@/features/climateStats/RainfallYearOnYearChart'
 import {
   Badge,
   ErrorState,
@@ -551,8 +552,12 @@ function CoverageSummary({
 
 function AnnualTrendCharts({
   trendData,
+  historyRecords,
+  currentYear,
 }: {
   readonly trendData: ReturnType<typeof buildAnnualTrendData>
+  readonly historyRecords: readonly ClimateDay[]
+  readonly currentYear: number
 }) {
   if (trendData.points.length === 0) {
     return <p className="archive-obs-note">No annual trend data available.</p>
@@ -1026,6 +1031,7 @@ function AnnualView({
               label="Rainfall"
             />
           )}
+          <RainfallYearOnYearChart records={historyRecords} currentYear={currentYear} />
         </div>
 
         <p className="archive-obs-note">
@@ -1624,6 +1630,7 @@ export default function ClimateArchivePage() {
         .filter((payload): payload is NonNullable<typeof payload> => payload != null),
     [annualTrendQueries],
   )
+  const historyRecords = annualTrendPayloads.flatMap((payload) => payload.records)
   const annualTrendData = useMemo(
     () => buildAnnualTrendData(annualTrendPayloads, monthlyNormals),
     [annualTrendPayloads, monthlyNormals],
@@ -1740,6 +1747,8 @@ export default function ClimateArchivePage() {
           summary={annualSummary}
           year={year}
           records={records}
+          historyRecords={historyRecords}
+          currentYear={availableYears.at(-1) ?? year}
           dailyNormals={dailyNormals}
           payload={{
             complete: annualQuery.data.complete,

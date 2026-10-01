@@ -1,4 +1,5 @@
 import { useLayoutEffect, useRef, useState, type CSSProperties, type FocusEvent, type PointerEvent } from 'react'
+import { createPortal } from 'react-dom'
 import { ChartTooltip, type ChartTooltipRowData } from '@/components/charts/ChartTooltip'
 import { positionTooltip } from '@/components/charts/positionTooltip'
 
@@ -24,17 +25,17 @@ export function useClimateChartHover() {
     const point = positionTooltip(
       hover.x, hover.y,
       tooltipRef.current.offsetWidth, tooltipRef.current.offsetHeight,
-      containerRef.current.getBoundingClientRect(),
+      new DOMRect(0, 0, window.innerWidth, window.innerHeight),
     )
     setStyle({ left: point.left, top: point.top, opacity: 1 })
   }, [hover])
 
   function handlers(index: number) {
     return {
-      onPointerMove: (event: PointerEvent<SVGRectElement>) =>
+      onPointerMove: (event: PointerEvent<SVGElement>) =>
         setHover({ index, x: event.clientX, y: event.clientY }),
       onPointerLeave: () => setHover(null),
-      onFocus: (event: FocusEvent<SVGRectElement>) => {
+      onFocus: (event: FocusEvent<SVGElement>) => {
         const rect = event.currentTarget.getBoundingClientRect()
         setHover({ index, x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 })
       },
@@ -48,10 +49,11 @@ export function useClimateChartHover() {
     readonly rows: readonly ChartTooltipRowData[]
     readonly footer?: string
   }) {
-    return (
-      <div ref={tooltipRef} style={{ position: 'absolute', pointerEvents: 'none', ...style }} data-export-ignore="true">
-        <ChartTooltip title={title} rows={rows} footer={footer} />
-      </div>
+    return createPortal(
+      <div ref={tooltipRef} style={{ position: 'fixed', pointerEvents: 'none', zIndex: 100, ...style }} data-export-ignore="true">
+        <ChartTooltip title={title} rows={rows} footer={footer} style={{ position: 'static' }} />
+      </div>,
+      document.body,
     )
   }
 

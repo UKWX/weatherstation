@@ -47,6 +47,10 @@ describe('new climate charts', () => {
       expect(height).toBeGreaterThan(100)
       expect(markup).not.toMatch(/var\(--|data-export-ignore="true"/)
       expect(markup).toContain(title)
+      const exported = new DOMParser().parseFromString(markup, 'image/svg+xml')
+      const nested = exported.documentElement.querySelector('svg')
+      expect(nested).not.toBeNull()
+      expect(Number(nested!.getAttribute('y')) + Number(nested!.getAttribute('height'))).toBeLessThan(height)
     })
   }
 })

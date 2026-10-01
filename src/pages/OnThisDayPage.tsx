@@ -34,7 +34,9 @@ function formatTemperatureAnomaly(value: number | null): string {
 function useOnThisDaySelection() {
   const [searchParams, setSearchParams] = useSearchParams()
   const today = getEuropeLondonClimateDate()
-  const todayParts = parseIsoClimateDate(today)
+  const todayParts = parseIsoClimateDate(
+    new Date(Date.parse(`${today}T12:00:00Z`) - 86_400_000).toISOString().slice(0, 10),
+  )
   const monthParam = searchParams.get('month')
   const dayParam = searchParams.get('day')
   const month = monthParam != null && /^(?:[1-9]|1[0-2])$/.test(monthParam)

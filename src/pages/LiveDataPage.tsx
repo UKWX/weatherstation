@@ -469,7 +469,6 @@ export default function LiveDataPage() {
           isOffline={isOffline}
         />
       </div>
-      <LiveTodayRank maxSoFar={filteredObservations.reduce<number | null>((max, observation) => observation.temperatureC == null ? max : Math.max(max ?? observation.temperatureC, observation.temperatureC), null)} />
 
       {/* ── Charts ── */}
       {filteredObservations.length === 0 ? (
@@ -482,6 +481,7 @@ export default function LiveDataPage() {
       ) : (
         <div className="live-charts-grid">
           {hasTempSeries && (
+            <div>
             <LiveLineChart
               title="Temperature"
               unit={WEATHER_UNITS.temperature}
@@ -502,6 +502,8 @@ export default function LiveDataPage() {
                   : undefined
               }
             />
+            <LiveTodayRank maxSoFar={filteredObservations.reduce<number | null>((max, observation) => observation.temperatureC == null ? max : Math.max(max ?? observation.temperatureC, observation.temperatureC), null)} />
+            </div>
           )}
 
           {hasHumiditySeries && (

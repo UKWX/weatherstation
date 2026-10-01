@@ -8,7 +8,7 @@ const day = (date: ClimateDay['date'], rainfallMm: number | null): ClimateDay =>
 describe('dry spells', () => {
   it('uses the inclusive dry-day threshold and counts consecutive dates across months', () => {
     const rows = [
-      day('2024-03-01', 0.1), day('2024-02-29', 0),
+      day('2024-03-01', 0.15), day('2024-02-29', 0),
       day('2024-03-02', 0.1), day('2024-02-28', 0),
       day('2024-03-03', 0),
     ]

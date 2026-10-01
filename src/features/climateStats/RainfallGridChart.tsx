@@ -20,14 +20,26 @@ export function RainfallGridChart({ records, currentYear }: { readonly records: 
   const cells = buildRainfallGrid(records, 2020, currentYear)
   const height = 100 + years.length * rowHeight
   const selected = active && active.month < 13 ? cells.find((cell) => cell.year === active.year && cell.month === active.month) : null
-  const wettest = active && active.month < 13 ? records.filter((record) => record.date.startsWith(`${active.year}-${String(active.month).padStart(2, '0')}-`) && record.rainfallMm != null).sort((a, b) => (b.rainfallMm ?? 0) - (a.rainfallMm ?? 0))[0] : null
   const latest = records.filter((record) => record.rainfallMm != null && record.date.startsWith(String(currentYear))).map((record) => record.date).sort().at(-1)
+  const annualCells = active ? cells.filter((cell) => cell.year === active.year) : []
+  const annualTotal = annualCells.reduce((sum, cell) => sum + (cell.totalMm ?? 0), 0)
+  const annualNormal = active?.year === currentYear && latest
+    ? normalToDate(currentYear, latest)
+    : ANNUAL_RAIN_NORMAL_MM
+  const annualComplete = annualCells.length === 12 && annualCells.every((cell) =>
+    cell.totalMm != null && records.filter((record) =>
+      record.date.startsWith(`${cell.year}-${String(cell.month).padStart(2, '0')}-`) &&
+      record.rainfallMm != null).length >= Math.ceil(new Date(Date.UTC(cell.year, cell.month, 0)).getUTCDate() * .9))
+  const annualPercent = annualNormal > 0 ? annualTotal / annualNormal * 100 : 0
+  const annualRainDays = annualCells.reduce((sum, cell) => sum + cell.rainDays, 0)
+  const wettest = active && active.month < 13 ? records.filter((record) => record.date.startsWith(`${active.year}-${String(active.month).padStart(2, '0')}-`) && record.rainfallMm != null).sort((a, b) => (b.rainfallMm ?? 0) - (a.rainfallMm ?? 0))[0] : null
   function paint(percent: number | null): string { return percent == null ? '#f5f7f9' : blend(percent >= 100 ? '#2f5fa8' : '#c98a3a', percent >= 100 ? (percent - 100) / 150 : (100 - percent) / 100) }
   return <div ref={containerRef} style={{ position: 'relative', minWidth: 0 }}>
     <ChartCard title="Rainfall grid" subtitle="Station rainfall since 2020 · 1991–2020 average" footnote="Drier / Wetter than the 1991–2020 average. 2020 rainfall begins in May." minWidth={W}
-      legend={[{ label: 'Drier', swatch: <span style={{ color: '#c98a3a' }}>■</span> }, { label: 'Average', swatch: <span style={{ color: '#f5f7f9' }}>■</span> }, { label: 'Wetter', swatch: <span style={{ color: '#2f5fa8' }}>■</span> }]}
+      legend={[{ label: 'Drier', swatch: <span style={{ color: '#c98a3a' }}>■</span> }, { label: 'Average', swatch: <span style={{ color: '#f5f7f9' }}>■</span> }, { label: 'Wetter', swatch: <span style={{ color: '#2f5fa8' }}>■</span> }, { label: 'No data', swatch: <span style={{ color: '#aeb8c2' }}>▤</span> }]}
       svgRef={svgRef} svgFilename={`wakefield-${currentYear}-rainfall-grid.svg`} pngFilename={`wakefield-${currentYear}-rainfall-grid.png`}>
       {cells.some((cell) => cell.totalMm != null) ? <svg ref={svgRef} viewBox={`0 0 ${W} ${height}`} width={W} height={height} role="grid" aria-label="Rainfall percentage of average by month and year">
+        <defs><pattern id="rainfall-grid-missing" width="8" height="8" patternUnits="userSpaceOnUse"><rect width="8" height="8" fill="#f5f7f9" /><path d="M0 8L8 0" stroke="#c5cdd5" strokeWidth="1" /></pattern></defs>
         {months.concat('Year').map((label, month) => <text key={label} x={78 + month * cellWidth + 30} y={29} fontSize="13" textAnchor="middle" fill="#555b61">{label}</text>)}
         {years.map((year, index) => {
           const yearCells = cells.filter((cell) => cell.year === year)
@@ -44,7 +56,7 @@ export function RainfallGridChart({ records, currentYear }: { readonly records: 
               const totalDays = new Date(Date.UTC(year, m + 1, 0)).getUTCDate()
               const partial = m !== 12 && (year === currentYear && m + 1 === Number(latest?.slice(5, 7)) || observations < Math.ceil(totalDays * .9))
               return <g key={m} opacity={partial ? .4 : 1}>
-                <rect x={x} y={y} width={cellWidth - 4} height={rowHeight - 5} rx="5" fill={paint(pct)} stroke="#e4e8ec" tabIndex={0} role="gridcell" aria-label={`${months[m] ?? 'Year'} ${year}: ${pct == null ? 'unavailable' : `${Math.round(pct)}%`}`}
+                <rect x={x} y={y} width={cellWidth - 4} height={rowHeight - 5} rx="5" fill={pct == null ? 'url(#rainfall-grid-missing)' : paint(pct)} stroke="#e4e8ec" tabIndex={0} role="gridcell" aria-label={`${months[m] ?? 'Year'} ${year}: ${pct == null ? 'unavailable' : `${Math.round(pct)}%`}`}
                   onPointerEnter={(event) => setActive({ year, month: m + 1, x: event.clientX, y: event.clientY })} onPointerMove={(event) => setActive({ year, month: m + 1, x: event.clientX, y: event.clientY })} onPointerLeave={() => setActive(null)}
                   onFocus={(event) => { const bounds = event.currentTarget.getBoundingClientRect(); setActive({ year, month: m + 1, x: bounds.left, y: bounds.top }) }} onBlur={() => setActive(null)}
                   onKeyDown={(event) => { if (event.key.startsWith('Arrow')) { event.preventDefault(); const items = Array.from(event.currentTarget.closest('svg')?.querySelectorAll<SVGRectElement>('[role="gridcell"]') ?? []); const at = items.indexOf(event.currentTarget); items[Math.max(0, Math.min(items.length - 1, at + (event.key === 'ArrowLeft' ? -1 : event.key === 'ArrowRight' ? 1 : event.key === 'ArrowUp' ? -13 : 13)))]?.focus() } }} />
@@ -56,12 +68,12 @@ export function RainfallGridChart({ records, currentYear }: { readonly records: 
       </svg> : <p>No rainfall observations available.</p>}
     </ChartCard>
     {active && containerRef.current ? <ChartTooltip title={`${months[active.month - 1] ?? 'Year'} ${active.year}`} rows={[
-      { label: 'Rainfall', value: `${selected?.totalMm?.toFixed(1) ?? '—'} mm` },
-      { label: '1991–2020 average', value: `${RAIN_MONTHLY_NORMALS_MM[active.month - 1] ?? ANNUAL_RAIN_NORMAL_MM} mm` },
-      { label: 'Of average', value: `${Math.round(selected?.percent ?? 0)}%` },
-      { label: 'Rain days', value: selected?.rainDays ?? '—' },
+      { label: 'Rainfall', value: `${active.month === 13 ? annualTotal.toFixed(1) : selected?.totalMm?.toFixed(1) ?? '—'} mm` },
+      { label: '1991–2020 average', value: `${active.month === 13 ? annualNormal.toFixed(1) : RAIN_MONTHLY_NORMALS_MM[active.month - 1]} mm` },
+      { label: 'Of average', value: active.month === 13 && active.year !== currentYear && !annualComplete ? 'Partial year' : `${Math.round(active.month === 13 ? annualPercent : selected?.percent ?? 0)}%` },
+      { label: 'Rain days', value: active.month === 13 ? annualRainDays : selected?.rainDays ?? '—' },
       { label: 'Wettest day', value: wettest ? `${wettest.rainfallMm?.toFixed(1)} mm (${wettest.date})` : '—' },
-      ...(selected && active.month < 13 && records.filter((row) => row.date.startsWith(`${active.year}-${String(active.month).padStart(2, '0')}-`) && row.rainfallMm != null).length < Math.ceil(new Date(Date.UTC(active.year, active.month, 0)).getUTCDate() * .9) ? [{ label: 'Coverage', value: `Partial month (${records.filter((row) => row.date.startsWith(`${active.year}-${String(active.month).padStart(2, '0')}-`) && row.rainfallMm != null).length} of ${new Date(Date.UTC(active.year, active.month, 0)).getUTCDate()} days)` }] : []),
+      ...(selected && active.month < 13 && (records.filter((row) => row.date.startsWith(`${active.year}-${String(active.month).padStart(2, '0')}-`) && row.rainfallMm != null).length < Math.ceil(new Date(Date.UTC(active.year, active.month, 0)).getUTCDate() * .9) || active.year === new Date().getUTCFullYear() && active.month === new Date().getUTCMonth() + 1) ? [{ label: 'Coverage', value: `Partial month (${records.filter((row) => row.date.startsWith(`${active.year}-${String(active.month).padStart(2, '0')}-`) && row.rainfallMm != null).length} of ${new Date(Date.UTC(active.year, active.month, 0)).getUTCDate()} days)` }] : []),
     ]} style={{ position: 'absolute', ...positionTooltip(active.x, active.y, 230, 160, containerRef.current.getBoundingClientRect()) }} /> : null}
   </div>
 }

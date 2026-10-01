@@ -28,7 +28,8 @@ export function TemperatureAnomalyGridChart({ records, currentYear }: {
   const firstYear = 1995
   const lastYear = currentYear
   const cells = currentYear >= firstYear ? buildTemperatureAnomalyGrid(records, firstYear, lastYear) : []
-  const height = TOP + Math.max(1, lastYear - firstYear + 1) * ROW + 24
+  const legendY = TOP + Math.max(1, lastYear - firstYear + 1) * ROW + 14
+  const height = legendY + 66
   const active = hover == null ? null : cells[hover.index]
   const activeDays = active == null ? [] : records.filter((record) =>
     record.date.startsWith(`${active.year}-${String(active.month).padStart(2, '0')}-`) &&
@@ -51,11 +52,12 @@ export function TemperatureAnomalyGridChart({ records, currentYear }: {
         { label: 'Insufficient data', swatch: legendSwatch('#f5f7f9') },
       ]}
     >
-      {cells.length === 0 ? <p className="normals-no-data">No chart data available.</p> : (
+      {!cells.some((cell) => cell.meanC != null) ? <p className="normals-no-data">No chart data available.</p> : (
         <div ref={containerRef} className="chart-kit-canvas" style={{ position: 'relative' }}>
           <svg ref={svgRef} className="chart-kit-svg" viewBox={`0 0 ${W} ${height}`} role="img"
             aria-label={`Monthly temperature anomaly grid from ${firstYear} to ${lastYear}`}
             style={{ width: '100%', height: 'auto' }}>
+            <defs><linearGradient id="temperature-anomaly-scale"><stop offset="0%" stopColor="#2453c9" /><stop offset="50%" stopColor="#f5f7f9" /><stop offset="100%" stopColor="#c22b2b" /></linearGradient></defs>
             {MONTH_SHORT.map((month, i) => (
               <text key={month} x={LEFT + (i + 0.5) * COL} y={TOP - 17} textAnchor="middle"
                 fill={chartTheme.colors.ink} fontSize={chartTheme.fontSizes.monthHeader}>{month}</text>
@@ -66,14 +68,13 @@ export function TemperatureAnomalyGridChart({ records, currentYear }: {
                 fontSize={chartTheme.fontSizes.tick}>{(firstYear + i) % 5 === 0 || firstYear + i === currentYear ? firstYear + i : ''}</text>
             ))}
             {cells.map((cell, i) => (
-              <g key={`${cell.year}-${cell.month}`}>
+              <g key={`${cell.year}-${cell.month}`} opacity={cell.complete ? 1 : 0.4}>
               <rect
                 x={LEFT + (cell.month - 1) * COL + 2} y={TOP + (cell.year - firstYear) * ROW + 2}
                 width={COL - 4} height={ROW - 4} rx={3}
                 fill={anomalyColor(cell.anomalyC)}
-                opacity={cell.complete ? 1 : 0.4}
-                stroke={hover?.index === i || cell.year === currentYear ? chartTheme.colors.ink : '#fff'}
-                strokeWidth={hover?.index === i ? 2 : 1}
+                stroke="#fff"
+                strokeWidth={1}
                 aria-label={`${MONTH_SHORT[cell.month - 1]} ${cell.year}: ${cell.anomalyC == null ? 'insufficient data' : `${temperatureLabel(cell.anomalyC)} anomaly`}`}
                 {...handlers(i)}
                 data-grid-cell="true"
@@ -87,6 +88,9 @@ export function TemperatureAnomalyGridChart({ records, currentYear }: {
                   }
                 }}
               />
+              {hover?.index === i && <rect x={LEFT + (cell.month - 1) * COL + 2} y={TOP + (cell.year - firstYear) * ROW + 2}
+                width={COL - 4} height={ROW - 4} rx={3} fill="none" stroke={chartTheme.colors.ink}
+                strokeWidth="2" pointerEvents="none" data-export-ignore="true" />}
               <text x={LEFT + (cell.month - 0.5) * COL}
                 y={TOP + (cell.year - firstYear + 0.5) * ROW}
                 textAnchor="middle" dominantBaseline="middle" pointerEvents="none"
@@ -97,6 +101,10 @@ export function TemperatureAnomalyGridChart({ records, currentYear }: {
               </text>
               </g>
             ))}
+            <rect x={LEFT + 110} y={legendY} width={W - LEFT - 240} height={12} rx={6} fill="url(#temperature-anomaly-scale)" />
+            <text x={LEFT + 110} y={legendY + 29} fontSize="12" fill="#5b6773">−3°C</text>
+            <text x={W - 130} y={legendY + 29} textAnchor="end" fontSize="12" fill="#5b6773">+3°C</text>
+            <text x={W / 2} y={legendY + 49} textAnchor="middle" fontSize="12" fill="#5b6773">Colder / Warmer than the 1991–2020 average</text>
           </svg>
           {active != null && (
             <Tooltip title={`${MONTH_SHORT[active.month - 1]} ${active.year}`}

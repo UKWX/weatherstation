@@ -1,5 +1,5 @@
 import type { ClimateDay } from '@/types/weather'
-import { RAIN_DAY_THRESHOLD_MM, RAINFALL_START_DATE } from '@/config/weather'
+import { RAINFALL_START_DATE } from '@/config/weather'
 
 export interface DrySpell {
   readonly length: number
@@ -27,7 +27,7 @@ export function buildDrySpells(records: readonly ClimateDay[], minimum = 5): rea
     if (end != null && Date.parse(`${record.date}T00:00:00Z`) -
       Date.parse(`${end}T00:00:00Z`) !== 86_400_000) flush()
     if (record.date < RAINFALL_START_DATE || record.rainfallMm == null ||
-      !Number.isFinite(record.rainfallMm) || record.rainfallMm > RAIN_DAY_THRESHOLD_MM) {
+      !Number.isFinite(record.rainfallMm) || record.rainfallMm >= 0.2) {
       flush()
       continue
     }

@@ -1,6 +1,6 @@
 import type { ClimateDay } from '@/types/weather'
 import { monthNormal } from '@/features/normals/rainfallNormals'
-import { RAIN_DAY_THRESHOLD_MM, RAINFALL_START_DATE } from '@/config/weather'
+import { RAINFALL_START_DATE } from '@/config/weather'
 export interface RainfallGridCell { readonly year: number; readonly month: number; readonly totalMm: number | null; readonly percent: number | null; readonly rainDays: number }
 export function buildRainfallGrid(
   records: readonly ClimateDay[],
@@ -25,7 +25,7 @@ export function buildRainfallGrid(
     out.push({
       year, month, totalMm,
       percent: totalMm == null || normal <= 0 ? null : totalMm / normal * 100,
-      rainDays: valid.filter((r) => r.rainfallMm > RAIN_DAY_THRESHOLD_MM).length,
+      rainDays: valid.filter((r) => r.rainfallMm >= 0.2).length,
     })
   }
   return out

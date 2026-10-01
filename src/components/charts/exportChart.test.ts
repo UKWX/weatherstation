@@ -60,7 +60,7 @@ describe('shared chart exports', () => {
       '1400',
     )
     expect(exported.querySelector('svg svg')?.getAttribute('style')).toContain(
-      'color: red',
+      'color: rgb(255, 0, 0)',
     )
     expect(exported.querySelector('svg svg path')).not.toBeNull()
     expect(exported.querySelector('[data-export-ignore]')).toBeNull()
@@ -73,6 +73,14 @@ describe('shared chart exports', () => {
     const result = serializeChartSvg(svg)
     expect(result.width).toBe(1400)
     expect(result.height).toBe(560)
+    const parsed = new DOMParser().parseFromString(
+      result.markup,
+      'image/svg+xml',
+    )
+    expect(parsed.querySelector('parsererror')).toBeNull()
+    expect(parsed.documentElement.namespaceURI).toBe(
+      'http://www.w3.org/2000/svg',
+    )
     expect(result.markup).not.toContain('Rainfall &amp; temperature')
     expect(result.markup).not.toContain('data-export-ignore')
   })
@@ -183,5 +191,7 @@ describe('shared chart exports', () => {
       serialized.height,
     )
     expect(createObjectURL).toHaveBeenCalledTimes(2)
+    await new Promise<void>((resolve) => setTimeout(resolve, 0))
+    expect(revokeObjectURL).toHaveBeenCalledTimes(2)
   })
 })

@@ -9,6 +9,11 @@ function triggerDownload(url: string, filename: string): void {
   document.body.removeChild(anchor)
 }
 
+function revokeDownloadUrl(url: string): void {
+  const revoke = URL.revokeObjectURL.bind(URL)
+  setTimeout(() => revoke(url), 0)
+}
+
 const EXPORT_WIDTH = chartTheme.exportWidth
 const PAGE_PADDING = 32
 const CARD_PADDING = 24
@@ -250,7 +255,6 @@ export function serializeChartSvg(
   readonly height: number
 } {
   const clone = svg.cloneNode(true) as SVGSVGElement
-  clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg')
   inlineComputedStyles(svg, clone)
   clone
     .querySelectorAll('[data-export-ignore="true"]')
@@ -291,7 +295,7 @@ export function downloadChartSvg(
   })
   const url = URL.createObjectURL(blob)
   triggerDownload(url, filename)
-  setTimeout(() => URL.revokeObjectURL(url), 0)
+  revokeDownloadUrl(url)
 }
 
 export async function downloadChartPng(
@@ -331,7 +335,7 @@ export async function downloadSvgMarkupPng(
   const pngBlob = await canvasToBlob(canvas)
   const url = URL.createObjectURL(pngBlob)
   triggerDownload(url, filename)
-  setTimeout(() => URL.revokeObjectURL(url), 0)
+  revokeDownloadUrl(url)
 }
 
 function parseSvgDimensions(markup: string): {

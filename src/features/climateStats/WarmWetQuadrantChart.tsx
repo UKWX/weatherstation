@@ -43,6 +43,8 @@ export function WarmWetQuadrantChart({
   )
   const observedDays = new Map<string, Set<string>>()
   const provisionalMonths = new Set<string>()
+  const now = new Date()
+  const currentMonth = `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, '0')}`
   for (const record of records) {
     const key = `${Number(record.date.slice(0, 4))}-${Number(record.date.slice(5, 7))}`
     if (record.status !== 'finalised') provisionalMonths.add(key)
@@ -57,12 +59,19 @@ export function WarmWetQuadrantChart({
   }
   const points = temperatures.flatMap((cell) => {
     const rainfallCell = rainfallByMonth.get(`${cell.year}-${cell.month}`)
+    const rainfallComplete = (
+      rainfallCell as
+        (typeof rainfallCell & { readonly complete?: boolean }) | undefined
+    )?.complete
     const expectedDays = new Date(
       Date.UTC(cell.year, cell.month, 0),
     ).getUTCDate()
     if (
+      !cell.complete ||
       cell.anomalyC == null ||
       rainfallCell?.percent == null ||
+      rainfallComplete === false ||
+      `${cell.year}-${String(cell.month).padStart(2, '0')}` === currentMonth ||
       provisionalMonths.has(`${cell.year}-${cell.month}`) ||
       (observedDays.get(`${cell.year}-${cell.month}`)?.size ?? 0) <
         Math.ceil(expectedDays * 0.9)
@@ -84,7 +93,7 @@ export function WarmWetQuadrantChart({
   return (
     <ChartCard
       title="Warm/wet quadrant"
-      subtitle="Monthly temperature anomaly versus rainfall relative to normal · 1991–2020 baseline"
+      subtitle={`Temperature since 1995 · rainfall since 2020 · 1991–2020 average. Highlighted year: ${highlightedYear}.`}
       footnote="Only months with at least 90% finalised temperature and rainfall observations are shown. Points outside the ±3 °C and 0–275% plot limits are pinned to the edge; tooltips show their actual values."
       minWidth={850}
       svgRef={svgRef}
@@ -245,6 +254,9 @@ export function WarmWetQuadrantChart({
                     strokeWidth={selected ? 2 : 1}
                     pointerEvents="none"
                   />
+                  {(position.clampedX || position.clampedY) && <path
+                    d={`M${x(position.x) - 5},${y(position.y) - 10} L${x(position.x) + 5},${y(position.y) - 10} L${x(position.x)},${y(position.y) - 18} Z`}
+                    fill={selected ? BLUE : '#8a94a0'} pointerEvents="none" />}
                   {selected && (
                     <text
                       x={x(position.x) + 11}
@@ -262,8 +274,17 @@ export function WarmWetQuadrantChart({
                     width={22}
                     height={22}
                     fill="transparent"
+                    data-quadrant-point="true"
                     aria-label={`${MONTH_SHORT[point.month - 1]} ${point.year}: ${point.anomalyC.toFixed(1)} °C anomaly, ${point.rainfallPercent.toFixed(0)}% rainfall`}
                     {...handlers(index)}
+                    onKeyDown={(event) => {
+                      const delta = event.key === 'ArrowLeft' || event.key === 'ArrowUp' ? -1 :
+                        event.key === 'ArrowRight' || event.key === 'ArrowDown' ? 1 : 0
+                      if (!delta) return
+                      event.preventDefault()
+                      const all = event.currentTarget.ownerSVGElement?.querySelectorAll<SVGRectElement>('[data-quadrant-point="true"]')
+                      all?.[Math.max(0, Math.min(all.length - 1, index + delta))]?.focus()
+                    }}
                   />
                 </g>
               )

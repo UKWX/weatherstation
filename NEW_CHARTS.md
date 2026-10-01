@@ -30,15 +30,17 @@ high-resolution blob path as the annual overview exporter.
 
 | # | Chart | Component | Page / mount | Status |
 |---|---|---|---|---|
-| 1 | Temperature anomaly grid | `src/features/climateStats/TemperatureAnomalyGridChart.tsx` | `src/pages/NormalsAnomaliesPage.tsx:1210` | Partial: mounted; tests pending |
-| 2 | Today vs every year | `src/features/climateStats/TodayEveryYearChart.tsx` | `src/pages/OnThisDayPage.tsx:297`; live summary `src/pages/LiveDataPage.tsx` | Partial: mounted; tests pending |
-| 3 | Monthly spread | `src/features/climateStats/MonthlySpreadChart.tsx` | `src/pages/ClimateArchivePage.tsx:1044` | Partial: mounted; tests pending |
-| 4 | Warm and frost spells | `src/features/climateStats/WarmFrostSpellsChart.tsx` | `src/pages/RecordsPage.tsx:1601` | Partial: mounted; tests pending |
-| 5 | Rainfall year on year | `src/features/climateStats/RainfallYearOnYearChart.tsx` | `src/pages/ClimateArchivePage.tsx:1042` | Partial: mounted; tests pending |
-| 6 | Rainfall grid | `src/features/climateStats/RainfallGridChart.tsx` | `src/pages/NormalsAnomaliesPage.tsx:1213` | Partial: mounted; tests pending |
-| 7 | Dry spells | `src/features/climateStats/DrySpellsChart.tsx` | `src/pages/ClimateArchivePage.tsx:1043` | Partial: mounted; tests pending |
-| 8 | Warm/wet quadrant | `src/features/climateStats/WarmWetQuadrantChart.tsx` | `src/pages/NormalsAnomaliesPage.tsx:1214` | Partial: mounted; tests pending |
+| 1 | Temperature anomaly grid | `src/features/climateStats/TemperatureAnomalyGridChart.tsx` | `src/pages/NormalsAnomaliesPage.tsx:1210` | Done: mounted; calculation, render and export tests pass |
+| 2 | Today vs every year | `src/features/climateStats/TodayEveryYearChart.tsx` | `src/pages/OnThisDayPage.tsx:299`; live summary `src/pages/LiveDataPage.tsx:505` | Done: mounted; calculation, render and export tests pass |
+| 3 | Monthly spread | `src/features/climateStats/MonthlySpreadChart.tsx` | `src/pages/ClimateArchivePage.tsx:1044` | Done: mounted; calculation, render and export tests pass |
+| 4 | Warm and frost spells | `src/features/climateStats/WarmFrostSpellsChart.tsx` | `src/pages/RecordsPage.tsx:1601` | Done: mounted; calculation, render and export tests pass |
+| 5 | Rainfall year on year | `src/features/climateStats/RainfallYearOnYearChart.tsx` | `src/pages/ClimateArchivePage.tsx:1042` | Done: mounted; calculation, render and export tests pass |
+| 6 | Rainfall grid | `src/features/climateStats/RainfallGridChart.tsx` | `src/pages/NormalsAnomaliesPage.tsx:1213` | Done: mounted; calculation, render and export tests pass |
+| 7 | Dry spells | `src/features/climateStats/DrySpellsChart.tsx` | `src/pages/ClimateArchivePage.tsx:1043` | Done: mounted; calculation, render and export tests pass |
+| 8 | Warm/wet quadrant | `src/features/climateStats/WarmWetQuadrantChart.tsx` | `src/pages/NormalsAnomaliesPage.tsx:1214` | Done: mounted; calculation, render and export tests pass |
 
 ## Export comparison with the 2026 temperature overview
 
-The original shared exporter clones a live SVG and copies computed styles, unlike the overview's standalone SVG builder. It lacks the page canvas, rounded bordered card, title, subtitle, legend, footnote, source line, calculated content height, and fixed export typography; it depends on the live DOM for styles. Both PNG paths render at 2×, but the shared path captures only the on-page chart. The shared exporter must be upgraded without changing the overview's output bytes.
+The original shared exporter cloned a live SVG and copied computed styles, unlike the overview's standalone SVG builder. It lacked the page canvas, rounded bordered card, title, subtitle, legend, footnote, source line, calculated content height, and fixed export typography; it depended on the live DOM for styles. Both PNG paths already rendered at 2×, but the shared path captured only the on-page chart. The shared exporter now composes a standalone bordered card with its own 1480px canvas, literal chart styles, all descriptive text, calculated height and full-width charts. The overview's own export implementation and output bytes remain unchanged.
+
+Remaining: the overview builder is still separate from the shared export builder; they use the same visual composition but not one literal implementation. Type-check passed; the frontend suite passed (453/453), including 13 export and new-chart tests.

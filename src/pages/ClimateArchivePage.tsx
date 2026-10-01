@@ -54,6 +54,7 @@ import type {
   MonthlySummary as MonthlySummaryType,
   AnnualSummary as AnnualSummaryType,
 } from '@/types/weather'
+import { ClimateStatsCharts } from '@/features/climateStats/ClimateStatsCharts'
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -859,6 +860,8 @@ function MonthlyBreakdownTable({
 function AnnualView({
   summary,
   year,
+  records,
+  dailyNormals,
   payload,
   monthlyNormals,
   onSelectMonth,
@@ -866,6 +869,8 @@ function AnnualView({
 }: {
   readonly summary: AnnualSummaryType
   readonly year: number
+  readonly records: readonly ClimateDay[]
+  readonly dailyNormals: readonly DailyNormal[]
   readonly payload: { complete: boolean; through: ClimateDateString | null; observationCount: number | null }
   readonly monthlyNormals: readonly { month: number; meanTempC: number | null; meanMaxTempC: number | null; meanMinTempC: number | null }[]
   readonly onSelectMonth: (month: number) => void
@@ -1070,6 +1075,14 @@ function AnnualView({
         </p>
         <AnnualTrendCharts trendData={trendData} />
       </section>
+
+      <ClimateStatsCharts
+        year={year}
+        records={records}
+        summaries={summary.monthlySummaries}
+        dailyNormals={dailyNormals}
+        monthlyNormals={monthlyNormals}
+      />
 
       <section className="card" aria-labelledby="archive-links-title">
         <h2 id="archive-links-title">Related</h2>
@@ -1726,6 +1739,8 @@ export default function ClimateArchivePage() {
         <AnnualView
           summary={annualSummary}
           year={year}
+          records={records}
+          dailyNormals={dailyNormals}
           payload={{
             complete: annualQuery.data.complete,
             through: annualQuery.data.through,

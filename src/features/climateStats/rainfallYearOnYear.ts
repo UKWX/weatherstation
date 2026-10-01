@@ -1,0 +1,10 @@
+import type { ClimateDay } from '@/types/weather'
+export interface CumulativeRainfall { readonly year: number; readonly date: string; readonly totalMm: number }
+export function buildCumulativeRainfall(records: readonly ClimateDay[], year: number): readonly CumulativeRainfall[] {
+  let total = 0
+  return records.filter((r) => r.date.startsWith(`${year}-`)).sort((a, b) => a.date.localeCompare(b.date)).flatMap((r) => {
+    if (r.rainfallMm == null) return []
+    total += r.rainfallMm
+    return [{ year, date: r.date, totalMm: total }]
+  })
+}

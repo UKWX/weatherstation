@@ -7,17 +7,17 @@ export interface Spell {
   readonly ongoing: boolean
 }
 
-function longest(records: readonly ClimateDay[], predicate: (record: ClimateDay) => boolean): Spell | null {
+function allSpells(records: readonly ClimateDay[], predicate: (record: ClimateDay) => boolean): readonly Spell[] {
   const sorted = [...new Map(records.map((record) => [record.date, record])).values()]
     .sort((a, b) => a.date.localeCompare(b.date))
-  let best: Spell | null = null
+  const spells: Spell[] = []
   let start: string | null = null
   let end: string | null = null
   let length = 0
 
   const finish = (ongoing: boolean) => {
-    if (start != null && end != null && (best == null || length > best.length)) {
-      best = { length, startDate: start, endDate: end, ongoing }
+    if (start != null && end != null) {
+      spells.push({ length, startDate: start, endDate: end, ongoing })
     }
     start = null
     end = null
@@ -36,15 +36,23 @@ function longest(records: readonly ClimateDay[], predicate: (record: ClimateDay)
     length += 1
   }
   finish(true)
-  return best
+  return spells
 }
 
-export function longestWarmSpell(records: readonly ClimateDay[]): Spell | null {
-  return longest(records, (record) => record.maxTempC != null &&
+export function warmSpells(records: readonly ClimateDay[]): readonly Spell[] {
+  return allSpells(records, (record) => record.maxTempC != null &&
     Number.isFinite(record.maxTempC) && record.maxTempC >= 25)
 }
 
-export function longestFrostSpell(records: readonly ClimateDay[]): Spell | null {
-  return longest(records, (record) => record.minTempC != null &&
+export function frostSpells(records: readonly ClimateDay[]): readonly Spell[] {
+  return allSpells(records, (record) => record.minTempC != null &&
     Number.isFinite(record.minTempC) && record.minTempC < 0)
+}
+
+export function longestWarmSpell(records: readonly ClimateDay[]): Spell | null {
+  return [...warmSpells(records)].sort((a, b) => b.length - a.length)[0] ?? null
+}
+
+export function longestFrostSpell(records: readonly ClimateDay[]): Spell | null {
+  return [...frostSpells(records)].sort((a, b) => b.length - a.length)[0] ?? null
 }

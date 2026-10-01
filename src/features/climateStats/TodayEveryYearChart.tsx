@@ -117,6 +117,7 @@ export function TodayEveryYearChart({
                       {rankLabel(value, series === 0 ? highs : lows, series === 0 ? 'warmest' : 'mildest', 'coldest')}
                     </text>}</g>
                 ))}
+                {provisional && row.maxC != null && <text x={x(row.year) - 8} y={y(row.maxC) - 10} textAnchor="end" fill={MAX_COLOR} fontSize="11">so far</text>}
                 <rect x={x(row.year) - 10} y={TOP} width={20} height={H - TOP - BOTTOM}
                   fill="transparent" aria-label={`${row.year}: high ${temperatureLabel(row.maxC)}, low ${temperatureLabel(row.minC)}`}
                   {...handlers(index)} />

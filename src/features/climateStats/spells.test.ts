@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { ClimateDay } from '@/types/weather'
-import { longestFrostSpell, longestWarmSpell } from './spells'
+import { frostSpells, longestFrostSpell, longestWarmSpell, warmSpells } from './spells'
 
 const day = (date: ClimateDay['date'], maxTempC: number | null, minTempC: number | null): ClimateDay =>
   ({ date, maxTempC, minTempC, meanTempC: null, rainfallMm: null, status: 'finalised' })
@@ -41,5 +41,13 @@ describe('temperature spells', () => {
     ]
     expect(longestWarmSpell(rows)?.length).toBe(2)
     expect(longestFrostSpell(rows)?.length).toBe(2)
+  })
+  it('retains every distinct spell for top-five tables, including multiple runs in one year', () => {
+    const rows = [
+      day('2024-06-01', 25, -1), day('2024-06-02', 24, 1),
+      day('2024-07-01', 26, -2),
+    ]
+    expect(warmSpells(rows).map((spell) => spell.startDate)).toEqual(['2024-06-01', '2024-07-01'])
+    expect(frostSpells(rows)).toHaveLength(2)
   })
 })

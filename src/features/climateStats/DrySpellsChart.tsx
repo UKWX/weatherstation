@@ -11,7 +11,7 @@ const RIGHT = 88
 const TOP = 66
 const ROW = 54
 const BAR_HEIGHT = 18
-const COLOR = '#c98a3a'
+const COLOR = chartTheme.colors.dryAmber
 const HIGHLIGHT = '#a35b12'
 const DAY_MS = 86_400_000
 

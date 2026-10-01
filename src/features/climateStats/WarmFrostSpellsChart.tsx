@@ -2,7 +2,7 @@ import { useRef } from 'react'
 import { ChartCard } from '@/components/charts/ChartCard'
 import { chartTheme } from '@/components/charts/chartTheme'
 import type { ClimateDay } from '@/types/weather'
-import { longestFrostSpell, longestWarmSpell, type Spell } from './spells'
+import { frostSpells, longestFrostSpell, longestWarmSpell, warmSpells, type Spell } from './spells'
 import { legendSwatch, useClimateChartHover } from './climateChartCommon'
 
 const W = chartTheme.exportWidth
@@ -50,10 +50,12 @@ export function WarmFrostSpellsChart({ records, currentYear }: {
         hasFrostData: winterDays.some((day) => day.minTempC != null),
       }
     })
-  const warmTop = rows.filter((row) => row.warm != null)
-    .sort((a, b) => (b.warm?.length ?? 0) - (a.warm?.length ?? 0)).slice(0, 5)
-  const frostTop = rows.filter((row) => row.frost != null)
-    .sort((a, b) => (b.frost?.length ?? 0) - (a.frost?.length ?? 0)).slice(0, 5)
+  const warmTop = [...warmYears].flatMap(([year, days]) =>
+    warmSpells(days).map((spell) => ({ year, spell })))
+    .sort((a, b) => b.spell.length - a.spell.length).slice(0, 5)
+  const frostTop = [...winters].flatMap(([year, days]) =>
+    frostSpells(days).map((spell) => ({ year, spell })))
+    .sort((a, b) => b.spell.length - a.spell.length).slice(0, 5)
   const longest = Math.max(1, ...rows.flatMap((row) => [row.warm?.length ?? 0, row.frost?.length ?? 0]))
   const scale = (days: number) => days / longest * RADIUS
   const col = (W - LEFT - RIGHT) / Math.max(1, rows.length)
@@ -158,23 +160,22 @@ export function WarmFrostSpellsChart({ records, currentYear }: {
                 label: activeWarm ? 'Peak high' : 'Lowest low',
                 value: `${(activeWarm ? Math.max(...peak) : Math.min(...lowest)).toFixed(1)} °C`,
               }])]}
-              footer={(activeWarm ? active.warm : active.frost)?.ongoing ? 'Continuing at the end of available records' : undefined} />
+              footer={activeSpell?.ongoing && active.year === (activeWarm ? currentYear : currentYear + 1) ? 'Ongoing at the end of available records' : undefined} />
           )}
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '1.5rem', padding: '1rem' }}>
           {([
-            { title: 'Five longest annual warm spells', entries: warmTop, key: 'warm' as const },
-            { title: 'Five longest winter frost spells', entries: frostTop, key: 'frost' as const },
-          ]).map(({ title, entries, key }) => (
-            <div key={key}>
+            { title: 'Five longest warm spells', entries: warmTop },
+            { title: 'Five longest frost spells', entries: frostTop },
+          ]).map(({ title, entries }) => (
+            <div key={title}>
               <h3>{title}</h3>
               {entries.length === 0 ? <p>No qualifying spells.</p> : (
                 <table>
                   <thead><tr><th scope="col">Year</th><th scope="col">Days</th><th scope="col">Dates</th></tr></thead>
-                  <tbody>{entries.map((row) => {
-                    const spell = row[key]!
-                    return <tr key={row.year}>
-                      <th scope="row">{row.year}</th>
+                  <tbody>{entries.map(({ year, spell }) => {
+                    return <tr key={`${year}-${spell.startDate}`}>
+                      <th scope="row">{year}</th>
                       <td>{spell.length}</td>
                       <td>{spell.startDate} – {spell.endDate}</td>
                     </tr>

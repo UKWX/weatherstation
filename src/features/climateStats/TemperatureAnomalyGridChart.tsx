@@ -115,8 +115,13 @@ export function TemperatureAnomalyGridChart({ records, currentYear }: {
                 { label: 'Mean minimum', value: average(activeDays.map((record) => record.minTempC!)) },
                 ...(!active.complete || active.anomalyC == null ? [] : [{
                   label: 'Rank for this month',
-                  value: `#${1 + cells.filter((cell) => cell.month === active.month &&
-                    cell.complete && cell.anomalyC != null && cell.anomalyC > active.anomalyC!).length}`,
+                  value: (() => {
+                    const rank = 1 + cells.filter((cell) => cell.month === active.month &&
+                      cell.complete && cell.anomalyC != null && cell.anomalyC > active.anomalyC!).length
+                    const suffix = rank % 100 >= 11 && rank % 100 <= 13 ? 'th' : rank % 10 === 1 ? 'st' : rank % 10 === 2 ? 'nd' : rank % 10 === 3 ? 'rd' : 'th'
+                    const month = new Date(Date.UTC(2000, active.month - 1, 1)).toLocaleString('en-GB', { month: 'long', timeZone: 'UTC' })
+                    return `${rank}${suffix} warmest ${month} since 1995`
+                  })(),
                 }]),
               ]}
               footer={active.complete ? undefined : `Partial month (${activeDays.length} of ${new Date(Date.UTC(active.year, active.month, 0)).getUTCDate()} days)`} />

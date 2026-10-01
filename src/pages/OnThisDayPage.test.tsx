@@ -33,6 +33,7 @@ vi.mock('@/hooks/usePublicWeatherQueries', () => ({
   useClimateArchiveIndexQuery: () => toResult(state.archiveIndex),
   useDailyNormalsQuery: () => toResult(state.dailyNormals),
   useAnnualClimateQueries: () => state.annuals.map((entry) => toResult(entry)),
+  useTodaySummaryQuery: () => toResult({ data: null }),
 }))
 
 function renderPage(initialEntries: string[] = ['/on-this-day']) {

@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react'
-import { ChartCard, ChartTooltip, positionTooltip } from '@/components/charts'
+import { ChartCard, ChartTooltip, chartTheme, positionTooltip } from '@/components/charts'
 import { ANNUAL_RAIN_NORMAL_MM, normalToDate, RAIN_MONTHLY_NORMALS_MM } from '@/features/normals/rainfallNormals'
 import { buildRainfallGrid } from './rainfallGrid'
 import type { ClimateDay } from '@/types/weather'
@@ -33,7 +33,7 @@ export function RainfallGridChart({ records, currentYear }: { readonly records: 
   const annualPercent = annualNormal > 0 ? annualTotal / annualNormal * 100 : 0
   const annualRainDays = annualCells.reduce((sum, cell) => sum + cell.rainDays, 0)
   const wettest = active && active.month < 13 ? records.filter((record) => record.date.startsWith(`${active.year}-${String(active.month).padStart(2, '0')}-`) && record.rainfallMm != null).sort((a, b) => (b.rainfallMm ?? 0) - (a.rainfallMm ?? 0))[0] : null
-  function paint(percent: number | null): string { return percent == null ? '#f5f7f9' : blend(percent >= 100 ? '#2f5fa8' : '#c98a3a', percent >= 100 ? (percent - 100) / 150 : (100 - percent) / 100) }
+  function paint(percent: number | null): string { return percent == null ? chartTheme.colors.neutralCell : blend(percent >= 100 ? chartTheme.colors.rainfallCurrent : chartTheme.colors.dryAmber, percent >= 100 ? (percent - 100) / 150 : (100 - percent) / 100) }
   return <div ref={containerRef} style={{ position: 'relative', minWidth: 0 }}>
     <ChartCard title="Rainfall grid" subtitle="Station rainfall since 2020 · 1991–2020 average" footnote="Drier / Wetter than the 1991–2020 average. 2020 rainfall begins in May." minWidth={W}
       legend={[{ label: 'Drier', swatch: <span style={{ color: '#c98a3a' }}>■</span> }, { label: 'Average', swatch: <span style={{ color: '#f5f7f9' }}>■</span> }, { label: 'Wetter', swatch: <span style={{ color: '#2f5fa8' }}>■</span> }, { label: 'No data', swatch: <span style={{ color: '#aeb8c2' }}>▤</span> }]}

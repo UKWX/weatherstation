@@ -13,6 +13,7 @@ import {
   useAnnualClimateQueries,
   useClimateArchiveIndexQuery,
   useDailyNormalsQuery,
+  useTodaySummaryQuery,
 } from '@/hooks/usePublicWeatherQueries'
 import {
   daysInMonth,
@@ -151,6 +152,7 @@ function MeanAnomalyChart({
 export default function OnThisDayPage() {
   const archiveIndexQuery = useClimateArchiveIndexQuery()
   const dailyNormalsQuery = useDailyNormalsQuery()
+  const todaySummaryQuery = useTodaySummaryQuery()
   const { month, day, update } = useOnThisDaySelection()
   const availableYears = useMemo(
     () => (archiveIndexQuery.data?.years ?? []).map((entry) => entry.year).sort((left, right) => left - right),
@@ -158,7 +160,21 @@ export default function OnThisDayPage() {
   )
   const annualQueries = useAnnualClimateQueries(availableYears)
   const annualPayloads = annualQueries.map((query) => query.data)
+  const todayDate = getEuropeLondonClimateDate()
+  const todayValues = todaySummaryQuery.data
+  const provisionalToday = todayValues?.maximumTemperature?.value != null || todayValues?.minimumTemperature?.value != null
+    ? [{
+      date: todayDate,
+      maxTempC: todayValues.maximumTemperature?.value ?? null,
+      minTempC: todayValues.minimumTemperature?.value ?? null,
+      meanTempC: null,
+      rainfallMm: null,
+      status: 'provisional' as const,
+    }] : []
+  const selectingToday = month === Number(todayDate.slice(5, 7)) && day === Number(todayDate.slice(8, 10))
   const historyRecords = annualPayloads.flatMap((payload) => payload?.records ?? [])
+    .filter((record) => !selectingToday || provisionalToday.length === 0 || record.date !== todayDate)
+    .concat(selectingToday ? provisionalToday : [])
   const anyAnnualLoading = annualQueries.some((query) => query.isLoading && query.data == null)
   const annualError = annualQueries.find((query) => query.error != null && query.data == null)
   const data = useMemo(

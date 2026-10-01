@@ -67,6 +67,19 @@
   overflow: visible;
 }
 
+.chart-kit-card__container:has(.chart-kit-svg:not(.date-series-chart__svg)),
+.chart-kit-card__container:has(.responsive-chart-container__inner > svg[height]) {
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+
+.chart-kit-card__container:has(.chart-kit-svg:not(.date-series-chart__svg)) .responsive-chart-container__inner,
+.chart-kit-card__container:has(.responsive-chart-container__inner > svg[height]) .responsive-chart-container__inner {
+  height: auto;
+  min-height: 0;
+  min-width: var(--chart-min-width);
+}
+
 .chart-kit-canvas {
   position: relative;
   min-height: 0;

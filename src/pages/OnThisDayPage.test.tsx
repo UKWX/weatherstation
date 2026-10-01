@@ -33,6 +33,7 @@ vi.mock('@/hooks/usePublicWeatherQueries', () => ({
   useClimateArchiveIndexQuery: () => toResult(state.archiveIndex),
   useDailyNormalsQuery: () => toResult(state.dailyNormals),
   useAnnualClimateQueries: () => state.annuals.map((entry) => toResult(entry)),
+  useTodaySummaryQuery: () => toResult({ data: null }),
 }))
 
 function renderPage(initialEntries: string[] = ['/on-this-day']) {
@@ -156,6 +157,7 @@ describe('OnThisDayPage', () => {
     })
     expect(screen.getByText(/across 2 available years/i)).toBeInTheDocument()
     expect(screen.getByText(/does not provide a daily normal/i)).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Today vs every year' })).toBeInTheDocument()
   })
 
   it('shows tied highest max years and archive links', async () => {

@@ -209,6 +209,9 @@ describe('ClimateArchivePage', () => {
     setBaseState(2024)
     renderPage()
     expect(screen.getByText('Annual summary — 2024')).toBeDefined()
+    expect(screen.getByRole('heading', { name: 'Monthly spread' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Rainfall year on year' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Dry spells' })).toBeInTheDocument()
   })
 
   it('shows provisional warning for current year', () => {

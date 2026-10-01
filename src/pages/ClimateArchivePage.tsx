@@ -6,6 +6,9 @@ import {
   type ChangeEvent,
 } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
+import { RainfallYearOnYearChart } from '@/features/climateStats/RainfallYearOnYearChart'
+import { MonthlySpreadChart } from '@/features/climateStats/MonthlySpreadChart'
+import { DrySpellsChart } from '@/features/climateStats/DrySpellsChart'
 import {
   Badge,
   ErrorState,
@@ -866,6 +869,8 @@ function AnnualView({
   monthlyNormals,
   onSelectMonth,
   trendData,
+  historyRecords,
+  currentYear,
 }: {
   readonly summary: AnnualSummaryType
   readonly year: number
@@ -875,6 +880,8 @@ function AnnualView({
   readonly monthlyNormals: readonly { month: number; meanTempC: number | null; meanMaxTempC: number | null; meanMinTempC: number | null }[]
   readonly onSelectMonth: (month: number) => void
   readonly trendData: ReturnType<typeof buildAnnualTrendData>
+  readonly historyRecords: readonly ClimateDay[]
+  readonly currentYear: number
 }) {
   const rainfallYearAvailable = isRainfallAvailableForYear(year)
   const rainfallYearComplete = rainfallYearAvailable && summary.coverage.rainfall.complete
@@ -1032,6 +1039,9 @@ function AnnualView({
           Valid observations: {payload.observationCount ?? summary.coverage.maxTemperature.valid}.
         </p>
       </section>
+      <RainfallYearOnYearChart records={historyRecords} currentYear={currentYear} />
+      <DrySpellsChart records={historyRecords} currentYear={currentYear} />
+      <MonthlySpreadChart records={historyRecords} currentYear={currentYear} />
 
       <section className="card" aria-labelledby="monthly-breakdown-title">
         <h2 id="monthly-breakdown-title">Monthly breakdown</h2>
@@ -1624,6 +1634,7 @@ export default function ClimateArchivePage() {
         .filter((payload): payload is NonNullable<typeof payload> => payload != null),
     [annualTrendQueries],
   )
+  const historyRecords = annualTrendPayloads.flatMap((payload) => payload.records)
   const annualTrendData = useMemo(
     () => buildAnnualTrendData(annualTrendPayloads, monthlyNormals),
     [annualTrendPayloads, monthlyNormals],
@@ -1740,6 +1751,8 @@ export default function ClimateArchivePage() {
           summary={annualSummary}
           year={year}
           records={records}
+          historyRecords={historyRecords}
+          currentYear={availableYears.at(-1) ?? year}
           dailyNormals={dailyNormals}
           payload={{
             complete: annualQuery.data.complete,

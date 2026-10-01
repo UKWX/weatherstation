@@ -1,5 +1,6 @@
 import { useEffect, useMemo } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
+import { TodayEveryYearChart } from '@/features/climateStats/TodayEveryYearChart'
 import { Badge, ErrorState, ResponsiveChartContainer, Skeleton, TableWrapper, VisuallyHidden } from '@/components/ui'
 import { WEATHER_UNITS } from '@/config/weather'
 import {
@@ -12,6 +13,7 @@ import {
   useAnnualClimateQueries,
   useClimateArchiveIndexQuery,
   useDailyNormalsQuery,
+  useTodaySummaryQuery,
 } from '@/hooks/usePublicWeatherQueries'
 import {
   daysInMonth,
@@ -33,7 +35,9 @@ function formatTemperatureAnomaly(value: number | null): string {
 function useOnThisDaySelection() {
   const [searchParams, setSearchParams] = useSearchParams()
   const today = getEuropeLondonClimateDate()
-  const todayParts = parseIsoClimateDate(today)
+  const todayParts = parseIsoClimateDate(
+    new Date(Date.parse(`${today}T12:00:00Z`) - 86_400_000).toISOString().slice(0, 10),
+  )
   const monthParam = searchParams.get('month')
   const dayParam = searchParams.get('day')
   const month = monthParam != null && /^(?:[1-9]|1[0-2])$/.test(monthParam)
@@ -148,6 +152,7 @@ function MeanAnomalyChart({
 export default function OnThisDayPage() {
   const archiveIndexQuery = useClimateArchiveIndexQuery()
   const dailyNormalsQuery = useDailyNormalsQuery()
+  const todaySummaryQuery = useTodaySummaryQuery()
   const { month, day, update } = useOnThisDaySelection()
   const availableYears = useMemo(
     () => (archiveIndexQuery.data?.years ?? []).map((entry) => entry.year).sort((left, right) => left - right),
@@ -155,6 +160,21 @@ export default function OnThisDayPage() {
   )
   const annualQueries = useAnnualClimateQueries(availableYears)
   const annualPayloads = annualQueries.map((query) => query.data)
+  const todayDate = getEuropeLondonClimateDate()
+  const todayValues = todaySummaryQuery.data
+  const provisionalToday = todayValues?.maximumTemperature?.value != null || todayValues?.minimumTemperature?.value != null
+    ? [{
+      date: todayDate,
+      maxTempC: todayValues.maximumTemperature?.value ?? null,
+      minTempC: todayValues.minimumTemperature?.value ?? null,
+      meanTempC: null,
+      rainfallMm: null,
+      status: 'provisional' as const,
+    }] : []
+  const selectingToday = month === Number(todayDate.slice(5, 7)) && day === Number(todayDate.slice(8, 10))
+  const historyRecords = annualPayloads.flatMap((payload) => payload?.records ?? [])
+    .filter((record) => !selectingToday || provisionalToday.length === 0 || record.date !== todayDate)
+    .concat(selectingToday ? provisionalToday : [])
   const anyAnnualLoading = annualQueries.some((query) => query.isLoading && query.data == null)
   const annualError = annualQueries.find((query) => query.error != null && query.data == null)
   const data = useMemo(
@@ -292,6 +312,7 @@ export default function OnThisDayPage() {
         </div>
         <TemperatureHistoryChart rows={data.chartRows} />
       </section>
+      <TodayEveryYearChart records={historyRecords} month={month} day={day} currentYear={availableYears.at(-1) ?? new Date().getFullYear()} />
 
       <section className="card">
         <div className="archive-card-heading">

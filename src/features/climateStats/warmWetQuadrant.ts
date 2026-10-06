@@ -2,7 +2,10 @@ export const TEMPERATURE_ANOMALY_LIMIT_C = 6
 export const RAINFALL_PERCENT_LIMIT = 500
 
 export function getWarmWetQuadrantAxisLimits(
-  points: readonly { readonly anomalyC: number; readonly rainfallPercent: number }[],
+  points: readonly {
+    readonly anomalyC: number
+    readonly rainfallPercent: number
+  }[],
 ) {
   const maxAnomaly = points.reduce(
     (maximum, point) =>

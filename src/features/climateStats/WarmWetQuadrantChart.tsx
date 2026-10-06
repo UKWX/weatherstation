@@ -86,7 +86,8 @@ export function WarmWetQuadrantChart({
   })
   const axisLimits = getWarmWetQuadrantAxisLimits(points)
   const x = (value: number) =>
-    LEFT + ((value + axisLimits.temperature) / (2 * axisLimits.temperature)) * PW
+    LEFT +
+    ((value + axisLimits.temperature) / (2 * axisLimits.temperature)) * PW
   const y = (value: number) =>
     TOP + ((axisLimits.rainfall - value) / axisLimits.rainfall) * PH
   const temperatureTicks = Array.from(
@@ -283,12 +284,22 @@ export function WarmWetQuadrantChart({
                     aria-label={`${MONTH_SHORT[point.month - 1]} ${point.year}: ${point.anomalyC.toFixed(1)} °C anomaly, ${point.rainfallPercent.toFixed(0)}% rainfall`}
                     {...handlers(index)}
                     onKeyDown={(event) => {
-                      const delta = event.key === 'ArrowLeft' || event.key === 'ArrowUp' ? -1 :
-                        event.key === 'ArrowRight' || event.key === 'ArrowDown' ? 1 : 0
+                      const delta =
+                        event.key === 'ArrowLeft' || event.key === 'ArrowUp'
+                          ? -1
+                          : event.key === 'ArrowRight' ||
+                              event.key === 'ArrowDown'
+                            ? 1
+                            : 0
                       if (!delta) return
                       event.preventDefault()
-                      const all = event.currentTarget.ownerSVGElement?.querySelectorAll<SVGRectElement>('[data-quadrant-point="true"]')
-                      all?.[Math.max(0, Math.min(all.length - 1, index + delta))]?.focus()
+                      const all =
+                        event.currentTarget.ownerSVGElement?.querySelectorAll<SVGRectElement>(
+                          '[data-quadrant-point="true"]',
+                        )
+                      all?.[
+                        Math.max(0, Math.min(all.length - 1, index + delta))
+                      ]?.focus()
                     }}
                   />
                 </g>

@@ -3,7 +3,9 @@ import { getWarmWetQuadrantAxisLimits } from './warmWetQuadrant'
 
 describe('warm/wet quadrant axis limits', () => {
   it('keeps the axes at least as wide as the supported ranges', () => {
-    expect(getWarmWetQuadrantAxisLimits([{ anomalyC: 1.5, rainfallPercent: 100 }])).toEqual({
+    expect(
+      getWarmWetQuadrantAxisLimits([{ anomalyC: 1.5, rainfallPercent: 100 }]),
+    ).toEqual({
       temperature: 6,
       rainfall: 500,
     })

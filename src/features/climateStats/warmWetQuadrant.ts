@@ -8,6 +8,22 @@ export interface QuadrantPoint {
   readonly clampedY: boolean
 }
 
+export function warmWetQuadrantBounds(points: readonly QuadrantPoint[]) {
+  let minAnomalyC = 0
+  let maxAnomalyC = 0
+  let maxRainfallPercent = 100
+  for (const point of points) {
+    minAnomalyC = Math.min(minAnomalyC, point.x)
+    maxAnomalyC = Math.max(maxAnomalyC, point.x)
+    maxRainfallPercent = Math.max(maxRainfallPercent, point.y)
+  }
+  return {
+    minAnomalyC: minAnomalyC === maxAnomalyC ? -1 : minAnomalyC,
+    maxAnomalyC: minAnomalyC === maxAnomalyC ? 1 : maxAnomalyC,
+    maxRainfallPercent,
+  }
+}
+
 export function clampWarmWetQuadrant(
   anomalyC: number,
   rainfallPercent: number,

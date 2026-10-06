@@ -1,5 +1,55 @@
 import { describe, expect, it } from 'vitest'
-import { clampWarmWetQuadrant } from './warmWetQuadrant'
+import { clampWarmWetQuadrant, warmWetQuadrantBounds } from './warmWetQuadrant'
+
+describe('warm/wet quadrant bounds', () => {
+  it('fits the data extrema without rounding the axes up', () => {
+    expect(
+      warmWetQuadrantBounds([
+        clampWarmWetQuadrant(-2.3, 80),
+        clampWarmWetQuadrant(4.5, 255),
+      ]),
+    ).toEqual({
+      minAnomalyC: -2.3,
+      maxAnomalyC: 4.5,
+      maxRainfallPercent: 255,
+    })
+  })
+
+  it('retains the hard caps when observations exceed them', () => {
+    expect(
+      warmWetQuadrantBounds([
+        clampWarmWetQuadrant(-9, 700),
+        clampWarmWetQuadrant(8, 200),
+      ]),
+    ).toEqual({
+      minAnomalyC: -6,
+      maxAnomalyC: 6,
+      maxRainfallPercent: 500,
+    })
+  })
+
+  it('keeps the normal reference visible for one-sided or dry data', () => {
+    expect(warmWetQuadrantBounds([clampWarmWetQuadrant(4.5, 0)])).toEqual({
+      minAnomalyC: 0,
+      maxAnomalyC: 4.5,
+      maxRainfallPercent: 100,
+    })
+    expect(warmWetQuadrantBounds([clampWarmWetQuadrant(-2.3, 50)])).toEqual({
+      minAnomalyC: -2.3,
+      maxAnomalyC: 0,
+      maxRainfallPercent: 100,
+    })
+  })
+
+  it('avoids a zero-width temperature axis for empty or zero-anomaly data', () => {
+    for (const points of [[], [clampWarmWetQuadrant(0, 255)]]) {
+      expect(warmWetQuadrantBounds(points)).toMatchObject({
+        minAnomalyC: -1,
+        maxAnomalyC: 1,
+      })
+    }
+  })
+})
 
 describe('warm/wet quadrant clipping', () => {
   it('retains values inside the maximum axis ranges', () => {

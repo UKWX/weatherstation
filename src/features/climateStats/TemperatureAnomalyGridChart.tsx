@@ -1,8 +1,9 @@
-import { useRef } from 'react'
+import { useRef, useState } from 'react'
 import { ChartCard } from '@/components/charts/ChartCard'
 import { chartTheme, MONTH_SHORT } from '@/components/charts/chartTheme'
 import type { ClimateDay } from '@/types/weather'
-import { buildTemperatureAnomalyGrid } from './temperatureAnomalyGrid'
+import { TEMP_MONTHLY_NORMALS_C } from '@/features/normals/temperatureNormals'
+import { buildTemperatureAnomalyGrid, temperatureAnomalyValue, type TemperatureAnomalyMetric } from './temperatureAnomalyGrid'
 import { legendSwatch, temperatureLabel, useClimateChartHover } from './climateChartCommon'
 
 const W = chartTheme.exportWidth
@@ -24,26 +25,40 @@ export function TemperatureAnomalyGridChart({ records, currentYear }: {
   readonly currentYear: number
 }) {
   const svgRef = useRef<SVGSVGElement>(null)
+  const [metric, setMetric] = useState<TemperatureAnomalyMetric>('mean')
+  const metricLabel = metric === 'max' ? 'Mean maximum' : metric === 'min' ? 'Mean minimum' : 'Mean temperature'
   const { containerRef, hover, handlers, Tooltip } = useClimateChartHover()
   const firstYear = 1995
   const lastYear = currentYear
-  const cells = currentYear >= firstYear ? buildTemperatureAnomalyGrid(records, firstYear, lastYear) : []
+  const cells = currentYear >= firstYear ? buildTemperatureAnomalyGrid(records, firstYear, lastYear, metric) : []
   const legendY = TOP + Math.max(1, lastYear - firstYear + 1) * ROW + 14
   const height = legendY + 66
   const active = hover == null ? null : cells[hover.index]
-  const activeDays = active == null ? [] : records.filter((record) =>
-    record.date.startsWith(`${active.year}-${String(active.month).padStart(2, '0')}-`) &&
-    record.maxTempC != null && record.minTempC != null)
-  const average = (values: number[]) => values.length ? `${(values.reduce((sum, value) => sum + value, 0) / values.length).toFixed(1)} °C` : '—'
+  const activeDays = active == null ? [] : [...new Map(records.filter((record) =>
+    record.date.startsWith(`${active.year}-${String(active.month).padStart(2, '0')}-`))
+    .map((record) => [record.date, record])).values()]
+    .filter((record) => temperatureAnomalyValue(record, metric) != null)
+  const average = (mode: TemperatureAnomalyMetric) => {
+    const values = activeDays.map((record) => temperatureAnomalyValue(record, mode))
+      .filter((value): value is number => value != null)
+    return values.length ? `${(values.reduce((sum, value) => sum + value, 0) / values.length).toFixed(1)} °C` : '—'
+  }
 
   return (
     <ChartCard
       title="Temperature anomaly grid"
-      subtitle="Station temperature since 1995 · 1991–2020 average."
-      footnote="Colder / Warmer than the 1991–2020 average (−3°C to +3°C). Incomplete months are faded."
+      subtitle={`Station temperature since 1995 · ${metricLabel} anomalies · 1991–2020 average.`}
+      footnote="Monthly average of the selected daily temperature minus its 1991–2020 monthly normal. Colder / Warmer (−3°C to +3°C). Incomplete months are faded."
+      headerAside={<label>Temperature anomaly{' '}
+        <select value={metric} onChange={(event) => setMetric(event.target.value as TemperatureAnomalyMetric)}>
+          <option value="mean">Mean</option>
+          <option value="max">Max</option>
+          <option value="min">Min</option>
+        </select>
+      </label>}
       svgRef={svgRef}
-      svgFilename={`wakefield-${currentYear}-temperature-anomaly-grid.svg`}
-      pngFilename={`wakefield-${currentYear}-temperature-anomaly-grid.png`}
+      svgFilename={`wakefield-${currentYear}-temperature-anomaly-grid-${metric}.svg`}
+      pngFilename={`wakefield-${currentYear}-temperature-anomaly-grid-${metric}.png`}
       minWidth={760}
       legend={[
         { label: 'Cooler', swatch: legendSwatch('#2453c9') },
@@ -55,7 +70,7 @@ export function TemperatureAnomalyGridChart({ records, currentYear }: {
       {!cells.some((cell) => cell.meanC != null) ? <p className="normals-no-data">No chart data available.</p> : (
         <div ref={containerRef} className="chart-kit-canvas" style={{ position: 'relative' }}>
           <svg ref={svgRef} className="chart-kit-svg" viewBox={`0 0 ${W} ${height}`} role="img"
-            aria-label={`Monthly temperature anomaly grid from ${firstYear} to ${lastYear}`}
+            aria-label={`Monthly ${metric} temperature anomaly grid from ${firstYear} to ${lastYear}`}
             style={{ width: '100%', height: 'auto' }}>
             <defs><linearGradient id="temperature-anomaly-scale"><stop offset="0%" stopColor="#2453c9" /><stop offset="50%" stopColor="#f5f7f9" /><stop offset="100%" stopColor="#c22b2b" /></linearGradient></defs>
             {MONTH_SHORT.map((month, i) => (
@@ -109,10 +124,11 @@ export function TemperatureAnomalyGridChart({ records, currentYear }: {
           {active != null && (
             <Tooltip title={`${MONTH_SHORT[active.month - 1]} ${active.year}`}
               rows={[
-                { label: 'Mean temperature', value: temperatureLabel(active.meanC) },
+                { label: metricLabel, value: temperatureLabel(active.meanC) },
+                { label: '1991–2020 monthly normal', value: temperatureLabel(TEMP_MONTHLY_NORMALS_C[metric][active.month - 1] ?? null) },
                 { label: 'Anomaly vs 1991–2020', value: `${active.anomalyC != null && active.anomalyC > 0 ? '+' : ''}${temperatureLabel(active.anomalyC)}`, accentColor: anomalyColor(active.anomalyC) },
-                { label: 'Mean maximum', value: average(activeDays.map((record) => record.maxTempC!)) },
-                { label: 'Mean minimum', value: average(activeDays.map((record) => record.minTempC!)) },
+                ...(metric === 'max' ? [] : [{ label: 'Mean maximum', value: average('max') }]),
+                ...(metric === 'min' ? [] : [{ label: 'Mean minimum', value: average('min') }]),
                 ...(!active.complete || active.anomalyC == null ? [] : [{
                   label: 'Rank for this month',
                   value: (() => {

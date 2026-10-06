@@ -35,4 +35,54 @@ describe('temperature anomaly grid', () => {
     expect(buildTemperatureAnomalyGrid([...days.slice(0, 24), ...days.slice(0, 4)], 2023, 2023)[1])
       .toMatchObject({ complete: false, anomalyC: 5 - TEMP_MONTHLY_NORMALS_C.mean[1] })
   })
+
+  it.each([
+    ['mean', 6, 1.4],
+    ['max', 12, 4.7],
+    ['min', 2, 0.1],
+  ] as const)('subtracts the supplied %s normal from the monthly average', (metric, meanC, anomalyC) => {
+    const records = [
+      { ...day('2023-01-01', 10, 0), meanTempC: 5 },
+      { ...day('2023-01-02', 14, 4), meanTempC: 7 },
+    ]
+    const cell = buildTemperatureAnomalyGrid(records, 2023, 2023, metric)[0]!
+    expect(cell.meanC).toBe(meanC)
+    expect(cell.anomalyC).toBeCloseTo(anomalyC)
+  })
+
+  it('uses recorded daily means and falls back to paired temperatures when absent', () => {
+    const records = [
+      { ...day('2023-01-01', 20, 0), meanTempC: 6 },
+      day('2023-01-02', 12, 4),
+      { ...day('2023-01-03', null, null), meanTempC: 7 },
+      day('2023-01-04', null, 4),
+    ]
+    expect(buildTemperatureAnomalyGrid(records, 2023, 2023)[0]).toMatchObject({
+      meanC: 7,
+    })
+    expect(buildTemperatureAnomalyGrid(records, 2023, 2023)[0]!.anomalyC).toBeCloseTo(2.4)
+  })
+
+  it.each(['max', 'min'] as const)('does not require the other temperature for %s coverage', (metric) => {
+    const records = Array.from({ length: 28 }, (_, index) =>
+      day(`2023-01-${String(index + 1).padStart(2, '0')}` as ClimateDay['date'],
+        metric === 'max' ? 10 : null, metric === 'min' ? 2 : null))
+    expect(buildTemperatureAnomalyGrid(records, 2023, 2023, metric)[0]).toMatchObject({
+      meanC: metric === 'max' ? 10 : 2, complete: true,
+    })
+    expect(buildTemperatureAnomalyGrid(records.slice(0, 27), 2023, 2023, metric)[0]!.complete).toBe(false)
+    expect(buildTemperatureAnomalyGrid(records, 2023, 2023)[0]!.meanC).toBeNull()
+  })
+
+  it.each(['mean', 'max', 'min'] as const)('ignores non-finite readings in %s mode', (metric) => {
+    const records = [
+      day('2023-01-01', NaN, Infinity),
+      { ...day('2023-01-02', null, null), meanTempC: Infinity },
+      { ...day('2023-01-03', 10, 2), meanTempC: 6 },
+    ]
+    const cell = buildTemperatureAnomalyGrid(records, 2023, 2023, metric)[0]!
+    expect(cell.meanC).toBe(metric === 'max' ? 10 : metric === 'min' ? 2 : 6)
+    expect(Number.isFinite(cell.anomalyC)).toBe(true)
+    expect(cell.complete).toBe(false)
+  })
 })

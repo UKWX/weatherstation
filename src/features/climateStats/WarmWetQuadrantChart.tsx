@@ -24,8 +24,7 @@ const ORANGE = '#c98a3a'
 
 const x = (value: number) =>
   LEFT +
-  ((value + TEMPERATURE_ANOMALY_LIMIT_C) /
-    (2 * TEMPERATURE_ANOMALY_LIMIT_C)) *
+  ((value + TEMPERATURE_ANOMALY_LIMIT_C) / (2 * TEMPERATURE_ANOMALY_LIMIT_C)) *
     PW
 const y = (value: number) =>
   TOP + ((RAINFALL_PERCENT_LIMIT - value) / RAINFALL_PERCENT_LIMIT) * PH

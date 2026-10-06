@@ -4,11 +4,7 @@ import { chartTheme, MONTH_SHORT } from '@/components/charts/chartTheme'
 import type { ClimateDay } from '@/types/weather'
 import { buildRainfallGrid } from './rainfallGrid'
 import { buildTemperatureAnomalyGrid } from './temperatureAnomalyGrid'
-import {
-  clampWarmWetQuadrant,
-  RAINFALL_PERCENT_LIMIT,
-  TEMPERATURE_ANOMALY_LIMIT_C,
-} from './warmWetQuadrant'
+import { clampWarmWetQuadrant, warmWetQuadrantBounds } from './warmWetQuadrant'
 import { legendSwatch, useClimateChartHover } from './climateChartCommon'
 
 const W = chartTheme.exportWidth
@@ -22,12 +18,20 @@ const PH = H - TOP - BOTTOM
 const BLUE = '#2f5fa8'
 const ORANGE = '#c98a3a'
 
-const x = (value: number) =>
-  LEFT +
-  ((value + TEMPERATURE_ANOMALY_LIMIT_C) / (2 * TEMPERATURE_ANOMALY_LIMIT_C)) *
-    PW
-const y = (value: number) =>
-  TOP + ((RAINFALL_PERCENT_LIMIT - value) / RAINFALL_PERCENT_LIMIT) * PH
+function axisTicks(min: number, max: number, step: number) {
+  const ticks = [min]
+  for (let tick = Math.ceil(min / step) * step; tick < max; tick += step) {
+    if (tick > min) ticks.push(tick)
+  }
+  ticks.push(max)
+  return ticks.map((value) => ({
+    value,
+    showLabel:
+      value === min ||
+      value === max ||
+      Math.min(value - min, max - value) >= (max - min) * 0.06,
+  }))
+}
 
 export function WarmWetQuadrantChart({
   records,
@@ -96,13 +100,19 @@ export function WarmWetQuadrantChart({
       },
     ]
   })
+  const { minAnomalyC, maxAnomalyC, maxRainfallPercent } =
+    warmWetQuadrantBounds(points.map((point) => point.position))
+  const x = (value: number) =>
+    LEFT + ((value - minAnomalyC) / (maxAnomalyC - minAnomalyC)) * PW
+  const y = (value: number) =>
+    TOP + ((maxRainfallPercent - value) / maxRainfallPercent) * PH
   const active = hover == null ? null : points[hover.index]
 
   return (
     <ChartCard
       title="Warm/wet quadrant"
       subtitle={`Temperature since 1995 · rainfall since 2020 · 1991–2020 average. Highlighted year: ${highlightedYear}.`}
-      footnote="Only months with at least 90% finalised temperature and rainfall observations are shown. The axes span −6 to +6 °C and 0–500% of normal; values beyond these limits are pinned to the plot edge, with actual values shown in tooltips."
+      footnote="Only months with at least 90% finalised temperature and rainfall observations are shown. Axes fit the plotted data and normal reference, capped at −6 to +6 °C and 500% of normal; values beyond these limits are pinned to the plot edge, with actual values shown in tooltips."
       minWidth={850}
       svgRef={svgRef}
       svgFilename={`wakefield-${currentYear}-warm-wet-quadrant.svg`}
@@ -150,83 +160,91 @@ export function WarmWetQuadrantChart({
             <rect
               x={LEFT}
               y={TOP}
-              width={PW / 2}
+              width={x(0) - LEFT}
               height={y(100) - TOP}
               fill="#edf3fa"
             />
             <rect
               x={x(0)}
               y={TOP}
-              width={PW / 2}
+              width={LEFT + PW - x(0)}
               height={y(100) - TOP}
               fill="#eaf2f5"
             />
             <rect
               x={LEFT}
               y={y(100)}
-              width={PW / 2}
+              width={x(0) - LEFT}
               height={TOP + PH - y(100)}
               fill="#f4f4f2"
             />
             <rect
               x={x(0)}
               y={y(100)}
-              width={PW / 2}
+              width={LEFT + PW - x(0)}
               height={TOP + PH - y(100)}
               fill="#fdf2e9"
             />
-            {[-6, -4, -2, 0, 2, 4, 6].map((tick) => (
-              <g key={tick}>
-                <line
-                  x1={x(tick)}
-                  x2={x(tick)}
-                  y1={TOP}
-                  y2={TOP + PH}
-                  stroke={
-                    tick === 0
-                      ? chartTheme.colors.bandEdge
-                      : chartTheme.colors.grid
-                  }
-                  strokeWidth={tick === 0 ? 2 : 1}
-                />
-                <text
-                  x={x(tick)}
-                  y={TOP + PH + 24}
-                  textAnchor="middle"
-                  fill={chartTheme.colors.sub}
-                  fontSize={chartTheme.fontSizes.tick}
-                >
-                  {tick > 0 ? '+' : ''}
-                  {tick}
-                </text>
-              </g>
-            ))}
-            {[0, 100, 200, 300, 400, 500].map((tick) => (
-              <g key={tick}>
-                <line
-                  x1={LEFT}
-                  x2={LEFT + PW}
-                  y1={y(tick)}
-                  y2={y(tick)}
-                  stroke={
-                    tick === 100
-                      ? chartTheme.colors.bandEdge
-                      : chartTheme.colors.grid
-                  }
-                  strokeWidth={tick === 100 ? 2 : 1}
-                />
-                <text
-                  x={LEFT - 12}
-                  y={y(tick)}
-                  textAnchor="end"
-                  dominantBaseline="middle"
-                  fill={chartTheme.colors.sub}
-                  fontSize={chartTheme.fontSizes.tick}
-                >
-                  {tick}%
-                </text>
-              </g>
-            ))}
+            {axisTicks(minAnomalyC, maxAnomalyC, 2).map(
+              ({ value: tick, showLabel }) => (
+                <g key={tick}>
+                  <line
+                    x1={x(tick)}
+                    x2={x(tick)}
+                    y1={TOP}
+                    y2={TOP + PH}
+                    stroke={
+                      tick === 0
+                        ? chartTheme.colors.bandEdge
+                        : chartTheme.colors.grid
+                    }
+                    strokeWidth={tick === 0 ? 2 : 1}
+                  />
+                  {showLabel && (
+                    <text
+                      x={x(tick)}
+                      y={TOP + PH + 24}
+                      textAnchor="middle"
+                      fill={chartTheme.colors.sub}
+                      fontSize={chartTheme.fontSizes.tick}
+                    >
+                      {tick > 0 ? '+' : ''}
+                      {Number(tick.toFixed(2))}
+                    </text>
+                  )}
+                </g>
+              ),
+            )}
+            {axisTicks(0, maxRainfallPercent, 100).map(
+              ({ value: tick, showLabel }) => (
+                <g key={tick}>
+                  <line
+                    x1={LEFT}
+                    x2={LEFT + PW}
+                    y1={y(tick)}
+                    y2={y(tick)}
+                    stroke={
+                      tick === 100
+                        ? chartTheme.colors.bandEdge
+                        : chartTheme.colors.grid
+                    }
+                    strokeWidth={tick === 100 ? 2 : 1}
+                  />
+                  {showLabel && (
+                    <text
+                      x={LEFT - 12}
+                      y={y(tick)}
+                      textAnchor="end"
+                      dominantBaseline="middle"
+                      fill={chartTheme.colors.sub}
+                      fontSize={chartTheme.fontSizes.tick}
+                    >
+                      {Number(tick.toFixed(2))}%
+                    </text>
+                  )}
+                </g>
+              ),
+            )}
             <text
               x={LEFT + PW / 2}
               y={H - 18}

@@ -49,6 +49,19 @@ function renderQuadrant(anomalyC = 4.5, percent = 255) {
 }
 
 describe('warm/wet quadrant data-focused axes', () => {
+  it('hides regular tick labels that would overlap exact endpoints', () => {
+    renderQuadrant(4.01, 201)
+    const labels = [...screen.getByRole('img').querySelectorAll('text')].map(
+      (label) => label.textContent,
+    )
+    expect(labels).toContain('+4.01')
+    expect(labels).toContain('201%')
+    expect(labels).not.toContain('+4')
+    expect(labels).not.toContain('200%')
+    expect(labels).toContain('0')
+    expect(labels).toContain('100%')
+  })
+
   it('fits plotted extrema, resizes quadrants and exports the same bounds', () => {
     const { container } = renderQuadrant()
     const svg = screen.getByRole('img')

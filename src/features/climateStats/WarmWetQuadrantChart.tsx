@@ -24,7 +24,13 @@ function axisTicks(min: number, max: number, step: number) {
     if (tick > min) ticks.push(tick)
   }
   ticks.push(max)
-  return ticks
+  return ticks.map((value) => ({
+    value,
+    showLabel:
+      value === min ||
+      value === max ||
+      Math.min(value - min, max - value) >= (max - min) * 0.06,
+  }))
 }
 
 export function WarmWetQuadrantChart({
@@ -179,58 +185,66 @@ export function WarmWetQuadrantChart({
               height={TOP + PH - y(100)}
               fill="#fdf2e9"
             />
-            {axisTicks(minAnomalyC, maxAnomalyC, 2).map((tick) => (
-              <g key={tick}>
-                <line
-                  x1={x(tick)}
-                  x2={x(tick)}
-                  y1={TOP}
-                  y2={TOP + PH}
-                  stroke={
-                    tick === 0
-                      ? chartTheme.colors.bandEdge
-                      : chartTheme.colors.grid
-                  }
-                  strokeWidth={tick === 0 ? 2 : 1}
-                />
-                <text
-                  x={x(tick)}
-                  y={TOP + PH + 24}
-                  textAnchor="middle"
-                  fill={chartTheme.colors.sub}
-                  fontSize={chartTheme.fontSizes.tick}
-                >
-                  {tick > 0 ? '+' : ''}
-                  {Number(tick.toFixed(2))}
-                </text>
-              </g>
-            ))}
-            {axisTicks(0, maxRainfallPercent, 100).map((tick) => (
-              <g key={tick}>
-                <line
-                  x1={LEFT}
-                  x2={LEFT + PW}
-                  y1={y(tick)}
-                  y2={y(tick)}
-                  stroke={
-                    tick === 100
-                      ? chartTheme.colors.bandEdge
-                      : chartTheme.colors.grid
-                  }
-                  strokeWidth={tick === 100 ? 2 : 1}
-                />
-                <text
-                  x={LEFT - 12}
-                  y={y(tick)}
-                  textAnchor="end"
-                  dominantBaseline="middle"
-                  fill={chartTheme.colors.sub}
-                  fontSize={chartTheme.fontSizes.tick}
-                >
-                  {Number(tick.toFixed(2))}%
-                </text>
-              </g>
-            ))}
+            {axisTicks(minAnomalyC, maxAnomalyC, 2).map(
+              ({ value: tick, showLabel }) => (
+                <g key={tick}>
+                  <line
+                    x1={x(tick)}
+                    x2={x(tick)}
+                    y1={TOP}
+                    y2={TOP + PH}
+                    stroke={
+                      tick === 0
+                        ? chartTheme.colors.bandEdge
+                        : chartTheme.colors.grid
+                    }
+                    strokeWidth={tick === 0 ? 2 : 1}
+                  />
+                  {showLabel && (
+                    <text
+                      x={x(tick)}
+                      y={TOP + PH + 24}
+                      textAnchor="middle"
+                      fill={chartTheme.colors.sub}
+                      fontSize={chartTheme.fontSizes.tick}
+                    >
+                      {tick > 0 ? '+' : ''}
+                      {Number(tick.toFixed(2))}
+                    </text>
+                  )}
+                </g>
+              ),
+            )}
+            {axisTicks(0, maxRainfallPercent, 100).map(
+              ({ value: tick, showLabel }) => (
+                <g key={tick}>
+                  <line
+                    x1={LEFT}
+                    x2={LEFT + PW}
+                    y1={y(tick)}
+                    y2={y(tick)}
+                    stroke={
+                      tick === 100
+                        ? chartTheme.colors.bandEdge
+                        : chartTheme.colors.grid
+                    }
+                    strokeWidth={tick === 100 ? 2 : 1}
+                  />
+                  {showLabel && (
+                    <text
+                      x={LEFT - 12}
+                      y={y(tick)}
+                      textAnchor="end"
+                      dominantBaseline="middle"
+                      fill={chartTheme.colors.sub}
+                      fontSize={chartTheme.fontSizes.tick}
+                    >
+                      {Number(tick.toFixed(2))}%
+                    </text>
+                  )}
+                </g>
+              ),
+            )}
             <text
               x={LEFT + PW / 2}
               y={H - 18}

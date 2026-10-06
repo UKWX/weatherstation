@@ -23,8 +23,11 @@ const BLUE = '#2f5fa8'
 const ORANGE = '#c98a3a'
 
 const x = (value: number) =>
-  LEFT + ((value + TEMPERATURE_ANOMALY_LIMIT_C) / (2 * TEMPERATURE_ANOMALY_LIMIT_C)) * PW
-const y = (value: number) => TOP + ((RAINFALL_PERCENT_LIMIT - value) / RAINFALL_PERCENT_LIMIT) * PH
+  LEFT +
+  ((value + TEMPERATURE_ANOMALY_LIMIT_C) / (2 * TEMPERATURE_ANOMALY_LIMIT_C)) *
+    PW
+const y = (value: number) =>
+  TOP + ((RAINFALL_PERCENT_LIMIT - value) / RAINFALL_PERCENT_LIMIT) * PH
 
 export function WarmWetQuadrantChart({
   records,
@@ -99,7 +102,7 @@ export function WarmWetQuadrantChart({
     <ChartCard
       title="Warm/wet quadrant"
       subtitle={`Temperature since 1995 · rainfall since 2020 · 1991–2020 average. Highlighted year: ${highlightedYear}.`}
-      footnote="Only months with at least 90% finalised temperature and rainfall observations are shown. Points outside the ±6 °C and 0–500% plot limits are pinned to the edge; tooltips show their actual values."
+      footnote="Only months with at least 90% finalised temperature and rainfall observations are shown. The axes span −6 to +6 °C and 0–500% of normal; values beyond these limits are pinned to the plot edge, with actual values shown in tooltips."
       minWidth={850}
       svgRef={svgRef}
       svgFilename={`wakefield-${currentYear}-warm-wet-quadrant.svg`}
@@ -259,9 +262,13 @@ export function WarmWetQuadrantChart({
                     strokeWidth={selected ? 2 : 1}
                     pointerEvents="none"
                   />
-                  {(position.clampedX || position.clampedY) && <path
-                    d={`M${x(position.x) - 5},${y(position.y) - 10} L${x(position.x) + 5},${y(position.y) - 10} L${x(position.x)},${y(position.y) - 18} Z`}
-                    fill={selected ? BLUE : '#8a94a0'} pointerEvents="none" />}
+                  {(position.clampedX || position.clampedY) && (
+                    <path
+                      d={`M${x(position.x) - 5},${y(position.y) - 10} L${x(position.x) + 5},${y(position.y) - 10} L${x(position.x)},${y(position.y) - 18} Z`}
+                      fill={selected ? BLUE : '#8a94a0'}
+                      pointerEvents="none"
+                    />
+                  )}
                   {selected && (
                     <text
                       x={x(position.x) + 11}
@@ -283,12 +290,22 @@ export function WarmWetQuadrantChart({
                     aria-label={`${MONTH_SHORT[point.month - 1]} ${point.year}: ${point.anomalyC.toFixed(1)} °C anomaly, ${point.rainfallPercent.toFixed(0)}% rainfall`}
                     {...handlers(index)}
                     onKeyDown={(event) => {
-                      const delta = event.key === 'ArrowLeft' || event.key === 'ArrowUp' ? -1 :
-                        event.key === 'ArrowRight' || event.key === 'ArrowDown' ? 1 : 0
+                      const delta =
+                        event.key === 'ArrowLeft' || event.key === 'ArrowUp'
+                          ? -1
+                          : event.key === 'ArrowRight' ||
+                              event.key === 'ArrowDown'
+                            ? 1
+                            : 0
                       if (!delta) return
                       event.preventDefault()
-                      const all = event.currentTarget.ownerSVGElement?.querySelectorAll<SVGRectElement>('[data-quadrant-point="true"]')
-                      all?.[Math.max(0, Math.min(all.length - 1, index + delta))]?.focus()
+                      const all =
+                        event.currentTarget.ownerSVGElement?.querySelectorAll<SVGRectElement>(
+                          '[data-quadrant-point="true"]',
+                        )
+                      all?.[
+                        Math.max(0, Math.min(all.length - 1, index + delta))
+                      ]?.focus()
                     }}
                   />
                 </g>

@@ -6,18 +6,18 @@ describe('warm/wet quadrant clipping', () => {
     expect(clampWarmWetQuadrant(1.5, 100)).toEqual({
       x: 1.5, y: 100, clampedX: false, clampedY: false,
     })
-    expect(clampWarmWetQuadrant(-3, 275)).toEqual({
-      x: -3, y: 275, clampedX: false, clampedY: false,
+    expect(clampWarmWetQuadrant(-6, 500)).toEqual({
+      x: -6, y: 500, clampedX: false, clampedY: false,
     })
   })
 
   it('clips both axes at their limits and reports each clipped axis independently', () => {
-    expect(clampWarmWetQuadrant(-9, 300)).toEqual({
-      x: -3, y: 275, clampedX: true, clampedY: true,
+    expect(clampWarmWetQuadrant(-9, 700)).toEqual({
+      x: -6, y: 500, clampedX: true, clampedY: true,
     })
     expect(clampWarmWetQuadrant(7, -10)).toEqual({
-      x: 3, y: 0, clampedX: true, clampedY: true,
+      x: 6, y: 0, clampedX: true, clampedY: true,
     })
-    expect(clampWarmWetQuadrant(0, 300)).toMatchObject({ clampedX: false, clampedY: true })
+    expect(clampWarmWetQuadrant(0, 700)).toMatchObject({ clampedX: false, clampedY: true })
   })
 })

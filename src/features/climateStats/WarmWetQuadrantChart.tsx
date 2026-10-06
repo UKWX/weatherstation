@@ -4,7 +4,11 @@ import { chartTheme, MONTH_SHORT } from '@/components/charts/chartTheme'
 import type { ClimateDay } from '@/types/weather'
 import { buildRainfallGrid } from './rainfallGrid'
 import { buildTemperatureAnomalyGrid } from './temperatureAnomalyGrid'
-import { clampWarmWetQuadrant } from './warmWetQuadrant'
+import {
+  clampWarmWetQuadrant,
+  RAINFALL_PERCENT_LIMIT,
+  TEMPERATURE_ANOMALY_LIMIT_C,
+} from './warmWetQuadrant'
 import { legendSwatch, useClimateChartHover } from './climateChartCommon'
 
 const W = chartTheme.exportWidth
@@ -18,8 +22,9 @@ const PH = H - TOP - BOTTOM
 const BLUE = '#2f5fa8'
 const ORANGE = '#c98a3a'
 
-const x = (value: number) => LEFT + ((value + 3) / 6) * PW
-const y = (value: number) => TOP + ((275 - value) / 275) * PH
+const x = (value: number) =>
+  LEFT + ((value + TEMPERATURE_ANOMALY_LIMIT_C) / (2 * TEMPERATURE_ANOMALY_LIMIT_C)) * PW
+const y = (value: number) => TOP + ((RAINFALL_PERCENT_LIMIT - value) / RAINFALL_PERCENT_LIMIT) * PH
 
 export function WarmWetQuadrantChart({
   records,
@@ -94,7 +99,7 @@ export function WarmWetQuadrantChart({
     <ChartCard
       title="Warm/wet quadrant"
       subtitle={`Temperature since 1995 · rainfall since 2020 · 1991–2020 average. Highlighted year: ${highlightedYear}.`}
-      footnote="Only months with at least 90% finalised temperature and rainfall observations are shown. Points outside the ±3 °C and 0–275% plot limits are pinned to the edge; tooltips show their actual values."
+      footnote="Only months with at least 90% finalised temperature and rainfall observations are shown. Points outside the ±6 °C and 0–500% plot limits are pinned to the edge; tooltips show their actual values."
       minWidth={850}
       svgRef={svgRef}
       svgFilename={`wakefield-${currentYear}-warm-wet-quadrant.svg`}
@@ -167,7 +172,7 @@ export function WarmWetQuadrantChart({
               height={TOP + PH - y(100)}
               fill="#fdf2e9"
             />
-            {[-3, -2, -1, 0, 1, 2, 3].map((tick) => (
+            {[-6, -4, -2, 0, 2, 4, 6].map((tick) => (
               <g key={tick}>
                 <line
                   x1={x(tick)}
@@ -193,7 +198,7 @@ export function WarmWetQuadrantChart({
                 </text>
               </g>
             ))}
-            {[0, 50, 100, 150, 200, 250, 275].map((tick) => (
+            {[0, 100, 200, 300, 400, 500].map((tick) => (
               <g key={tick}>
                 <line
                   x1={LEFT}

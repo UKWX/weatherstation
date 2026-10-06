@@ -4,11 +4,7 @@ import { chartTheme, MONTH_SHORT } from '@/components/charts/chartTheme'
 import type { ClimateDay } from '@/types/weather'
 import { buildRainfallGrid } from './rainfallGrid'
 import { buildTemperatureAnomalyGrid } from './temperatureAnomalyGrid'
-import {
-  clampWarmWetQuadrant,
-  RAINFALL_PERCENT_LIMIT,
-  TEMPERATURE_ANOMALY_LIMIT_C,
-} from './warmWetQuadrant'
+import { getWarmWetQuadrantAxisLimits } from './warmWetQuadrant'
 import { legendSwatch, useClimateChartHover } from './climateChartCommon'
 
 const W = chartTheme.exportWidth
@@ -21,10 +17,6 @@ const PW = W - LEFT - RIGHT
 const PH = H - TOP - BOTTOM
 const BLUE = '#2f5fa8'
 const ORANGE = '#c98a3a'
-
-const x = (value: number) =>
-  LEFT + ((value + TEMPERATURE_ANOMALY_LIMIT_C) / (2 * TEMPERATURE_ANOMALY_LIMIT_C)) * PW
-const y = (value: number) => TOP + ((RAINFALL_PERCENT_LIMIT - value) / RAINFALL_PERCENT_LIMIT) * PH
 
 export function WarmWetQuadrantChart({
   records,
@@ -89,17 +81,29 @@ export function WarmWetQuadrantChart({
         anomalyC: cell.anomalyC,
         rainfallMm: rainfallCell.totalMm!,
         rainfallPercent: rainfallCell.percent,
-        position: clampWarmWetQuadrant(cell.anomalyC, rainfallCell.percent),
       },
     ]
   })
+  const axisLimits = getWarmWetQuadrantAxisLimits(points)
+  const x = (value: number) =>
+    LEFT + ((value + axisLimits.temperature) / (2 * axisLimits.temperature)) * PW
+  const y = (value: number) =>
+    TOP + ((axisLimits.rainfall - value) / axisLimits.rainfall) * PH
+  const temperatureTicks = Array.from(
+    { length: axisLimits.temperature + 1 },
+    (_, index) => -axisLimits.temperature + index * 2,
+  )
+  const rainfallTicks = Array.from(
+    { length: axisLimits.rainfall / 100 + 1 },
+    (_, index) => index * 100,
+  )
   const active = hover == null ? null : points[hover.index]
 
   return (
     <ChartCard
       title="Warm/wet quadrant"
       subtitle={`Temperature since 1995 · rainfall since 2020 · 1991–2020 average. Highlighted year: ${highlightedYear}.`}
-      footnote="Only months with at least 90% finalised temperature and rainfall observations are shown. Points outside the ±6 °C and 0–500% plot limits are pinned to the edge; tooltips show their actual values."
+      footnote="Only months with at least 90% finalised temperature and rainfall observations are shown. Axes include at least −6 to +6 °C and 0–500% of normal, and expand to show all plotted values."
       minWidth={850}
       svgRef={svgRef}
       svgFilename={`wakefield-${currentYear}-warm-wet-quadrant.svg`}
@@ -172,7 +176,7 @@ export function WarmWetQuadrantChart({
               height={TOP + PH - y(100)}
               fill="#fdf2e9"
             />
-            {[-6, -4, -2, 0, 2, 4, 6].map((tick) => (
+            {temperatureTicks.map((tick) => (
               <g key={tick}>
                 <line
                   x1={x(tick)}
@@ -198,7 +202,7 @@ export function WarmWetQuadrantChart({
                 </text>
               </g>
             ))}
-            {[0, 100, 200, 300, 400, 500].map((tick) => (
+            {rainfallTicks.map((tick) => (
               <g key={tick}>
                 <line
                   x1={LEFT}
@@ -243,13 +247,12 @@ export function WarmWetQuadrantChart({
             </text>
             <circle cx={x(0)} cy={y(100)} r={5} fill={ORANGE} />
             {points.map((point, index) => {
-              const { position } = point
               const selected = point.year === highlightedYear
               return (
                 <g key={`${point.year}-${point.month}`}>
                   <circle
-                    cx={x(position.x)}
-                    cy={y(position.y)}
+                    cx={x(point.anomalyC)}
+                    cy={y(point.rainfallPercent)}
                     r={selected ? 7 : 4}
                     fill={selected ? BLUE : '#aeb8c2'}
                     opacity={selected ? 1 : 0.55}
@@ -259,13 +262,10 @@ export function WarmWetQuadrantChart({
                     strokeWidth={selected ? 2 : 1}
                     pointerEvents="none"
                   />
-                  {(position.clampedX || position.clampedY) && <path
-                    d={`M${x(position.x) - 5},${y(position.y) - 10} L${x(position.x) + 5},${y(position.y) - 10} L${x(position.x)},${y(position.y) - 18} Z`}
-                    fill={selected ? BLUE : '#8a94a0'} pointerEvents="none" />}
                   {selected && (
                     <text
-                      x={x(position.x) + 11}
-                      y={y(position.y) - 8}
+                      x={x(point.anomalyC) + 11}
+                      y={y(point.rainfallPercent) - 8}
                       fill={chartTheme.colors.ink}
                       fontSize={chartTheme.fontSizes.tick}
                       pointerEvents="none"
@@ -274,8 +274,8 @@ export function WarmWetQuadrantChart({
                     </text>
                   )}
                   <rect
-                    x={x(position.x) - 11}
-                    y={y(position.y) - 11}
+                    x={x(point.anomalyC) - 11}
+                    y={y(point.rainfallPercent) - 11}
                     width={22}
                     height={22}
                     fill="transparent"
@@ -313,11 +313,6 @@ export function WarmWetQuadrantChart({
                   accentColor: BLUE,
                 },
               ]}
-              footer={
-                active.position.clampedX || active.position.clampedY
-                  ? 'Point pinned to plot edge; actual values shown above.'
-                  : undefined
-              }
             />
           )}
         </div>

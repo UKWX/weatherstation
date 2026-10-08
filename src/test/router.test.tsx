@@ -215,6 +215,45 @@ describe('AppRouter shell and navigation', () => {
     expect(document.documentElement.getAttribute('data-theme')).toBe('dark')
   })
 
+  it('renders when browser storage is unavailable', () => {
+    const getItem = vi
+      .spyOn(Storage.prototype, 'getItem')
+      .mockImplementation(() => {
+        throw new Error('Storage unavailable')
+      })
+    const setItem = vi
+      .spyOn(Storage.prototype, 'setItem')
+      .mockImplementation(() => {
+        throw new Error('Storage unavailable')
+      })
+
+    try {
+      renderWithRouter('/')
+      expect(
+        screen.getByRole('navigation', { name: 'Main navigation' }),
+      ).toBeInTheDocument()
+      expect(
+        screen.getAllByRole('button', { name: 'Theme: Light' }).length,
+      ).toBeGreaterThan(0)
+    } finally {
+      getItem.mockRestore()
+      setItem.mockRestore()
+    }
+  })
+
+  it('uses the light theme when matchMedia is unavailable', () => {
+    Object.defineProperty(window, 'matchMedia', {
+      configurable: true,
+      value: undefined,
+    })
+
+    renderWithRouter('/')
+
+    expect(
+      screen.getAllByRole('button', { name: 'Theme: Light' }).length,
+    ).toBeGreaterThan(0)
+  })
+
   it('supports modal focus handling in station information', async () => {
     const user = userEvent.setup()
     renderWithRouter('/station-information')

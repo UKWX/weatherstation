@@ -367,30 +367,16 @@ export default function OverviewPage() {
   return (
     <div className="overview-layout">
       <section className="overview-status-bar" aria-label="Station status">
-        <Badge variant={headerOffline ? 'error' : 'success'}>
+        <span className={headerOffline ? 'live live--off' : 'live'}>
+          <i aria-hidden="true" />
           {headerOffline ? 'Station offline' : 'Station online'}
-        </Badge>
+        </span>
         <span className="header-updated">
           Last updated: {formatDateTimeValue(observationTimeUtc)}
         </span>
         {showStaleWarning ? (
           <StaleDataWarning message="Latest successful values remain visible." />
         ) : null}
-        <button
-          type="button"
-          className="button button-outline"
-          style={{ marginLeft: 'auto' }}
-          onClick={() => {
-            void Promise.all([
-              currentQuery.refetch(),
-              statusQuery.refetch(),
-              recentQuery.refetch(),
-              todayQuery.refetch(),
-            ])
-          }}
-        >
-          Manual refresh
-        </button>
       </section>
 
       <section className="card" aria-labelledby="cc-title">

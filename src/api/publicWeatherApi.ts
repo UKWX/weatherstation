@@ -1,5 +1,6 @@
 import { queryOptions, useQueries, useQuery, type UseQueryResult } from '@tanstack/react-query'
 import { PUBLIC_STATION_DATA_BASE_URL } from '@/config/weather'
+import { flatlineTemperature, inQcWindow, QC_DAILY_MAX } from '@/config/qc'
 import type {
   AnnualClimatePayload,
   ArchiveIndex,
@@ -869,11 +870,12 @@ function parseJsonSafely(rawText: string, path: string): unknown {
 function adaptRecentObservations(raw: RawRecentEnvelope): RecentObservationsPayload {
   return {
     metadata: validateJsonObject(raw.metadata, '/recent.json.metadata'),
-    observations: raw.observations.map((entry, index) =>
+    // Readings in quality-control windows are held flat (src/config/qc.ts).
+    observations: flatlineTemperature(raw.observations.map((entry, index) =>
       adaptRecentObservation(
         validateRecord(entry, `/recent.json.observations[${index}]`),
       ),
-    ),
+    )),
   }
 }
 
@@ -958,10 +960,10 @@ function adaptTodaySummary(raw: RawRecord): ProvisionalTodaySummary {
         : adaptCurrentConditions(
             validateRecord(raw.current_observation, '/today.json.current_observation'),
           ),
-    maximumTemperature: adaptTodayTemperatureSummary(
+    maximumTemperature: qcTodayMaximum(adaptTodayTemperatureSummary(
       raw.maximum_temperature,
       '/today.json.maximum_temperature',
-    ),
+    )),
     minimumTemperature: adaptTodayTemperatureSummary(
       raw.minimum_temperature,
       '/today.json.minimum_temperature',
@@ -1041,11 +1043,19 @@ function adaptAnnualClimate(raw: RawRecord): AnnualClimatePayload {
   }
 }
 
+/** Today's high from the station server, unless it falls in a quality-control window: then the day's corrected high. */
+function qcTodayMaximum(summary: ProvisionalTodaySummary['maximumTemperature']): ProvisionalTodaySummary['maximumTemperature'] {
+  if (!summary || !inQcWindow(summary.timeLocal)) return summary
+  const fixed = QC_DAILY_MAX[(summary.timeLocal ?? '').slice(0, 10)]
+  return fixed ? { ...summary, value: fixed.maxTempC, timeLocal: fixed.timeLocal } : { ...summary, value: null, timeLocal: null }
+}
+
 function adaptAnnualRecord(raw: RawRecord): AnnualClimatePayload['records'][number] {
   const status = optionalString(raw, 'status')
+  const date = requiredClimateDateString(raw, 'date')
   return {
-    date: requiredClimateDateString(raw, 'date'),
-    maxTempC: optionalNullableNumber(raw, 'max_temp_c'),
+    date,
+    maxTempC: QC_DAILY_MAX[date]?.maxTempC ?? optionalNullableNumber(raw, 'max_temp_c'),
     minTempC: optionalNullableNumber(raw, 'min_temp_c'),
     meanTempC: optionalNullableNumber(raw, 'mean_temp_c'),
     rainfallMm: optionalNullableNumber(raw, 'rainfall_mm'),
